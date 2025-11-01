@@ -1,74 +1,77 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Focus.One Lite</title>
-  <style>
-    :root {
-      --bg:#f7f9fc; --fg:#0f172a; --muted:#64748b; --line:#e2e8f0; --card:#ffffff;
-      --blue:#60a5fa; --amber:#f59e0b; --red:#ef4444; --slate:#cbd5e1; --green:#22c55e; --violet:#8b5cf6;
-    }
-    * { box‐sizing: border‐box; }
-    body { font‐family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-           margin:0; background:var(--bg); color:var(--fg); }
-    header { padding:14px 20px; background:#fff; border‐bottom:1px solid var(--line);
-             position:sticky; top:0; z‐index:5; }
-    .wrap { max‐width:1100px; margin:24px auto; padding:0 16px; }
-    .brand { font‐weight:800; letter‐spacing:.2px; }
-    .row { display:flex; gap:8px; align‐items:center; flex‐wrap:wrap; }
-    .spacer { flex:1; }
-    .btn { padding:10px 14px; border‐radius:12px; border:0; background:#0ea5e9;
-           color:#fff; font‐weight:600; cursor:pointer; text-decoration:none; display:inline-block; }
-    .btn.secondary { background:#e2e8f0; color:#0f172a; }
-    .btn.warn { background:var(--red); }
-    .card { background:#fff; border:1px solid var(--line); border‐radius:16px; padding:16px; margin‐bottom:16px; }
-    .toolbar { display:flex; gap:8px; flex‐wrap:wrap; }
-    .muted { color:var(--muted); font‐size:13px; }
-    .grid { display:grid; gap:12px; grid‐template‐columns:repeat(12,1fr); align‐items:end; }
-    .g12{grid‐column:span 12;} .g6{grid‐column:span 6;} .g3{grid‐column:span 3;}
-    label{font‐size:12px;color:#334155;margin‐bottom:6px;display:block}
-    input,select,textarea { width:100%; padding:10px 12px; border:1px solid #e5e7eb; border‐radius:10px; background:#f9fafb; }
-    table{width:100%;border‐collapse:collapse;}
-    th,td{padding:10px;border‐bottom:1px solid #f1f5f9;text‐align:left;font‐size:14px}
-    #gantt { overflow:auto; min‐height:280px; border:1px solid var(--line); border‐radius:12px; background:#fff; }
-    .pill{display:inline‐block;padding:3px 8px;border‐radius:9999px;font‐size:12px;font‐weight:600;}
-    .prio‐low{background:#cbd5e1;color:#0f172a;}
-    .prio‐medium{background:#60a5fa;color:#fff;}
-    .prio‐high{background:#f59e0b;color:#fff;}
-    .prio‐critical{background:#ef4444;color:#fff;}
-    .status‐not_started{background:#e2e8f0;color:#0f172a;}
-    .status‐in_progress{background:#8b5cf6;color:#fff;}
-    .status‐blocked{background:#111827;color:#fff;}
-    .status‐done{background:#22c55e;color:#fff;}
-    .axis{font‐size:11px;fill:#475569;}
-    .label{font‐size:12px;}
-    @media(max‐width:820px){.g6{grid‐column:span 12;} .g3{grid‐column:span 6;}}
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Focus.One Lite</title>
+<style>
+  :root {
+    --bg:#f7f9fc; --fg:#0f172a; --muted:#64748b; --line:#e2e8f0; --card:#ffffff;
+    --blue:#60a5fa; --amber:#f59e0b; --red:#ef4444; --slate:#cbd5e1; --green:#22c55e; --violet:#8b5cf6;
+  }
+  * { box-sizing:border-box; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+         margin:0; background:var(--bg); color:var(--fg); transition: filter .2s ease; }
+  body.blurred { filter: blur(4px); }
+  header { padding:14px 20px; background:#fff; border-bottom:1px solid var(--line);
+           position:sticky; top:0; z-index:5; }
+  .wrap { max-width:1100px; margin:24px auto; padding:0 16px; }
+  .brand { font-weight:800; letter-spacing:.2px; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .spacer { flex:1; }
+  .btn { padding:10px 14px; border-radius:12px; border:0; background:#0ea5e9;
+         color:#fff; font-weight:600; cursor:pointer; text-decoration:none; display:inline-block; }
+  .btn.secondary { background:#e2e8f0; color:#0f172a; }
+  .btn.warn { background:var(--red); }
+  .card { background:#fff; border:1px solid var(--line); border-radius:16px; padding:16px; margin-bottom:16px; }
+  .toolbar { display:flex; gap:8px; flex-wrap:wrap; }
+  .muted { color:var(--muted); font-size:13px; }
+  .grid { display:grid; gap:12px; grid-template-columns:repeat(12,1fr); align-items:end; }
+  .g12 { grid-column: span 12; } .g6 { grid-column: span 6; } .g3 { grid-column: span 3; }
+  label { font-size:12px; color:#334155; margin-bottom:6px; display:block; }
+  input, select, textarea { width:100%; padding:10px 12px; border:1px solid #e5e7eb; border-radius:10px; background:#f9fafb; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { padding:10px; border-bottom:1px solid #f1f5f9; text-align:left; font-size:14px; cursor:default; }
+  #gantt { overflow:auto; min-height:280px; border:1px solid var(--line); border-radius:12px; background:#fff; position:relative; }
+  .pill { display:inline-block; padding:3px 8px; border-radius:9999px; font-size:12px; font-weight:600; }
+  .prio-low { background:#cbd5e1; color:#0f172a; }
+  .prio-medium { background:#60a5fa; color:#fff; }
+  .prio-high { background:#f59e0b; color:#fff; }
+  .prio-critical { background:#ef4444; color:#fff; }
+  .status-not_started { background:#e2e8f0; color:#0f172a; }
+  .status-in_progress { background:#8b5cf6; color:#fff; }
+  .status-blocked { background:#111827; color:#fff; }
+  .status-done { background:#22c55e; color:#fff; }
+  .axis { font-size:11px; fill:#475569; }
+  .label { font-size:12px; }
+  @media(max-width:820px) { .g6 { grid-column: span 12; } .g3 { grid-column: span 6; } }
 
-    /* --- MODAL --- */
-    .backdrop {
-      position: fixed; inset:0; background:rgba(15,23,42,.35);
-      display: none; align‐items:center; justify‐content:center; z‐index:15;
-    }
-    .backdrop.show { display:flex; }
-    .modal {
-      width: min(680px, calc(100vw ‑ 24px)); background:#fff; border:1px solid var(--line);
-      border‐radius:16px; box‐shadow:0 10px 40px rgba(0,0,0,.18); padding:16px;
-      animation: pop .15s ease;
-    }
-    @keyframes pop { from{transform:scale(.98);opacity:.6} to{transform:scale(1);opacity:1} }
-    .modal header { position: static; border:0; padding:0 0 8px 0; }
-    .modal .actions { display:flex; gap:8px; justify‐content:flex‐end; margin‐top:10px; }
-    .legend{display:flex; gap:8px; flex‐wrap:wrap; margin‐top:8px;}
-    .legend .pill{opacity:.85;}
-    .summary{display:flex; gap:8px; flex‐wrap:wrap; margin:10px 0;}
-    .fadeIn{animation:fade .25s ease;}
-    @keyframes fade{from{opacity:0} to{opacity:1}}
-    .toolbar button.view‐active{background:var(--blue); color:#fff;}
-    .no‐data{text‐align:center;padding:20px;color:var(--muted);}
-    .category‐pill { padding:3px 8px; border‐radius:12px; font‐size:12px; font‐weight:600; color:#fff; }
+  /* --- MODAL --- */
+  .backdrop {
+    position:fixed; inset:0; background:rgba(15,23,42,.35);
+    display:none; align-items:center; justify-content:center; z-index:15;
+    backdrop-filter: blur(2px);
+  }
+  .backdrop.show { display:flex; }
+  .modal {
+    width: min(680px, calc(100vw - 24px));
+    background:#fff; border:1px solid var(--line); border-radius:16px;
+    box-shadow:0 10px 40px rgba(0,0,0,.18); padding:16px; animation: pop .15s ease;
+  }
+  @keyframes pop { from { transform: scale(.98); opacity:.6; } to { transform: scale(1); opacity:1; } }
+  .modal header { position:static; border:0; padding:0 0 8px 0; }
+  .modal .actions { display:flex; gap:8px; justify-content:flex-end; margin-top:10px; }
+  .legend { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+  .legend .pill { opacity:.85; }
+  .summary { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0; }
+  .fadeIn { animation: fade .25s ease; }
+  @keyframes fade { from { opacity:0; } to { opacity:1; } }
+  .toolbar button.view-active { background:var(--blue); color:#fff; }
+  .no-data { text-align:center; padding:20px; color:var(--muted); }
 
-  </style>
+  /* category pill style */
+  .category-pill { padding:3px 8px; border-radius:12px; font-size:12px; font-weight:600; color:#fff; }
+</style>
 </head>
 <body>
   <header>
@@ -87,16 +90,16 @@
   <div class="wrap">
     <!-- Timeline -->
     <div class="card">
-      <div class="row" style="justify‐content:space‐between;">
+      <div class="row" style="justify-content:space-between;">
         <h2>Timeline</h2>
         <div class="toolbar" id="viewButtons">
-          <button data‐view="Month" class="btn secondary view‐active" type="button">Month</button>
-          <button data‐view="Quarter" class="btn secondary" type="button">Quarter</button>
-          <button data‐view="Year" class="btn secondary" type="button">Year</button>
-          <select id="filterYearTimeline" class="btn secondary" style="padding:10px;border‐radius:12px;border:0;background:#e2e8f0;color:#0f172a;">
+          <button data-view="Month" class="btn secondary view-active" type="button">Month</button>
+          <button data-view="Quarter" class="btn secondary" type="button">Quarter</button>
+          <button data-view="Year" class="btn secondary" type="button">Year</button>
+          <select id="filterYearTimeline" class="btn secondary" style="padding:10px;border-radius:12px;border:0;background:#e2e8f0;color:#0f172a;">
             <option value="">All Years</option>
           </select>
-          <select id="filterQuarterTimeline" class="btn secondary" style="padding:10px;border‐radius:12px;border:0;background:#e2e8f0;color:#0f172a;display:none;">
+          <select id="filterQuarterTimeline" class="btn secondary" style="padding:10px;border-radius:12px;border:0;background:#e2e8f0;color:#0f172a; display:none;">
             <option value="">All Quarters</option>
             <option value="Q1">Q1</option>
             <option value="Q2">Q2</option>
@@ -107,10 +110,10 @@
       </div>
       <div id="gantt" class="fadeIn"></div>
       <div class="legend">
-        <span class="pill prio‑low">low</span>
-        <span class="pill prio‑medium">medium</span>
-        <span class="pill prio‑high">high</span>
-        <span class="pill prio‑critical">critical</span>
+        <span class="pill prio-low">low</span>
+        <span class="pill prio-medium">medium</span>
+        <span class="pill prio-high">high</span>
+        <span class="pill prio-critical">critical</span>
         <span class="muted" id="ganttCount"></span>
       </div>
     </div>
@@ -123,7 +126,7 @@
 
     <!-- Goals table -->
     <div class="card">
-      <div class="row" style="justify‐content:space‐between;">
+      <div class="row" style="justify-content:space-between;">
         <h2>Goals</h2>
         <div class="toolbar">
           <select id="filterStatus" class="btn secondary">
@@ -152,13 +155,13 @@
       </table>
     </div>
 
-    <div class="muted" style="text‐align:center;padding:18px;">Data stored locally in your browser.</div>
+    <div class="muted" style="text-align:center;padding:18px;">Data stored locally in your browser.</div>
   </div>
 
   <!-- Add/Edit Goal Modal -->
-  <div id="backdrop" class="backdrop" aria‐modal="true" role="dialog">
+  <div id="backdrop" class="backdrop" aria-modal="true" role="dialog">
     <div class="modal" role="document">
-      <header class="row" style="justify‐content:space‐between;">
+      <header class="row" style="justify-content:space-between;">
         <h2 id="modalTitle">Add Goal</h2>
         <button id="closeModalBtn" class="btn secondary" type="button">Close</button>
       </header>
@@ -214,13 +217,13 @@
   </div>
 
   <!-- Manage Categories Modal -->
-  <div id="catBackdrop" class="backdrop" aria‐modal="true" role="dialog">
+  <div id="catBackdrop" class="backdrop" aria-modal="true" role="dialog">
     <div class="modal" role="document">
-      <header class="row" style="justify‐content:space‐between;">
+      <header class="row" style="justify-content:space-between;">
         <h2>Manage Categories</h2>
         <button id="closeCatBtn" class="btn secondary" type="button">Close</button>
       </header>
-      <div id="categoryList" style="margin‐bottom:16px;"></div>
+      <div id="categoryList" style="margin-bottom:16px;"></div>
       <div class="actions">
         <button id="addCategoryBtn" class="btn" type="button">Add Category</button>
       </div>
@@ -228,38 +231,21 @@
   </div>
 
 <script>
-// Helper functions & storage
 const goalsKey = 'focusone_goals';
 const categoriesKey = 'focusone_categories';
+const $ = s => document.querySelector(s);
+const prioColor = { low:'#cbd5e1', medium:'#60a5fa', high:'#f59e0b', critical:'#ef4444' };
 
-function loadGoals(){
-  try { return JSON.parse(localStorage.getItem(goalsKey)) || []; }
-  catch(e){ console.error('loadGoals error', e); return []; }
-}
-function storeGoals(list){
-  localStorage.setItem(goalsKey, JSON.stringify(list));
-  refreshAll();
-}
+// storage helpers
+function loadGoals(){ try{ return JSON.parse(localStorage.getItem(goalsKey))||[]; } catch(e){ console.error(e); return []; } }
+function storeGoals(list){ localStorage.setItem(goalsKey, JSON.stringify(list)); refreshAll(); }
+function loadCategories(){ try{ return JSON.parse(localStorage.getItem(categoriesKey))||[]; } catch(e){ console.error(e); return []; } }
+function storeCategories(list){ localStorage.setItem(categoriesKey, JSON.stringify(list)); refreshAll(); }
+function uid(){ return 'x_' + Math.random().toString(36).slice(2,9); }
+function formatGoalID(idx){ return 'G' + String(idx).padStart(2,'0'); }
 
-function loadCategories(){
-  try { return JSON.parse(localStorage.getItem(categoriesKey)) || []; }
-  catch(e){ console.error('loadCategories error', e); return []; }
-}
-function storeCategories(list){
-  localStorage.setItem(categoriesKey, JSON.stringify(list));
-  refreshAll();
-}
-
-function uid(){
-  return 'x_' + Math.random().toString(36).slice(2,9);
-}
-
-function formatGoalID(index){
-  return 'G' + String(index).padStart(2, '0');
-}
-
-// Ensure defaults categories exist
-(function initDefaultCategories(){
+// ensure default categories
+(function initDefaults(){
   const cats = loadCategories();
   if(cats.length === 0){
     const defaults = [
@@ -270,7 +256,7 @@ function formatGoalID(index){
       { id: uid(), name:'Business',     color:'#0d9488' },
       { id: uid(), name:'Health',       color:'#dc2626' },
       { id: uid(), name:'Relationship', color:'#9333ea' },
-      { id: uid(), name:'Real Estate',  color:'#f59e0b' },
+      { id: uid(), name:'Real Estate',  color:'#f59e0b' },
       { id: uid(), name:'Creative',     color:'#f43f5e' },
       { id: uid(), name:'Other',        color:'#6b7280' }
     ];
@@ -278,11 +264,9 @@ function formatGoalID(index){
   }
 })();
 
-// Modal and form logic
-const $ = s => document.querySelector(s);
+// modal & form logic
 const backdrop = $('#backdrop');
 const catBackdrop = $('#catBackdrop');
-
 const fields = {
   title:    $('#m_title'),
   start:    $('#m_start'),
@@ -298,32 +282,27 @@ const errs = {
   due:   $('#m_due_error')
 };
 const saveBtn = $('#saveBtn');
-
 let editingId = null;
 
-function openModal(goal={}){
+function openModal(goal = {}) {
   editingId = goal.id || null;
   $('#modalTitle').textContent = editingId ? 'Edit Goal' : 'Add Goal';
-
   fields.title.value    = goal.title      || '';
   fields.start.value    = goal.start_date || '';
   fields.due.value      = goal.due_date   || '';
-  fields.category.value = goal.categoryId || fields.category.value;
+  fields.category.value = goal.categoryId || '';
   fields.depends.value  = goal.dependsOnId || '';
   fields.priority.value = goal.priority   || 'medium';
   fields.status.value   = goal.status     || 'not_started';
-
-  Object.values(errs).forEach(e => e.textContent = '');
-
+  errs.title.textContent = errs.start.textContent = errs.due.textContent = '';
   populateCategorySelect();
   populateDependsSelect();
-
   backdrop.classList.add('show');
   fields.title.focus();
   saveBtn.disabled = true;
 }
 
-function closeModal(){
+function closeModal() {
   backdrop.classList.remove('show');
   editingId = null;
   saveBtn.disabled = true;
@@ -341,8 +320,8 @@ window.addEventListener('keydown', e => {
 
 function populateCategorySelect(){
   const cats = loadCategories();
-  fields.category.innerHTML = cats.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
-  if(!fields.category.value){
+  fields.category.innerHTML = cats.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  if(!fields.category.value) {
     const other = cats.find(c=>c.name==='Other') || cats[0];
     if(other) fields.category.value = other.id;
   }
@@ -359,25 +338,30 @@ function validateForm(){
   if(!fields.title.value.trim()){
     errs.title.textContent = 'Title is required.';
     valid = false;
-  } else errs.title.textContent = '';
+  } else {
+    errs.title.textContent = '';
+  }
   if(!fields.start.value){
     errs.start.textContent = 'Start date is required.';
     valid = false;
-  } else errs.start.textContent = '';
+  } else {
+    errs.start.textContent = '';
+  }
   if(!fields.due.value){
     errs.due.textContent = 'Due date is required.';
     valid = false;
   } else if(fields.start.value && fields.start.value > fields.due.value){
-    errs.due.textContent = 'Due date must be on or after the start date.';
+    errs.due.textContent = 'Due date must be on or after Start date.';
     valid = false;
-  } else errs.due.textContent = '';
-
+  } else {
+    errs.due.textContent = '';
+  }
   saveBtn.disabled = !valid;
 }
 
 Object.values(fields).forEach(f => {
+  f.addEventListener('input', validateForm);
   f.addEventListener('change', validateForm);
-  f.addEventListener('input',  validateForm);
 });
 
 saveBtn.addEventListener('click', () => {
@@ -391,8 +375,8 @@ saveBtn.addEventListener('click', () => {
     status:     fields.status.value
   };
   const list = loadGoals();
-  if(editingId){
-    const updated = list.map(g => g.id === editingId ? { ...g, ...goalData } : g);
+  if(editingId) {
+    const updated = list.map(g => g.id === editingId ? {...g, ...goalData} : g);
     storeGoals(updated);
   } else {
     list.push({ id: uid(), ...goalData });
@@ -401,11 +385,11 @@ saveBtn.addEventListener('click', () => {
   closeModal();
 });
 
-// Filters and table render
+// Filters & render logic
 const filterStatus     = $('#filterStatus');
 const filterPriority   = $('#filterPriority');
 const filterYearTable  = $('#filterYearTable');
-const filterYearTimeline = $('#filterYearTimeline');
+const filterYearTimeline= $('#filterYearTimeline');
 const filterQuarterTimeline = $('#filterQuarterTimeline');
 const clearFiltersBtn  = $('#clearFiltersBtn');
 
@@ -440,7 +424,7 @@ function renderTable(){
   });
 
   const tbody = $('#goalRows');
-  if(list.length===0){
+  if(list.length === 0) {
     tbody.innerHTML = `<tr><td colspan="8" class="no‑data">No goals found.</td></tr>`;
   } else {
     tbody.innerHTML = list.map((g,i) => {
@@ -450,43 +434,44 @@ function renderTable(){
         <tr data-editid="${g.id}">
           <td>${idStr}</td>
           <td>${escapeHtml(g.title)}</td>
-          <td><span class="category‑pill" style="background:${cat.color}">${escapeHtml(cat.name)}</span></td>
+          <td><span class="category-pill" style="background:${cat.color}">${escapeHtml(cat.name)}</span></td>
           <td>${g.start_date || ''}</td>
           <td>${g.due_date   || ''}</td>
           <td><span class="pill prio-${g.priority}">${g.priority}</span></td>
           <td><span class="pill status-${g.status}">${g.status.replace('_',' ')}</span></td>
-          <td style="white‑space:nowrap;">
-            <button class="btn secondary" data‑edit="${g.id}" type="button">Edit</button>
-            <button class="btn warn"      data‑del="${g.id}"  type="button">Delete</button>
+          <td style="white-space:nowrap;">
+            <button class="btn secondary" data-edit="${g.id}" type="button">Edit</button>
+            <button class="btn warn"      data-del="${g.id}"  type="button">Delete</button>
           </td>
         </tr>`;
     }).join('');
 
-    // Row click: open edit
+    // Enable row click
     tbody.querySelectorAll('tr[data-editid]').forEach(tr=>{
-      tr.addEventListener('click', (e)=>{
-        if(e.target.closest('button')) return; // ignore if button clicked
+      tr.addEventListener('click', e=>{
+        if(e.target.closest('button')) return;
         const id = tr.getAttribute('data-editid');
-        const g  = loadGoals().find(x=>x.id===id);
+        const g  = loadGoals().find(x=>x.id === id);
         if(g) openModal(g);
       });
     });
   }
 
-  tbody.querySelectorAll('[data-edit]').forEach(btn => {
-    btn.addEventListener('click', (e)=>{
+  tbody.querySelectorAll('[data-edit]').forEach(btn=>{
+    btn.addEventListener('click', e=>{
       e.stopPropagation();
       const id = btn.getAttribute('data-edit');
       const g  = loadGoals().find(x=>x.id===id);
       if(g) openModal(g);
     });
   });
-  tbody.querySelectorAll('[data‑del]').forEach(btn => {
+
+  tbody.querySelectorAll('[data-del]').forEach(btn=>{
     btn.addEventListener('click', e=>{
       e.stopPropagation();
+      const id = btn.getAttribute('data-del');
       if(confirm('Delete this goal?')) {
-        const id = btn.getAttribute('data‑del');
-        storeGoals(loadGoals().filter(g=>g.id!==id));
+        storeGoals(loadGoals().filter(g=>g.id !== id));
       }
     });
   });
@@ -494,36 +479,36 @@ function renderTable(){
 
 function renderSummary(){
   const list = loadGoals();
-  const now   = new Date().toISOString().slice(0,10);
+  const now  = new Date().toISOString().slice(0,10);
   const total = list.length;
-  const done  = list.filter(g=>g.status==='done').length;
-  const blocked = list.filter(g=>g.status==='blocked').length;
-  const inprog  = list.filter(g=>g.status==='in_progress').length;
+  const done  = list.filter(g=>g.status === 'done').length;
+  const blocked = list.filter(g=>g.status === 'blocked').length;
+  const inprog  = list.filter(g=>g.status === 'in_progress').length;
   const open    = total - done;
-  const overdue = list.filter(g=>g.due_date && g.due_date < now && g.status!=='done').length;
+  const overdue = list.filter(g=>g.due_date && g.due_date < now && g.status !== 'done').length;
   const ontime  = list.filter(g=>g.due_date && g.status==='done' && g.due_date >= (g.start_date||'')).length;
 
   $('#statusSummary').innerHTML = `
-    <span class="pill status‑done">Done: ${done}</span>
-    <span class="pill status‑in_progress">In progress: ${inprog}</span>
-    <span class="pill status‑blocked">Blocked: ${blocked}</span>
-    <span class="pill status‑not_started">Open: ${open}</span>
-    <span class="pill prio‑high">Overdue: ${overdue}</span>
-    <span class="pill prio‑medium">On‑time: ${ontime}</span>
+    <span class="pill status-done">Done: ${done}</span>
+    <span class="pill status-in_progress">In progress: ${inprog}</span>
+    <span class="pill status-blocked">Blocked: ${blocked}</span>
+    <span class="pill status-not_started">Open: ${open}</span>
+    <span class="pill prio-high">Overdue: ${overdue}</span>
+    <span class="pill prio-medium">On‑time: ${ontime}</span>
   `;
 }
 
-// Timeline rendering
-let currentView='Month';
+let currentView = 'Month';
 $('#viewButtons').addEventListener('click', e=>{
-  if(e.target.matches('button[data‐view]')){
+  if(e.target.matches('button[data-view]')){
     currentView = e.target.dataset.view;
-    document.querySelectorAll('#viewButtons button').forEach(b=>b.classList.remove('view‑active'));
-    e.target.classList.add('view‑active');
-    filterQuarterTimeline.style.display = (currentView==='Quarter' ? 'inline‐block':'none');
+    document.querySelectorAll('#viewButtons button').forEach(b=>b.classList.remove('view-active'));
+    e.target.classList.add('view-active');
+    $('#filterQuarterTimeline').style.display = (currentView==='Quarter' ? 'inline-block' : 'none');
     drawGantt();
   }
 });
+
 filterYearTimeline.addEventListener('change', drawGantt);
 filterQuarterTimeline.addEventListener('change', drawGantt);
 
@@ -536,25 +521,25 @@ function drawGantt(){
   const countEl   = $('#ganttCount');
   const fy = filterYearTimeline.value;
   const fq = filterQuarterTimeline.value;
-  let items = loadGoals().filter(g=>g.start_date && g.due_date);
+  let items = loadGoals().filter(g => g.start_date && g.due_date);
 
   if(fy) items = items.filter(g=>{
     const sy = g.start_date.slice(0,4);
     const dy = g.due_date.slice(0,4);
-    return (sy===fy || dy===fy);
+    return (sy === fy || dy === fy);
   });
-  if(fq && currentView==='Quarter'){
-    const qMap = {'Q1':[0,1,2],'Q2':[3,4,5],'Q3':[6,7,8],'Q4':[9,10,11]};
+  if(fq && currentView === 'Quarter'){
+    const qMap = { 'Q1':[0,1,2], 'Q2':[3,4,5], 'Q3':[6,7,8], 'Q4':[9,10,11] };
     const months = qMap[fq];
     items = items.filter(g=>{
       const sd = new Date(g.start_date).getMonth();
       const dd = new Date(g.due_date).getMonth();
-      return months.some(m=>m===sd) || months.some(m=>m===dd);
+      return months.includes(sd) || months.includes(dd);
     });
   }
 
   container.innerHTML = '';
-  if(items.length===0){
+  if(items.length === 0){
     container.innerHTML = `<div class="muted no‑data" style="padding:12px;">No items to plot for this filter.</div>`;
     countEl.textContent = 'Items: 0';
     return;
@@ -567,13 +552,13 @@ function drawGantt(){
     if(g.due_date   > max) max = g.due_date;
   });
 
-  const pad = currentView==='Year'?30 : (currentView==='Quarter'?14 : 7);
+  const pad = currentView==='Year'?30 : (currentView==='Quarter'?14 :7);
   const minPad = addDays(min, -pad);
   const maxPad = addDays(max, pad);
   const totalDays = Math.max(1, daysBetween(minPad, maxPad));
-  const pxPerDay  = currentView==='Year'?4 : (currentView==='Quarter'?8 :16);
-  const height    = Math.min(600, 60 + items.length*32);
-  const width     = 120 + totalDays*pxPerDay;
+  const pxPerDay = currentView==='Year'?4 : (currentView==='Quarter'?8 :16);
+  const height   = Math.min(600, 60 + items.length * 32);
+  const width    = 120 + totalDays * pxPerDay;
 
   const NS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(NS,'svg');
@@ -587,40 +572,44 @@ function drawGantt(){
     const lineX = 100 + offset;
     const l = document.createElementNS(NS,'line');
     l.setAttribute('x1', lineX);
-    l.setAttribute('y1',24);
+    l.setAttribute('y1', 24);
     l.setAttribute('x2', lineX);
     l.setAttribute('y2', height);
     l.setAttribute('stroke','#ff0000');
-    l.setAttribute('stroke‐width','2');
-    l.setAttribute('stroke‐dasharray','4 2');
+    l.setAttribute('stroke-width','2');
+    l.setAttribute('stroke-dasharray','4 2');
     svg.appendChild(l);
 
     const txt = document.createElementNS(NS,'text');
-    txt.setAttribute('x', lineX +4);
-    txt.setAttribute('y',16);
+    txt.setAttribute('x', lineX + 4);
+    txt.setAttribute('y', 16);
     txt.setAttribute('class','axis');
     txt.textContent = 'Today';
     svg.appendChild(txt);
   }
 
-  // grid lines & labels
-  const step = currentView==='Month'?7:(currentView==='Quarter'?14:30);
-  for(let i=0;i<=totalDays;i+=step){
+  // grid and labels
+  const step = currentView==='Month'?7 : (currentView==='Quarter'?14 :30);
+  for(let i=0; i<= totalDays; i += step){
     const date = addDays(minPad, i);
-    const x = 100 + i * pxPerDay;
+    const x    = 100 + i * pxPerDay;
 
     const line = document.createElementNS(NS,'line');
-    line.setAttribute('x1', x); line.setAttribute('y1', 24);
-    line.setAttribute('x2', x); line.setAttribute('y2', height);
+    line.setAttribute('x1', x);
+    line.setAttribute('y1', 24);
+    line.setAttribute('x2', x);
+    line.setAttribute('y2', height);
     line.setAttribute('stroke','#e2e8f0');
-    line.setAttribute('stroke‐width','1');
+    line.setAttribute('stroke-width','1');
     svg.appendChild(line);
 
     const text = document.createElementNS(NS,'text');
-    text.setAttribute('x', x+4); text.setAttribute('y',16); text.setAttribute('class','axis');
+    text.setAttribute('x', x+4);
+    text.setAttribute('y', 16);
+    text.setAttribute('class','axis');
     text.textContent = (currentView==='Month') ?
-                      date.toLocaleDateString(undefined,{month:'short',day:'numeric'}) :
-                      monthLabel(date);
+      date.toLocaleDateString(undefined,{month:'short',day:'numeric'}) :
+      monthLabel(date);
     svg.appendChild(text);
   }
 
@@ -629,14 +618,15 @@ function drawGantt(){
     const y = 36 + i*32;
 
     const titleText = document.createElementNS(NS,'text');
-    titleText.setAttribute('x','8'); titleText.setAttribute('y', y+12);
+    titleText.setAttribute('x','8');
+    titleText.setAttribute('y',y+12);
     titleText.setAttribute('class','label');
     titleText.textContent = g.title;
     svg.appendChild(titleText);
 
     const startOffset = daysBetween(minPad, new Date(g.start_date));
-    const barX = 100 + startOffset * pxPerDay;
-    const barW = Math.max(6, daysBetween(new Date(g.start_date), new Date(g.due_date)) * pxPerDay);
+    const barX        = 100 + startOffset * pxPerDay;
+    const barW        = Math.max(6, daysBetween(new Date(g.start_date), new Date(g.due_date)) * pxPerDay);
 
     const rect = document.createElementNS(NS,'rect');
     rect.setAttribute('x', barX);
@@ -646,15 +636,15 @@ function drawGantt(){
     rect.setAttribute('rx', 6);
     rect.setAttribute('ry', 6);
 
-    const cat = cats.find(c=>c.id === g.categoryId) || { color:'#6b7280' };
+    const cat = cats.find(c => c.id === g.categoryId) || { color:'#6b7280' };
     rect.setAttribute('fill', cat.color);
-    rect.setAttribute('fill‐opacity', g.status==='done'?'0.7':'1.0');
+    rect.setAttribute('fill-opacity', g.status==='done' ? '0.7' : '1.0');
     rect.setAttribute('stroke','#0f172a22');
-    rect.setAttribute('stroke‐width','1');
+    rect.setAttribute('stroke-width','1');
     rect.style.cursor = 'pointer';
 
-    rect.addEventListener('click', ()=>{
-      const g0 = loadGoals().find(x=>x.id === g.id);
+    rect.addEventListener('click', () => {
+      const g0 = loadGoals().find(x => x.id === g.id);
       if(g0) openModal(g0);
     });
 
@@ -664,8 +654,8 @@ function drawGantt(){
   container.appendChild(svg);
 }
 
-// Export / Import JSON
-$('#exportJsonBtn').onclick = ()=>{
+// Export / Import
+$('#exportJsonBtn').onclick = () => {
   const blob = new Blob([JSON.stringify({goals: loadGoals(), categories: loadCategories()}, null,2)], { type:'application/json' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
@@ -674,14 +664,15 @@ $('#exportJsonBtn').onclick = ()=>{
   a.click();
   URL.revokeObjectURL(url);
 };
-$('#importJsonBtn').onclick = ()=>{
+$('#importJsonBtn').onclick = () => {
   const input = document.createElement('input');
   input.type  = 'file';
   input.accept= 'application/json';
-  input.onchange = ()=>{
-    const f = input.files[0]; if(!f) return;
+  input.onchange = () => {
+    const f = input.files[0];
+    if(!f) return;
     const fr = new FileReader();
-    fr.onload = ()=>{
+    fr.onload = () => {
       try {
         const d = JSON.parse(fr.result);
         if(Array.isArray(d.goals) && Array.isArray(d.categories)){
@@ -693,7 +684,7 @@ $('#importJsonBtn').onclick = ()=>{
             const mergedCats = cats0.concat(d.categories.filter(c=>!cats0.find(x=>x.id===c.id)));
             storeCategories(mergedCats);
             const goals0 = loadGoals();
-            const mergedGoals = goals0.concat(d.goals.map(g=> ({...g, id: uid()})));
+            const mergedGoals = goals0.concat(d.goals.map(g=>({...g, id: uid()})));
             storeGoals(mergedGoals);
           }
         } else {
@@ -719,28 +710,29 @@ clearFiltersBtn.addEventListener('click', ()=>{
   renderTable();
 });
 
-// Utility
-function escapeHtml(str){
+// Utility function
+function escapeHtml(str) {
   return str.replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 
-// Boot & initial data
+// Boot & initial seed
 (function boot(){
   if(loadGoals().length === 0){
     const today = new Date();
-    const inDays = d=>{
-      const x=new Date(today); x.setDate(x.getDate()+d);
+    const inDays = d => {
+      const x = new Date(today);
+      x.setDate(x.getDate()+d);
       return x.toISOString().slice(0,10);
     };
     const cats = loadCategories();
-    const otherCat = cats.find(c=>c.name==='Other') || cats[0];
+    const other = cats.find(c=>c.name==='Other') || cats[0];
     storeGoals([
-      { id: uid(), title:'German A2 course',  start_date:inDays(0),   due_date:inDays(60),
-        categoryId: otherCat.id, priority:'high',    status:'in_progress' },
+      { id: uid(), title:'German A2 course',   start_date:inDays(0),   due_date:inDays(60),
+        categoryId: other.id, priority:'high',    status:'in_progress' },
       { id: uid(), title:'SQM book — 2 chapters', start_date:inDays(7),   due_date:inDays(120),
-        categoryId: otherCat.id, priority:'medium',  status:'not_started' },
-      { id: uid(), title:'Gym — 52 sessions',        start_date:inDays(-14), due_date:inDays(168),
-        categoryId: otherCat.id, priority:'critical', status:'not_started' }
+        categoryId: other.id, priority:'medium',  status:'not_started' },
+      { id: uid(), title:'Gym — 52 sessions',       start_date:inDays(-14), due_date:inDays(168),
+        categoryId: other.id, priority:'critical', status:'not_started' }
     ]);
   }
   populateYearFilters();
