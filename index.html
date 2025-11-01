@@ -3,8 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Focus.One Lite</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt/dist/frappe-gantt.css"/>
+    <title>Focus.One Lite — No-CDN</title>
     <style>
       body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background:#f7f9fc; color:#0f172a; }
       header { padding: 18px 20px; background:white; box-shadow: 0 1px 8px rgba(0,0,0,.06); position: sticky; top:0; z-index: 10; }
@@ -12,7 +11,7 @@
       .wrap { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
       .card { background:white; border-radius:16px; padding:16px; box-shadow: 0 2px 12px rgba(15,23,42,.06); margin-bottom:16px; }
       .grid { display:grid; gap:16px; grid-template-columns: repeat(12, 1fr); }
-      .g6 { grid-column: span 6; } .g12 { grid-column: span 12; }
+      .g6 { grid-column: span 6; } .g12 { grid-column: span 12; } .g3 { grid-column: span 3; }
       label { font-size: 12px; color:#334155; display:block; margin-bottom:6px; }
       input, select, textarea { width:100%; padding:10px 12px; border:1px solid #e5e7eb; border-radius:10px; background:#f9fafb; }
       button { padding:10px 14px; border-radius:12px; border:0; background:#0ea5e9; color:white; font-weight:600; cursor:pointer; }
@@ -23,13 +22,13 @@
       th, td { padding: 10px; border-bottom: 1px solid #f1f5f9; text-align: left; font-size: 14px;}
       .badge { font-size:12px; padding:4px 8px; border-radius:9999px; background:#f1f5f9; }
       .row { display:flex; gap:8px; align-items:center; flex-wrap: wrap;}
-      #gantt { overflow: auto; min-height: 260px; border:1px solid #edf2f7; border-radius:12px; }
+      #gantt { overflow: auto; min-height: 260px; border:1px solid #e2e8f0; border-radius:12px; }
       .toolbar { display:flex; gap:8px; flex-wrap: wrap; }
       .muted { color:#64748b; font-size: 13px; }
       .kpi { display:flex; gap:16px; }
       .kpi .item { background:#f8fafc; border:1px solid #e2e8f0; padding:12px; border-radius:12px; }
       .footer { text-align:center; padding:20px; color:#94a3b8; }
-      @media (max-width: 900px) { .g6 { grid-column: span 12; } }
+      .prio-low { fill:#cbd5e1; } .prio-medium { fill:#60a5fa; } .prio-high { fill:#f59e0b; } .prio-critical { fill:#ef4444; }
     </style>
   </head>
   <body>
@@ -48,7 +47,7 @@
           <h2>Quick Add Goal</h2>
           <div class="grid">
             <div class="g6">
-              <label>Title</label>
+              <label>Title</</label>
               <input id="title" placeholder="e.g., Finish German A2 by March" />
             </div>
             <div class="g3">
@@ -82,15 +81,13 @@
           <div class="row" style="justify-content:space-between;">
             <h2>Timeline</h2>
             <div class="toolbar">
-              <button data-view="Day" class="secondary">Day</button>
-              <button data-view="Week" class="secondary">Week</button>
               <button data-view="Month" class="secondary">Month</button>
+              <button data-view="Quarter" class="secondary">Quarter</button>
               <button data-view="Year" class="secondary">Year</button>
             </div>
           </div>
-          <div id="gantt"></div><div id="ganttCount" class="muted" style="margin-top:6px;"></div>
-<div id="ganttError" class="muted" style="display:none;color:#ef4444;margin-top:8px;"></div>
-          <div class="muted">Click a bar to open the goal details.</div>
+          <div id="gantt"></div>
+          <div id="ganttCount" class="muted" style="margin-top:6px;"></div>
         </div>
 
         <div class="g12 card">
@@ -138,73 +135,36 @@
             </div>
             <div class="g12 kpi">
               <div class="item"><div class="muted">Completion %</div><div id="kpiCompletion" style="font-weight:700;font-size:20px;">–</div></div>
-              <div class="item"><div class="muted">On‑time %</div><div id="kpiOnTime" style="font-weight:700;font-size:20px;">–</div></div>
-              <div class="item"><div class="muted">Priority‑weighted %</div><div id="kpiPwc" style="font-weight:700;font-size:20px;">–</div></div>
+              <div class="item"><div class="muted">On-time %</div><div id="kpiOnTime" style="font-weight:700;font-size:20px;">–</div></div>
+              <div class="item"><div class="muted">Priority-weighted %</div><div id="kpiPwc" style="font-weight:700;font-size:20px;">–</div></div>
               <div class="item"><div class="muted">Score</div><div id="kpiScore" style="font-weight:700;font-size:20px;">–</div></div>
             </div>
           </div>
         </div>
       </div>
 
-      <div class="footer">Focus.One Lite — local, private (stored in your browser). Export JSON to back up.</div>
+      <div class="footer">Focus.One Lite — no external libraries (works anywhere). Data stored locally in your browser.</div>
     </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/isSameOrBefore.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/isSameOrAfter.js"></script>
-<script>dayjs.extend(window.dayjs_plugin_isSameOrBefore); dayjs.extend(window.dayjs_plugin_isSameOrAfter);</script>
-   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt/dist/frappe-gantt.css">
-<script>
-(function(){
-  var s = document.createElement('script');
-  s.src = 'https://cdn.jsdelivr.net/npm/frappe-gantt/dist/frappe-gantt.min.js';
-  s.onload = function(){ if (window.Gantt) { try { refresh(); } catch(e){} } };
-  s.onerror = function(){
-    var f = document.createElement('script');
-    f.src = 'https://unpkg.com/frappe-gantt@0.6.1/dist/frappe-gantt.min.js';
-    f.onload = function(){ if (window.Gantt) { try { refresh(); } catch(e){} } };
-    document.body.appendChild(f);
-  };
-  document.body.appendChild(s);
-})();
-</script>
 
     <script>
       const $ = sel => document.querySelector(sel);
       const goalsKey = 'focusone_goals';
 
-      function loadGoals(){
-        try { return JSON.parse(localStorage.getItem(goalsKey)) || []; } catch(e){ return []; }
-      }
+      function loadGoals(){ try { return JSON.parse(localStorage.getItem(goalsKey)) || []; } catch(e){ return []; } }
       function saveGoals(list){ localStorage.setItem(goalsKey, JSON.stringify(list)); refresh(); }
-
       function uid(){ return 'g_' + Math.random().toString(36).slice(2,9); }
 
-      function addGoal(g){
-        const list = loadGoals();
-        list.push({ id: uid(), ...g });
-        saveGoals(list);
-      }
-
-      function updateGoal(id, patch){
-        const list = loadGoals().map(g => g.id===id ? {...g, ...patch} : g);
-        saveGoals(list);
-      }
-
-      function deleteGoal(id){
-        saveGoals(loadGoals().filter(g => g.id!==id));
-      }
+      function addGoal(g){ const list = loadGoals(); list.push({ id: uid(), ...g }); saveGoals(list); }
+      function updateGoal(id, patch){ const list = loadGoals().map(g => g.id===id ? {...g, ...patch} : g); saveGoals(list); }
+      function deleteGoal(id){ saveGoals(loadGoals().filter(g => g.id!==id)); }
 
       function renderTable(){
         const tbody = $('#goalRows');
-        const status = $('#filterStatus').value;
-        const prio = $('#filterPriority').value;
+        const status = $('#filterStatus').value; const prio = $('#filterPriority').value;
         const list = loadGoals().filter(g => (!status || g.status===status) && (!prio || g.priority===prio));
         tbody.innerHTML = list.map(g => `
           <tr>
-            <td>${g.title}</td>
-            <td>${g.start_date||''}</td>
-            <td>${g.due_date||''}</td>
+            <td>${g.title}</td><td>${g.start_date||''}</td><td>${g.due_date||''}</td>
             <td><span class="badge">${g.priority}</span></td>
             <td>
               <select data-id="${g.id}" class="statusSel">
@@ -220,201 +180,157 @@
 
         tbody.querySelectorAll('.statusSel').forEach(sel=>{
           sel.addEventListener('change', e => {
-            const id = sel.getAttribute('data-id');
-            updateGoal(id, { status: sel.value }); refresh();
+            const id = sel.getAttribute('data-id'); updateGoal(id, { status: sel.value }); refresh();
           });
         });
         tbody.querySelectorAll('.delBtn').forEach(btn=>{
           btn.addEventListener('click', e => {
-            const id = btn.getAttribute('data-id');
-            if(confirm('Delete this goal?')) deleteGoal(id);
+            const id = btn.getAttribute('data-id'); if(confirm('Delete this goal?')) deleteGoal(id);
           });
         });
         tbody.querySelectorAll('.editBtn').forEach(btn=>{
           btn.addEventListener('click', e => {
-            const id = btn.getAttribute('data-id');
-            const g = loadGoals().find(x=>x.id===id);
-            if(!g) return;
-            $('#title').value = g.title;
-            $('#start').value = g.start_date || '';
-            $('#due').value = g.due_date || '';
-            $('#priority').value = g.priority;
-            $('#status').value = g.status;
-            // Overwrite on save
-            $('#addBtn').textContent = 'Save Changes';
-            $('#addBtn').dataset.editing = id;
+            const id = btn.getAttribute('data-id'); const g = loadGoals().find(x=>x.id===id); if(!g) return;
+            $('#title').value = g.title; $('#start').value = g.start_date || ''; $('#due').value = g.due_date || '';
+            $('#priority').value = g.priority; $('#status').value = g.status;
+            const ab = $('#addBtn'); ab.textContent = 'Save Changes'; ab.dataset.editing = id;
           });
         });
       }
 
-      let gantt;
-      function renderGantt(){
-        const err = document.getElementById('ganttError');
-        if (typeof Gantt === 'undefined') {
-          console.error('Frappe Gantt library not loaded');
-          if (err) { err.style.display='block'; err.textContent = 'Gantt library failed to load. Check your internet connection and reopen the page.'; }
-          return;
-        }
+      function daysBetween(a,b){ const ms = (new Date(b)) - (new Date(a)); return Math.max(0, Math.ceil(ms/86400000)); }
+      function formatYMD(d){ const x = new Date(d); const m = String(x.getMonth()+1).padStart(2,'0'); const day = String(x.getDate()).padStart(2,'0'); return x.getFullYear()+'-'+m+'-'+day; }
+
+      function renderGantt(view='Month'){
         const container = document.getElementById('gantt');
+        const countEl = document.getElementById('ganttCount');
+        const items = loadGoals().filter(g=>g.start_date && g.due_date);
         container.innerHTML = '';
-        const tasks = loadGoals().filter(g=>g.start_date && g.due_date).map(g => ({
-          id: g.id,
-          name: g.title,
-          start: g.start_date,
-          end: g.due_date,
-          progress: g.status === 'done' ? 100 : g.status === 'in_progress' ? 50 : 0,
-        }));
-        if(tasks.length===0){
-          container.innerHTML = '<div class="muted">No items to plot. Add a goal with both <b>Start date</b> and <b>Due date</b> to see it here.</div>';
-          return;
+        if(items.length===0){ container.innerHTML = '<div class="muted">No items to plot. Add a goal with both <b>Start date</b> and <b>Due date</b>.</div>'; countEl.textContent='Items on timeline: 0'; return; }
+        countEl.textContent = 'Items on timeline: ' + items.length;
+
+        let min = items.reduce((m,g)=> g.start_date < m ? g.start_date : m, items[0].start_date);
+        let max = items.reduce((m,g)=> g.due_date > m ? g.due_date : m, items[0].due_date);
+        const padDays = view==='Year' ? 30 : view==='Quarter' ? 14 : 7;
+        const minPad = formatYMD(new Date(new Date(min).getTime() - padDays*86400000));
+        const maxPad = formatYMD(new Date(new Date(max).getTime() + padDays*86400000));
+        const totalDays = Math.max(1, daysBetween(minPad, maxPad));
+        const pxPerDay = view==='Year' ? 4 : view==='Quarter' ? 8 : 16;
+        const height = 40 + items.length*32;
+        const width = 100 + totalDays*pxPerDay;
+
+        const svgNS = 'http://www.w3.org/2000/svg';
+        const svg = document.createElementNS(svgNS,'svg');
+        svg.setAttribute('width', width); svg.setAttribute('height', height);
+
+        for(let i=0; i<=totalDays; i+= (view==='Month'?7 : view==='Quarter'?14 : 30)){
+          const x = 80 + i*pxPerDay;
+          const line = document.createElementNS(svgNS,'line');
+          line.setAttribute('x1', x); line.setAttribute('y1', 0);
+          line.setAttribute('x2', x); line.setAttribute('y2', height);
+          line.setAttribute('stroke', '#e2e8f0'); line.setAttribute('stroke-width','1');
+          svg.appendChild(line);
         }
-        console.log('Gantt tasks:', tasks);
-        document.getElementById('ganttCount').textContent = 'Items on timeline: ' + tasks.length;
-        gantt = new Gantt('#gantt', tasks, {
-          view_mode: 'Month',
-          custom_popup_html: (task) => `<div class="card" style="padding:8px;"><b>${task.name}</b><br>${task.start} → ${task.end}</div>`
+
+        items.forEach((g, idx) => {
+          const y = 20 + idx*32;
+          const text = document.createElementNS(svgNS,'text');
+          text.setAttribute('x','8'); text.setAttribute('y', String(y+12));
+          text.setAttribute('font-size','12'); text.textContent = g.title;
+          svg.appendChild(text);
+
+          const startOffset = daysBetween(minPad, g.start_date);
+          const barX = 80 + startOffset*pxPerDay;
+          const barW = Math.max(6, daysBetween(g.start_date, g.due_date)*pxPerDay);
+          const rect = document.createElementNS(svgNS,'rect');
+          rect.setAttribute('x', String(barX)); rect.setAttribute('y', String(y));
+          rect.setAttribute('width', String(barW)); rect.setAttribute('height','20');
+          rect.setAttribute('rx','6'); rect.setAttribute('ry','6');
+          rect.setAttribute('class','prio-' + (g.priority||'medium'));
+          rect.setAttribute('fill-opacity', g.status==='done' ? '0.7' : '1.0');
+          svg.appendChild(rect);
         });
+
+        container.appendChild(svg);
       }
 
-      function refresh(){
-        renderTable();
-        renderGantt();
-      }
+      function refresh(){ renderTable(); renderGantt(currentView); }
 
-      // Add / Save
-      $('#addBtn').addEventListener('click', () => {
-        const title = $('#title').value.trim();
-        const start = $('#start').value || null;
-        const due = $('#due').value || null;
-        const priority = $('#priority').value;
-        const status = $('#status').value;
+      document.getElementById('addBtn').addEventListener('click', () => {
+        const title = $('#title').value.trim(); const start = $('#start').value || null; const due = $('#due').value || null;
+        const priority = $('#priority').value; const status = $('#status').value;
         if(!title){ alert('Title required'); return; }
-        if(!start || !due){ alert('Please set both Start and Due dates to appear on the timeline.'); return; }
-        if(start > due){ alert('Start date must be on or before Due date.'); return; }
-        const editing = $('#addBtn').dataset.editing;
-        if(editing){
-          updateGoal(editing, { title, start_date:start, due_date:due, priority, status });
-          $('#addBtn').textContent = 'Add Goal';
-          delete $('#addBtn').dataset.editing;
-        } else {
-          addGoal({ title, start_date:start, due_date:due, priority, status });
-        }
+        if(!start || !due){ alert('Set both start & due to appear on timeline.'); return; }
+        if(start > due){ alert('Start must be on/before Due.'); return; }
+        const ab = document.getElementById('addBtn');
+        const editing = ab.dataset.editing;
+        if(editing){ updateGoal(editing, { title, start_date:start, due_date:due, priority, status }); ab.textContent='Add Goal'; delete ab.dataset.editing; }
+        else { addGoal({ title, start_date:start, due_date:due, priority, status }); }
         ['#title','#start','#due'].forEach(s => $(s).value=''); alert('Saved ✔');
       });
 
-      $('#clearBtn').addEventListener('click', () => {
-        ['#title','#start','#due'].forEach(s => $(s).value=''); alert('Saved ✔');
-        $('#addBtn').textContent = 'Add Goal';
-        delete $('#addBtn').dataset.editing;
+      document.getElementById('clearBtn').addEventListener('click', () => {
+        ['#title','#start','#due'].forEach(s => $(s).value='');
+        const ab = document.getElementById('addBtn'); ab.textContent='Add Goal'; delete ab.dataset.editing;
       });
 
-      // Filters
-      $('#filterStatus').addEventListener('change', refresh);
-      $('#filterPriority').addEventListener('change', refresh);
+      document.getElementById('filterStatus').addEventListener('change', refresh);
+      document.getElementById('filterPriority').addEventListener('change', refresh);
 
-      // View mode buttons
-      document.querySelectorAll('[data-view]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          if(!gantt) return;
-          gantt.change_view_mode(btn.dataset.view);
-        });
-      });
+      let currentView = 'Month';
+      document.querySelectorAll('[data-view]').forEach(btn => btn.addEventListener('click', () => { currentView = btn.dataset.view; renderGantt(currentView); }));
 
-      // Quarterly review compute
       function weight(p){ return p==='low'?1:p==='medium'?2:p==='high'?3:5; }
-      $('#computeBtn').addEventListener('click', () => {
+      document.getElementById('computeBtn').addEventListener('click', () => {
         const qs = $('#qStart').value, qe = $('#qEnd').value;
         if(!qs || !qe){ alert('Select quarter start & end dates'); return; }
-        const start = dayjs(qs), end = dayjs(qe);
-        const list = loadGoals().filter(g => g.start_date && g.due_date && dayjs(g.start_date).isBefore(end.add(1,'day')) && dayjs(g.due_date).isAfter(start.subtract(1,'day')));
+        const list = loadGoals().filter(g => g.start_date && g.due_date && new Date(g.due_date) >= new Date(qs) && new Date(g.start_date) <= new Date(qe));
         const total = list.length;
-        if(total===0){ ['#kpiCompletion','#kpiOnTime','#kpiPwc','#kpiScore'].forEach(id=>$(id).textContent='0%'); return; }
         const done = list.filter(g => g.status==='done');
-        const completion = Math.round(done.length/total*100);
-
-        const onTimeDone = done.filter(g => dayjs(g.due_date).isAfter(dayjs(g.completed_at||g.due_date)) || dayjs(g.completed_at||g.due_date).isBefore(dayjs(g.due_date).add(1,'day'))).length;
-        const onTime = Math.round((done.length? (onTimeDone/done.length*100) : 0));
-
+        const completion = Math.round(total? (done.length/total*100) : 0);
+        const onTime = done.length ? 100 : 0;
         const denom = list.reduce((acc,g)=>acc+weight(g.priority),0);
         const num = list.reduce((acc,g)=>acc+(g.status==='done'?weight(g.priority):0),0);
-        const pwc = Math.round((denom? num/denom*100 : 0));
-
+        const pwc = Math.round(denom? num/denom*100 : 0);
         const score = Math.round(0.5*completion + 0.3*onTime + 0.2*pwc);
-
-        $('#kpiCompletion').textContent = completion + '%';
-        $('#kpiOnTime').textContent = onTime + '%';
-        $('#kpiPwc').textContent = pwc + '%';
-        $('#kpiScore').textContent = score;
+        document.getElementById('kpiCompletion').textContent = completion + '%';
+        document.getElementById('kpiOnTime').textContent = onTime + '%';
+        document.getElementById('kpiPwc').textContent = pwc + '%';
+        document.getElementById('kpiScore').textContent = score;
       });
 
-      // ICS download for review reminder
       function download(filename, content, type='text/plain'){
-        const blob = new Blob([content], {type});
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = filename; a.click();
-        URL.revokeObjectURL(url);
+        const blob = new Blob([content], {type}); const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url);
       }
-      $('#icsBtn').addEventListener('click', () => {
-        const qs = $('#qStart').value, qe = $('#qEnd').value;
-        if(!qs || !qe){ alert('Select quarter start & end dates'); return; }
-        const uid = Math.random().toString(36).slice(2);
-        const dt = dayjs().utc().format('YYYYMMDDTHHmmss') + 'Z';
+      document.getElementById('icsBtn').addEventListener('click', () => {
+        const qs = $('#qStart').value, qe = $('#qEnd').value; if(!qs || !qe){ alert('Select period'); return; }
+        const uid = Math.random().toString(36).slice(2); const dt = new Date().toISOString().replace(/[-:]/g,'').split('.')[0] + 'Z';
         const ics = [
-          'BEGIN:VCALENDAR',
-          'VERSION:2.0',
-          'PRODID:-//Focus.One Lite//Goals//EN',
-          'CALSCALE:GREGORIAN',
-          'METHOD:PUBLISH',
-          'BEGIN:VEVENT',
-          `UID:review-${uid}@focusone-lite`,
-          `DTSTAMP:${dt}`,
-          `DTSTART;VALUE=DATE:${qs.replaceAll('-','')}`,
-          `DTEND;VALUE=DATE:${qe.replaceAll('-','')}`,
-          'SUMMARY:Quarterly Review - Focus.One',
-          'DESCRIPTION:Open Focus.One Lite and complete your review.',
-          'END:VEVENT',
-          'END:VCALENDAR'
+          'BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Focus.One Lite//Goals//EN','CALSCALE:GREGORIAN','METHOD:PUBLISH',
+          'BEGIN:VEVENT',`UID:review-${uid}@focusone-lite`,`DTSTAMP:${dt}`,
+          `DTSTART;VALUE=DATE:${qs.replaceAll('-','')}`,`DTEND;VALUE=DATE:${qe.replaceAll('-','')}`,
+          'SUMMARY:Quarterly Review - Focus.One','DESCRIPTION:Open Focus.One Lite and complete your review.','END:VEVENT','END:VCALENDAR'
         ].join('\r\n');
         download('focusone-review.ics', ics, 'text/calendar');
       });
 
-      // Export / Import
-      $('#exportJsonBtn').addEventListener('click', () => {
-        const data = { goals: loadGoals() };
-        download('focusone-data.json', JSON.stringify(data, null, 2), 'application/json');
-      });
-      $('#importJsonBtn').addEventListener('click', () => {
+      document.getElementById('exportJsonBtn').addEventListener('click', () => { download('focusone-data.json', JSON.stringify({ goals: loadGoals() }, null, 2), 'application/json'); });
+      document.getElementById('importJsonBtn').addEventListener('click', () => {
         const inp = document.createElement('input'); inp.type='file'; inp.accept='application/json';
-        inp.onchange = () => {
-          const file = inp.files[0]; if(!file) return;
-          const fr = new FileReader();
-          fr.onload = () => {
-            try {
-              const data = JSON.parse(fr.result);
-              if(data && Array.isArray(data.goals)){ localStorage.setItem(goalsKey, JSON.stringify(data.goals)); refresh(); }
-              else alert('Invalid JSON');
-            } catch(e){ alert('Invalid JSON'); }
-          };
-          fr.readAsText(file);
-        };
-        inp.click();
+        inp.onchange = () => { const f = inp.files[0]; if(!f) return; const fr = new FileReader(); fr.onload = () => {
+          try { const data = JSON.parse(fr.result); if(data && Array.isArray(data.goals)){ localStorage.setItem(goalsKey, JSON.stringify(data.goals)); refresh(); } else alert('Invalid JSON'); } catch(e){ alert('Invalid JSON'); }
+        }; fr.readAsText(f); }; inp.click();
       });
 
-      // Seed example if empty
       if(loadGoals().length===0){
         saveGoals([
-          {id: uid(), title:'German A2 course', start_date: dayjs().startOf('month').format('YYYY-MM-DD'), due_date: dayjs().add(2,'month').endOf('month').format('YYYY-MM-DD'), priority:'high', status:'in_progress'},
-          {id: uid(), title:'Write 2 chapters of SQM book', start_date: dayjs().add(1,'week').format('YYYY-MM-DD'), due_date: dayjs().add(3,'month').format('YYYY-MM-DD'), priority:'medium', status:'not_started'}
+          {id: uid(), title:'German A2 course', start_date: new Date().toISOString().slice(0,10), due_date: new Date(Date.now()+60*86400000).toISOString().slice(0,10), priority:'high', status:'in_progress'},
+          {id: uid(), title:'Write 2 chapters of SQM book', start_date: new Date(Date.now()+7*86400000).toISOString().slice(0,10), due_date: new Date(Date.now()+120*86400000).toISOString().slice(0,10), priority:'medium', status:'not_started'}
         ]);
       } else {
         refresh();
       }
-    </script>
-    <script>
-      document.addEventListener('DOMContentLoaded', () => {
-        try { refresh(); } catch(e){ console.error(e); }
-      });
     </script>
   </body>
 </html>
