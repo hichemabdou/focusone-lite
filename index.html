@@ -223,4 +223,381 @@ const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll
 const GKEY='focusone_goals', CKEY='focusone_categories';
 const uid=()=> 'g_'+Math.random().toString(36).slice(2,9);
 const esc=s=>(s||'').replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
-const pad=n=>String(n).padStart(2,'0'); const iso=d=>`${d.getFull
+const pad=n=>String(n).padStart(2,'0'); const iso=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const addDays=(isoStr,n)=>{ const d=new Date(isoStr); d.setDate(d.getDate()+n); return iso(d); };
+function loadGoals(){ try{return JSON.parse(localStorage.getItem(GKEY))||[]}catch{return[]} }
+function loadCats(){ try{return JSON.parse(localStorage.getItem(CKEY))||[]}catch{return[]} }
+function setGoals(v){ localStorage.setItem(GKEY, JSON.stringify(v)); }
+function setCats(v){ localStorage.setItem(CKEY, JSON.stringify(v)); }
+const fmtID=i=>'G'+String(i).padStart(2,'0');
+
+/* Seed */
+(function(){
+  if(loadCats().length===0){ setCats([
+    {id:uid(), name:'Language', color:'#2563eb'},
+    {id:uid(), name:'Career', color:'#16a34a'},
+    {id:uid(), name:'Health', color:'#ef4444'},
+    {id:uid(), name:'Business', color:'#0d9488'},
+    {id:uid(), name:'Other', color:'#6b7280'}
+  ]);}
+  if(loadGoals().length===0){
+    const s=new Date(), d=new Date(); d.setDate(s.getDate()+45);
+    const c=loadCats()[0].id;
+    setGoals([{id:uid(), title:'Example: German A2', start_date:iso(s), due_date:iso(d), priority:'medium', status:'in_progress', categoryId:c}]);
+  }
+})();
+
+/* ---------- State ---------- */
+let VIEW='6M', GROUP='category', PRIO='', TBL_GROUP='category', YEAR='';
+let FOCUS=new Set(); let COLLAPSED=new Set();
+const idMap=()=> new Map(loadGoals().map((g,i)=>[g.id, fmtID(i+1)]));
+
+/* ---------- Modal ---------- */
+const modal={ back:$('#backdrop'), title:$('#modalTitle'), close:$('#closeModal'),
+  f:{ t:$('#mTitle'), s:$('#mStart'), d:$('#mDue'), c:$('#mCat'), dep:$('#mDep'), p:$('#mPrio'), st:$('#mStatus') },
+  e:{ t:$('#eTitle'), s:$('#eStart'), d:$('#eDue') }, save:$('#saveGoal') };
+let editing=null;
+function openModal(g={}){
+  editing=g.id||null; modal.title.textContent=editing?'Edit Goal':'Add Goal';
+  const cats=loadCats(); modal.f.c.innerHTML=cats.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  const gl=loadGoals(); modal.f.dep.innerHTML=`<option value="">None</option>`+gl.map(x=>`<option value="${x.id}">${esc(x.title)}</option>`).join('');
+  modal.f.t.value=g.title||''; modal.f.s.value=g.start_date||''; modal.f.d.value=g.due_date||'';
+  modal.f.c.value=g.categoryId||(cats[0]?.id||''); modal.f.dep.value=g.dependsOnId||'';
+  modal.f.p.value=g.priority||'medium'; modal.f.st.value=g.status||'not_started';
+  Object.values(modal.e).forEach(e=>e.textContent=''); modal.save.disabled=true; modal.back.style.display='flex'; modal.f.t.focus();
+}
+function closeModal(){ modal.back.style.display='none'; editing=null; modal.save.disabled=true; }
+$('#addBtn').onclick=()=>openModal(); modal.close.onclick=closeModal;
+Object.values(modal.f).forEach(el=>{ el.oninput=validate; el.onchange=validate; });
+function validate(){ let ok=true;
+  if(!modal.f.t.value.trim()){ modal.e.t.textContent='Title required'; ok=false } else modal.e.t.textContent='';
+  if(!modal.f.s.value){ modal.e.s.textContent='Start required'; ok=false } else modal.e.s.textContent='';
+  if(!modal.f.d.value){ modal.e.d.textContent='Due required'; ok=false }
+  else if(modal.f.s.value>modal.f.d.value){ modal.e.d.textContent='Due after Start'; ok=false } else modal.e.d.textContent='';
+  modal.save.disabled=!ok;
+}
+modal.save.onclick=()=>{ const d={title:modal.f.t.value.trim(), start_date:modal.f.s.value, due_date:modal.f.d.value, categoryId:modal.f.c.value, dependsOnId:modal.f.dep.value||null, priority:modal.f.p.value, status:modal.f.st.value};
+  const list=loadGoals(); if(editing){ setGoals(list.map(g=>g.id===editing?{...g,...d}:g)); } else setGoals([...list,{id:uid(),...d}]);
+  refresh(); closeModal();
+};
+window.addEventListener('keydown',e=>{
+  const open=modal.back.style.display==='flex';
+  if(e.key==='Escape'){ if(open) closeModal(); else {FOCUS.clear(); dimItems(); drawDepsSoon();} }
+  if(!open){
+    if(e.key==='/'){ e.preventDefault(); $('#search').focus(); }
+    if(e.key==='1') setView('Week'); if(e.key==='2') setView('1M'); if(e.key==='3') setView('6M');
+    if(e.key==='4') setView('YTD');  if(e.key==='5') setView('5Y'); if(e.key==='6') setView('All');
+    if(e.key==='n') openModal();
+  }
+});
+
+/* ---------- Export/Import ---------- */
+$('#exportBtn').onclick=()=>{
+  const blob=new Blob([JSON.stringify({goals:loadGoals(),categories:loadCats()},null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='focusone-data.json'; a.click(); URL.revokeObjectURL(url);
+};
+$('#importBtn').onclick=()=>{
+  const i=document.createElement('input'); i.type='file'; i.accept='application/json';
+  i.onchange=()=>{ const f=i.files[0]; if(!f) return; const fr=new FileReader();
+    fr.onload=()=>{ try{ const d=JSON.parse(fr.result);
+      if(Array.isArray(d.goals)&&Array.isArray(d.categories)){ setCats(d.categories); setGoals(d.goals); refresh(); }
+      else alert('Invalid JSON');
+    }catch{ alert('Invalid JSON'); } };
+    fr.readAsText(f);
+  }; i.click();
+};
+
+/* ---------- Quick Add ---------- */
+(function(){
+  const s=new Date(), d=new Date(); d.setDate(s.getDate()+30);
+  $('#qaStart').value=iso(s); $('#qaDue').value=iso(d);
+  $('#qaCat').innerHTML=loadCats().map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
+})();
+$('#qaAdd').onclick=()=>{
+  const t=$('#qaTitle').value.trim(); if(!t) return alert('Title required');
+  const s=$('#qaStart').value, d=$('#qaDue').value; if(!s||!d||s>d) return alert('Set valid dates');
+  const g={id:uid(), title:t, start_date:s, due_date:d, priority:$('#qaPrio').value, status:'not_started', categoryId:$('#qaCat').value};
+  setGoals([...loadGoals(), g]); $('#qaTitle').value=''; refresh();
+};
+
+/* ---------- Filters ---------- */
+let timeline, itemsDS, groupsDS, depSvg;
+let collapsedTimer;
+function buildYears(){
+  const y=$('#yearBtns'); y.innerHTML='';
+  const years=[...new Set(loadGoals().flatMap(g=>[g.start_date?.slice(0,4),g.due_date?.slice(0,4)]) )].filter(Boolean).sort();
+  const mk=(label,val)=>{ const b=document.createElement('button'); b.className='btn secondary'; b.textContent=label;
+    if(val===YEAR) b.classList.add('active'); b.onclick=()=>{ YEAR=(YEAR===val)?'':val; buildYears(); renderTable(); rebuildTimeline(); }; return b; };
+  y.appendChild(mk('All','')); y.appendChild(mk('YTD','YTD')); years.forEach(yr=>y.appendChild(mk(yr,yr)));
+}
+$('#clearBtn').onclick=()=>{ $('#search').value=''; $('#fStatus').value=''; $('#fPrio').value=''; PRIO=''; YEAR=''; COLLAPSED.clear(); syncPrioLegend(); buildYears(); renderTable(); rebuildTimeline(); renderStatus(); };
+$('#groupMode').onchange=e=>{ GROUP=e.target.value; COLLAPSED.clear(); rebuildTimeline(); };
+$('#fitBtn').onclick=()=>{ VIEW='All'; rebuildTimeline(true); };
+$$('#timelineCard [data-view]').forEach(b=>b.onclick=()=>setView(b.dataset.view));
+function setView(v){ VIEW=v; $$('#timelineCard [data-view]').forEach(b=>b.classList.toggle('active', b.dataset.view===v)); rebuildTimeline(); }
+
+$('#search').oninput=renderTable; $('#fStatus').onchange=renderTable; $('#fPrio').onchange=()=>{ PRIO=$('#fPrio').value; syncPrioLegend(); renderTable(); rebuildTimeline(); };
+$('#tableGroup').onchange=e=>{ TBL_GROUP=e.target.value; renderTable(); };
+
+/* ---------- Status (donut) ---------- */
+function renderStatus(){
+  const L=loadGoals(); const c={ns:L.filter(g=>g.status==='not_started').length, ip:L.filter(g=>g.status==='in_progress').length, bl:L.filter(g=>g.status==='blocked').length, dn:L.filter(g=>g.status==='done').length};
+  const total=Object.values(c).reduce((a,b)=>a+b,0); const vals=[c.ns,c.ip,c.bl,c.dn], cols=['#e2e8f0','#8b5cf6','#111827','#22c55e'], labels=['Not started','In progress','Blocked','Done'];
+  const canvas=$('#statusMini'), ctx=canvas.getContext('2d'); ctx.clearRect(0,0,canvas.width,canvas.height);
+  const cx=70, cy=70, r=64, inner=40; let start=-Math.PI/2;
+  if(total===0){ ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fillStyle='#e5e7eb'; ctx.fill(); }
+  else vals.forEach((v,i)=>{ const a=(v/total)*2*Math.PI; ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,r,start,start+a); ctx.closePath(); ctx.fillStyle=cols[i]; ctx.fill(); start+=a; });
+  ctx.globalCompositeOperation='destination-out'; ctx.beginPath(); ctx.arc(cx,cy,inner,0,Math.PI*2); ctx.fill(); ctx.globalCompositeOperation='source-over';
+  const pct= total? Math.round(vals[3]/total*100):0; ctx.fillStyle='#0f172a'; ctx.font='700 18px ui-sans-serif,system-ui,-apple-system'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(pct+'%',cx,cy);
+  const legend=$('#statusLegend'); legend.innerHTML='';
+  labels.forEach((lab,i)=>{ const v=vals[i],p= total? Math.round(v/total*100):0; const div=document.createElement('div'); div.className='legend-item';
+    div.innerHTML=`<span class="dot" style="background:${cols[i]}"></span><span>${lab}: <b>${v}</b> (${p}%)</span>`; legend.appendChild(div);
+  });
+}
+
+/* ---------- Table (grouped + inline edit) ---------- */
+function renderTable(){
+  const q=($('#search').value||'').toLowerCase(), fs=$('#fStatus').value, fp=PRIO||$('#fPrio').value;
+  const today=iso(new Date()); const yStart=iso(new Date(new Date().getFullYear(),0,1));
+  let list=loadGoals().filter(g=>{
+    if(q){ const cat=loadCats().find(c=>c.id===g.categoryId)?.name||''; if(!g.title.toLowerCase().includes(q)&&!cat.toLowerCase().includes(q)) return false; }
+    if(fs && g.status!==fs) return false;
+    if(fp && g.priority!==fp) return false;
+    if(YEAR==='YTD'){ if(!(g.due_date>=yStart && g.start_date<=today)) return false; }
+    else if(YEAR){ const sy=g.start_date?.slice(0,4), dy=g.due_date?.slice(0,4); if(sy!==YEAR && dy!==YEAR) return false; }
+    return true;
+  });
+  const cats=loadCats(), ids=idMap(), tb=$('#rows');
+  if(list.length===0){ tb.innerHTML='<tr><td colspan="9" class="no-data">No goals match your filters.</td></tr>'; return; }
+  const key=g=> TBL_GROUP==='category' ? (cats.find(c=>c.id===g.categoryId)?.name||'Uncategorized')
+               : TBL_GROUP==='status'   ? g.status.replace('_',' ')
+               : 'All';
+  const groups={}; list.forEach(g=>{ (groups[key(g)]||(groups[key(g)]=[])).push(g); });
+  const order=Object.keys(groups).sort();
+  const row=g=>{
+    const cat=cats.find(c=>c.id===g.categoryId)||{name:'Other',color:'#6b7280'}; const dep=g.dependsOnId? ids.get(g.dependsOnId):'';
+    return `<tr data-id="${g.id}">
+      <td><span class="pill id-pill">${ids.get(g.id)}</span></td>
+      <td data-field="title">${esc(g.title)} ${dep?`<span class="chip">↳ ${dep}</span>`:''}</td>
+      <td>${dep?`<span class="chip">${dep}</span>`:''}</td>
+      <td data-field="categoryId"><span class="category-pill" style="background:${cat.color}">${esc(cat.name)}</span></td>
+      <td data-field="start_date">${g.start_date||''}</td>
+      <td data-field="due_date">${g.due_date||''}</td>
+      <td data-field="priority"><span class="pill prio-${g.priority}">${g.priority}</span></td>
+      <td data-field="status"><span class="pill status-${g.status}">${g.status.replace('_',' ')}</span></td>
+      <td class="toolbar" style="gap:6px;"><button class="btn secondary" data-edit="${g.id}">Edit</button><button class="btn warn" data-del="${g.id}">Delete</button></td>
+    </tr>`;
+  };
+  let html=''; order.forEach(name=>{ html+=`<tr class="group-row"><td colspan="9"><span class="group-toggle">▾</span>${esc(name)} <span class="muted">(${groups[name].length})</span></td></tr>`; groups[name].forEach(g=>html+=row(g)); });
+  tb.innerHTML=html;
+  tb.querySelectorAll('.group-toggle').forEach(tg=>{
+    tg.onclick=()=>{ const open=tg.textContent.trim().startsWith('▾'); tg.textContent=open?'▸':'▾';
+      let el=tg.closest('tr').nextElementSibling; while(el && !el.classList.contains('group-row')){ el.style.display=open?'none':'table-row'; el=el.nextElementSibling; } };
+  });
+  tb.querySelectorAll('td[data-field]').forEach(td=> td.onclick=()=>inlineEdit(td));
+  tb.querySelectorAll('[data-edit]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); const g=loadGoals().find(x=>x.id===b.dataset.edit); if(g) openModal(g); });
+  tb.querySelectorAll('[data-del]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); const id=b.dataset.del; if(confirm('Delete this goal?')){ setGoals(loadGoals().filter(x=>x.id!==id)); refresh(); } });
+}
+function inlineEdit(td){
+  const tr=td.closest('tr'); const id=tr.dataset.id; const list=loadGoals(); const g=list.find(x=>x.id===id); if(!g) return;
+  const field=td.dataset.field; const commit=v=>{ const u={...g,[field]:v}; if(u.start_date&&u.due_date&&u.start_date>u.due_date){ alert('Start after Due'); renderTable(); return; } setGoals(list.map(x=>x.id===id?u:x)); refresh(); };
+  let ed;
+  if(field==='title'){ ed=document.createElement('input'); ed.value=g.title; ed.onkeydown=e=>{if(e.key==='Enter')commit(ed.value.trim()); if(e.key==='Escape')renderTable()}; ed.onblur=()=>commit(ed.value.trim()); }
+  else if(field==='start_date'||field==='due_date'){ ed=document.createElement('input'); ed.type='date'; ed.value=g[field]||''; ed.onkeydown=e=>{if(e.key==='Enter')commit(ed.value); if(e.key==='Escape')renderTable()}; ed.onblur=()=>commit(ed.value); }
+  else if(field==='priority'){ ed=document.createElement('select'); ['low','medium','high','critical'].forEach(p=>ed.appendChild(new Option(p,p,p===g.priority,p===g.priority))); ed.onchange=()=>commit(ed.value); }
+  else if(field==='status'){ ed=document.createElement('select'); ['not_started','in_progress','blocked','done'].forEach(p=>ed.appendChild(new Option(p,p,p===g.status,p===g.status))); ed.onchange=()=>commit(ed.value); }
+  else if(field==='categoryId'){ ed=document.createElement('select'); loadCats().forEach(c=>ed.appendChild(new Option(c.name,c.id,c.id===g.categoryId,c.id===g.categoryId))); ed.onchange=()=>commit(ed.value); }
+  td.innerHTML=''; td.appendChild(ed); ed.focus(); if(ed.select) ed.select();
+}
+
+/* ---------- Timeline (vis) with declutter ---------- */
+const prioLegend=document.getElementById('prioLegend');
+prioLegend.addEventListener('click', e=>{
+  const p=e.target.closest('.clickable'); if(!p) return;
+  const val=p.dataset.prio; PRIO=(PRIO===val)?'':val; $('#fPrio').value=PRIO; syncPrioLegend(); renderTable(); rebuildTimeline();
+});
+function syncPrioLegend(){ prioLegend.querySelectorAll('.clickable').forEach(x=>x.classList.toggle('active', x.dataset.prio===PRIO && PRIO)); }
+
+function rangeFor(view){
+  const t=new Date(), y=t.getFullYear();
+  switch(view){
+    case 'Week': return {start:t, end:new Date(t.getFullYear(), t.getMonth(), t.getDate()+7)};
+    case '1M':   return {start:t, end:new Date(t.getFullYear(), t.getMonth()+1, t.getDate())};
+    case '6M':   return {start:t, end:new Date(t.getFullYear(), t.getMonth()+6, t.getDate())};
+    case 'YTD':  return {start:t, end:new Date(y,11,31)};
+    case '5Y':   return {start:t, end:new Date(y+5, t.getMonth(), t.getDate())};
+    default:     return null;
+  }
+}
+function toISO(x){ const d=new Date(x); return iso(d); }
+function rootOf(g, map){ let cur=g; while(cur && cur.dependsOnId){ cur=map.get(cur.dependsOnId); } return cur?cur.id:g.id; }
+
+function rebuildTimeline(forceFit=false){
+  const raw=loadGoals(); const ids=idMap();
+  const today=iso(new Date()), yStart=iso(new Date(new Date().getFullYear(),0,1));
+  let list=raw.filter(g=>{
+    if(PRIO && g.priority!==PRIO) return false;
+    if(YEAR==='YTD'){ if(!(g.due_date>=yStart && g.start_date<=today)) return false; }
+    else if(YEAR){ const sy=g.start_date?.slice(0,4), dy=g.due_date?.slice(0,4); if(sy!==YEAR && dy!==YEAR) return false; }
+    return true;
+  });
+  $('#itemCount').textContent=`Items: ${list.length}`;
+
+  const cats=loadCats();
+  const key=g=> GROUP==='category' ? (g.categoryId||'uncat')
+              : GROUP==='status'   ? (g.status||'nostatus')
+              : 'all';
+  const label=k=> GROUP==='category' ? (cats.find(c=>c.id===k)?.name||'Uncategorized')
+               : GROUP==='status'   ? k.replace('_',' ')
+               : 'All goals';
+  const color=k=> GROUP==='category' ? (cats.find(c=>c.id===k)?.color||'#6b7280') : '#3b82f6';
+
+  // group items and compute chain roots (subgroups)
+  const byId=new Map(raw.map(g=>[g.id,g]));
+  const lanes={}; list.forEach(g=>{ const k=key(g); (lanes[k]||(lanes[k]=[])).push(g); });
+
+  // score groups by items visible in current viewport (to order)
+  const rng=viewWindow(); const activeScore=k=>{
+    const arr=lanes[k]||[]; return arr.reduce((a,g)=> a+ (intersects(g.start_date,g.due_date,rng.start,rng.end)?1:0),0);
+  };
+  const order=Object.keys(lanes).sort((a,b)=> activeScore(b)-activeScore(a) || label(a).localeCompare(label(b)));
+
+  // datasets
+  const groups = order.map(k=>({
+    id:k, content:`<span class="lane-dot" style="background:${color(k)}"></span>${esc(label(k))} <span class="muted">(${lanes[k].length})</span>`,
+    order: activeScore(k), visible: !COLLAPSED.has(k)
+  }));
+
+  // Items (+ chain as subgroup)
+  const items=[];
+  const addIt=(g)=>{
+    const k=key(g); if(COLLAPSED.has(k)) return;
+    const c=color(k); const content = `${ids.get(g.id)} · ${esc(g.title.length>28?g.title.slice(0,26)+'…':g.title)}`;
+    const subgroup = rootOf(g, byId); // align chains
+    items.push({
+      id:g.id, group:k, subgroup,
+      start:g.start_date, end: addDays(g.due_date,1),
+      content, title:`${g.title}\n${g.start_date} → ${g.due_date}\n${g.priority.toUpperCase()} • ${g.status.replace('_',' ')}`,
+      style:`background:${c};border-color:rgba(0,0,0,.15)`,
+      className: (FOCUS.size && !FOCUS.has(g.id)) ? 'dim' : '',
+      dependsOnId:g.dependsOnId||null
+    });
+  };
+  list.forEach(addIt);
+
+  // background quarters + subtle alternating months inside current range
+  const backs = monthQuarterBackgrounds(list);
+
+  // create/update vis
+  const container=document.getElementById('timeline');
+  const opts={
+    orientation:'top', multiselect:false,
+    editable:{updateTime:true, updateGroup:false, add:false, remove:false},
+    margin:{item:10, axis:28}, snap: date=> { const d=new Date(date); d.setHours(0,0,0,0); return d; },
+    stack:true, stackSubgroups:true, subgroupStack:true,
+    groupOrder:(a,b)=> (b.order||0)-(a.order||0),
+    verticalScroll:true, maxHeight:'520px', minHeight:'520px',
+    zoomKey:'ctrlKey', zoomMin: 1000*60*60*24*3,  // >=3 days
+    tooltip:{followMouse:true}
+  };
+
+  if(!timeline){
+    itemsDS=new vis.DataSet(items.concat(backs));
+    groupsDS=new vis.DataSet(groups);
+    timeline=new vis.Timeline(container, itemsDS, groupsDS, opts);
+    // edits
+    itemsDS.on('update', (evt,props)=>{
+      if(!props||!props.items) return; const all=loadGoals();
+      props.items.forEach(id=>{
+        const it=itemsDS.get(id); if(!it||!it.start||!it.end) return;
+        const s=toISO(it.start), e=toISO(new Date(it.end.getTime()-86400000));
+        const g=all.find(x=>x.id===id); if(g){ g.start_date=s; g.due_date=e; }
+      });
+      setGoals(all); renderTable(); renderStatus(); drawDepsSoon();
+    });
+    // focus chain
+    timeline.on('select',p=>{ if(p.items.length){ focusChain(p.items[0]); } else {FOCUS.clear(); dimItems(); drawDepsSoon();} });
+    // toggle collapse on group label click
+    timeline.on('click',p=>{
+      if(p.what==='group-label' && p.group){ if(COLLAPSED.has(p.group)) COLLAPSED.delete(p.group); else COLLAPSED.add(p.group); rebuildTimeline(); }
+    });
+    // redraw deps on move/zoom/resize
+    const upd=()=>drawDepsSoon(); timeline.on('changed',upd); timeline.on('rangechanged',upd); window.addEventListener('resize',upd);
+  }else{
+    itemsDS.clear(); itemsDS.add(items.concat(backs));
+    groupsDS.clear(); groupsDS.add(groups);
+    timeline.setOptions(opts);
+  }
+
+  // set window
+  const r = (VIEW==='All'&&!forceFit)? null : rangeFor(VIEW);
+  if(r){ timeline.setWindow(r.start, r.end, {animation:true}); } else if(forceFit || VIEW==='All'){ timeline.fit({animation:true}); }
+
+  ensureDepSvg(); drawDepsSoon();
+}
+function intersects(a1,a2,b1,b2){ return new Date(a2)>=new Date(b1) && new Date(a1)<=new Date(b2); }
+function viewWindow(){ if(!timeline){ const r=rangeFor(VIEW); if(r) return r;
+  const list=loadGoals(); if(list.length===0) { const t=new Date(); return {start:t,end:new Date(t.getFullYear(),t.getMonth()+1,t.getDate())}; }
+  const min=list.reduce((m,g)=>g.start_date<m?g.start_date:m,list[0].start_date);
+  const max=list.reduce((m,g)=>g.due_date>m?g.due_date:m,list[0].due_date);
+  return {start:new Date(min), end:new Date(max)}; }
+  const w=timeline.getWindow(); return {start:w.start, end:w.end};
+}
+function monthQuarterBackgrounds(list){
+  if(list.length===0) return [];
+  // compute a safe range around viewport
+  const vw=viewWindow(); const s=new Date(vw.start), e=new Date(vw.end);
+  const items=[];
+  // quarters
+  const qs = new Date(s.getFullYear(), Math.floor(s.getMonth()/3)*3,1);
+  for(let d=new Date(qs); d<=e; d=new Date(d.getFullYear(), d.getMonth()+3, 1)){
+    const label=`Q${Math.floor(d.getMonth()/3)+1} ${d.getFullYear()}`;
+    items.push({id:'q_'+d.getTime(), start:iso(d), end:iso(new Date(d.getFullYear(), d.getMonth()+3, 1)), type:'background', className:'qbg', content:label});
+  }
+  // months (alternating shade)
+  const ms = new Date(s.getFullYear(), s.getMonth(),1);
+  let toggle=false;
+  for(let d=new Date(ms); d<=e; d=new Date(d.getFullYear(), d.getMonth()+1, 1)){
+    const cls=toggle?'mbg-a':'mbg-b'; toggle=!toggle;
+    items.push({id:'m_'+d.getTime(), start:iso(d), end:iso(new Date(d.getFullYear(), d.getMonth()+1, 1)), type:'background', className:cls});
+  }
+  return items;
+}
+
+/* dependency overlay */
+function ensureDepSvg(){
+  const content = timeline.dom.center.querySelector('.vis-content'); if(!content) return;
+  if(!depSvg){ depSvg=document.createElementNS('http://www.w3.org/2000/svg','svg'); depSvg.id='depSvg'; depSvg.style.position='absolute'; depSvg.style.left='0'; depSvg.style.top='0'; depSvg.style.pointerEvents='none'; content.appendChild(depSvg); }
+  const r=content.getBoundingClientRect(); depSvg.setAttribute('width', r.width); depSvg.setAttribute('height', r.height);
+}
+function drawDependencies(){
+  if(!timeline || !depSvg) return;
+  const content = timeline.dom.center.querySelector('.vis-content'); const r=content.getBoundingClientRect();
+  depSvg.innerHTML=''; const all=loadGoals();
+  all.forEach(g=>{
+    if(!g.dependsOnId) return;
+    const from=content.querySelector(`.vis-item[data-id="${g.dependsOnId}"]`);
+    const to  =content.querySelector(`.vis-item[data-id="${g.id}"]`);
+    if(!from || !to) return;
+    const a=from.getBoundingClientRect(), b=to.getBoundingClientRect();
+    const x1=a.right - r.left, y1=a.top - r.top + a.height/2; const x2=b.left - r.left, y2=b.top - r.top + b.height/2;
+    const mid=(x1+x2)/2; const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d',`M${x1} ${y1} C ${mid} ${y1} ${mid} ${y2} ${x2} ${y2}`); path.setAttribute('class','conn'); if(FOCUS.size && !(FOCUS.has(g.dependsOnId)&&FOCUS.has(g.id))) path.classList.add('dim'); depSvg.appendChild(path);
+    const arrow=document.createElementNS('http://www.w3.org/2000/svg','path'); arrow.setAttribute('d',`M ${x2-7} ${y2-4} L ${x2} ${y2} L ${x2-7} ${y2+4} Z`); arrow.setAttribute('class','arrow'); if(FOCUS.size && !(FOCUS.has(g.dependsOnId)&&FOCUS.has(g.id))) arrow.classList.add('dim'); depSvg.appendChild(arrow);
+  });
+}
+let depTimer; function drawDepsSoon(){ clearTimeout(depTimer); depTimer=setTimeout(drawDependencies, 30); }
+function focusChain(id){
+  const all=loadGoals(), byId=new Map(all.map(g=>[g.id,g])); FOCUS=new Set([id]);
+  let cur=byId.get(id); while(cur && cur.dependsOnId){ FOCUS.add(cur.dependsOnId); cur=byId.get(cur.dependsOnId); }
+  let expand=true; while(expand){ expand=false; for(const g of all){ if(g.dependsOnId && FOCUS.has(g.dependsOnId) && !FOCUS.has(g.id)){ FOCUS.add(g.id); expand=true; } } }
+  dimItems(); drawDepsSoon();
+}
+function dimItems(){ $$('#timeline .vis-item').forEach(n=>{ const id=n.getAttribute('data-id'); if(FOCUS.size && !FOCUS.has(id)) n.classList.add('dim'); else n.classList.remove('dim'); }); }
+
+/* ---------- Boot ---------- */
+function refresh(){ buildYears(); renderTable(); rebuildTimeline(); renderStatus(); syncPrioLegend(); }
+document.addEventListener('DOMContentLoaded', refresh);
+</script>
+</body>
+</html>
