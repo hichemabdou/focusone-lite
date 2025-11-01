@@ -5,13 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Focus.One Lite</title>
 
-<!-- Vis Timeline (MIT, no tracking) -->
+<!-- Pro timeline (MIT) -->
 <link rel="stylesheet" href="https://unpkg.com/vis-timeline@latest/styles/vis-timeline-graph2d.min.css">
 <script src="https://unpkg.com/vis-timeline@latest/standalone/umd/vis-timeline-graph2d.min.js"></script>
 
 <style>
   :root{
-    /* Palette tuned for “calm luxury” */
     --bg:#f6f7fb; --fg:#0f172a; --muted:#64748b; --line:#e5e7eb; --card:#ffffff;
     --primary:#0ea5e9; --primary-2:#60a5fa; --pill:#eef2f7;
     --green:#22c55e; --violet:#8b5cf6; --amber:#f59e0b; --red:#ef4444; --slate:#94a3b8;
@@ -56,26 +55,30 @@
   .legend .pill.clickable{cursor:pointer;opacity:.95}
   .legend .pill.clickable.active{outline:2px solid var(--primary)}
   .no-data{color:var(--muted);padding:14px;text-align:center}
-  /* Timeline container */
+  /* Timeline */
   #timelineCard .toolbar .btn.secondary.active{background:var(--primary-2);color:#fff}
-  #timeline{height:460px;border-radius:14px;border:1px solid var(--line);background:#fff}
+  #timeline{height:520px;border-radius:14px;border:1px solid var(--line);background:#fff}
   .lane-dot{display:inline-block;width:8px;height:8px;border-radius:999px;margin-right:6px;vertical-align:middle}
-  /* Vis item polish */
   .vis-item .vis-item-content{color:#fff;font-weight:700;padding:2px 8px;border-radius:8px}
-  .vis-item.vis-background .vis-item-content{top:0;left:120px;color:#475569;font-weight:700;opacity:.4}
-  .vis-time-axis .vis-text{color:#475569}
   .vis-item.dim .vis-item-content{opacity:.18}
   .vis-selected .vis-item-content{outline:2px solid var(--primary)}
-  /* Dependency overlay (SVG sits inside vis-content) */
+  .vis-time-axis .vis-text{color:#475569}
+  .vis-group{cursor:pointer}
+  .vis-panel.vis-center,.vis-panel.vis-left{background-image:linear-gradient(to right, rgba(2,6,23,.03) 0 1px, transparent 1px), linear-gradient(to bottom, rgba(2,6,23,.03) 0 1px, transparent 1px); background-size:56px 56px, 100% 42px}
+  /* background items */
+  .vis-item.vis-background.qbg .vis-item-content{color:#475569;opacity:.25;font-weight:700}
+  .vis-item.vis-background.mbg-a{background:rgba(2,6,23,.02);border:none}
+  .vis-item.vis-background.mbg-b{background:rgba(2,6,23,.04);border:none}
+  /* dependencies overlay */
   #depSvg path.conn{stroke:#475569;stroke-width:1.6;fill:none;stroke-dasharray:4 3}
   #depSvg path.arrow{fill:#475569}
   #depSvg .dim{opacity:.18}
-  /* Status donut */
+  /* donut */
   #statusMini{width:140px;height:140px}
   .legend-list{display:flex;gap:12px;flex-wrap:wrap}
   .legend-item{display:flex;align-items:center;gap:6px}
   .dot{width:10px;height:10px;border-radius:2px;display:inline-block}
-  /* Group headers (table) */
+  /* table group headers */
   .group-row{background:#f6f9ff;font-weight:800}
   .group-toggle{cursor:pointer;color:#334155;margin-right:6px}
 </style>
@@ -153,10 +156,8 @@
         </select>
         <select id="fPrio" class="btn secondary">
           <option value="">All priorities</option>
-          <option value="low">Low</option>
-          <option value="medium">Medium</option>
-          <option value="high">High</option>
-          <option value="critical">Critical</option>
+          <option value="low">Low</option><option value="medium">Medium</option>
+          <option value="high">High</option><option value="critical">Critical</option>
         </select>
         <div id="yearBtns" class="toolbar"></div>
         <select id="tableGroup" class="btn secondary">
@@ -171,11 +172,8 @@
     <!-- Quick Add -->
     <div class="quick" style="margin:12px 0 8px;">
       <input id="qaTitle" placeholder="Quick add: goal title">
-      <input id="qaStart" type="date">
-      <input id="qaDue" type="date">
-      <select id="qaPrio">
-        <option>low</option><option selected>medium</option><option>high</option><option>critical</option>
-      </select>
+      <input id="qaStart" type="date"><input id="qaDue" type="date">
+      <select id="qaPrio"><option>low</option><option selected>medium</option><option>high</option><option>critical</option></select>
       <select id="qaCat"></select>
       <button id="qaAdd" class="btn">Add</button>
     </div>
@@ -195,45 +193,23 @@
   <div class="muted" style="text-align:center;padding:18px">Data stored locally in your browser.</div>
 </div>
 
-<!-- Add/Edit Modal -->
-<div id="backdrop" class="backdrop" style="display:none;position:fixed;inset:0;align-items:center;justify-content:center;background:rgba(15,23,42,.35);backdrop-filter:blur(2px);z-index:30">
+<!-- Modal -->
+<div id="backdrop" style="display:none;position:fixed;inset:0;align-items:center;justify-content:center;background:rgba(15,23,42,.35);backdrop-filter:blur(2px);z-index:30">
   <div class="card" style="width:min(760px,calc(100vw - 24px));">
     <div class="toolbar" style="justify-content:space-between;">
       <h2 id="modalTitle">Add Goal</h2>
       <button id="closeModal" class="btn secondary">Close</button>
     </div>
-    <div class="grid">
-      <div class="g12">
-        <label>Title</label>
-        <input id="mTitle">
-        <div id="eTitle" class="muted"></div>
+    <div class="grid" style="grid-template-columns:repeat(12,1fr);gap:12px">
+      <div style="grid-column:span 12">
+        <label>Title</label><input id="mTitle"><div id="eTitle" class="muted"></div>
       </div>
-      <div class="g6">
-        <label>Start date</label>
-        <input id="mStart" type="date">
-        <div id="eStart" class="muted"></div>
-      </div>
-      <div class="g6">
-        <label>Due date</label>
-        <input id="mDue" type="date">
-        <div id="eDue" class="muted"></div>
-      </div>
-      <div class="g6">
-        <label>Category</label>
-        <select id="mCat"></select>
-      </div>
-      <div class="g6">
-        <label>Depends on</label>
-        <select id="mDep"><option value="">None</option></select>
-      </div>
-      <div class="g6">
-        <label>Priority</label>
-        <select id="mPrio"><option>low</option><option selected>medium</option><option>high</option><option>critical</option></select>
-      </div>
-      <div class="g6">
-        <label>Status</label>
-        <select id="mStatus"><option>not_started</option><option>in_progress</option><option>blocked</option><option>done</option></select>
-      </div>
+      <div style="grid-column:span 6"><label>Start date</label><input id="mStart" type="date"><div id="eStart" class="muted"></div></div>
+      <div style="grid-column:span 6"><label>Due date</label><input id="mDue" type="date"><div id="eDue" class="muted"></div></div>
+      <div style="grid-column:span 6"><label>Category</label><select id="mCat"></select></div>
+      <div style="grid-column:span 6"><label>Depends on</label><select id="mDep"><option value="">None</option></select></div>
+      <div style="grid-column:span 6"><label>Priority</label><select id="mPrio"><option>low</option><option selected>medium</option><option>high</option><option>critical</option></select></div>
+      <div style="grid-column:span 6"><label>Status</label><select id="mStatus"><option>not_started</option><option>in_progress</option><option>blocked</option><option>done</option></select></div>
     </div>
     <div class="toolbar" style="justify-content:flex-end;margin-top:10px">
       <button id="saveGoal" class="btn" disabled>Save</button>
@@ -242,427 +218,9 @@
 </div>
 
 <script>
-/* ====== Storage & Utils ====== */
+/* ---------- Storage & helpers ---------- */
 const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
 const GKEY='focusone_goals', CKEY='focusone_categories';
 const uid=()=> 'g_'+Math.random().toString(36).slice(2,9);
 const esc=s=>(s||'').replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
-const pad=n=>String(n).padStart(2,'0');
-const iso=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-function loadGoals(){ try{return JSON.parse(localStorage.getItem(GKEY))||[]}catch{return[]} }
-function loadCats(){ try{return JSON.parse(localStorage.getItem(CKEY))||[]}catch{return[]} }
-function setGoals(v){ localStorage.setItem(GKEY, JSON.stringify(v)); }
-function setCats(v){ localStorage.setItem(CKEY, JSON.stringify(v)); }
-function fmtID(i){ return 'G'+String(i).padStart(2,'0'); }
-function todayISO(){ return iso(new Date()); }
-
-/* Seed minimal */
-(function seed(){
-  if(loadCats().length===0){ setCats([
-    {id:uid(), name:'Language', color:'#2563eb'},
-    {id:uid(), name:'Career', color:'#16a34a'},
-    {id:uid(), name:'Health', color:'#ef4444'},
-    {id:uid(), name:'Business', color:'#0d9488'},
-    {id:uid(), name:'Other', color:'#6b7280'}
-  ]);}
-  if(loadGoals().length===0){
-    const t=new Date(), d=new Date(); d.setDate(t.getDate()+45);
-    const c=loadCats()[0].id;
-    setGoals([{id:uid(), title:'Example: German A2', start_date:iso(t), due_date:iso(d), priority:'medium', status:'in_progress', categoryId:c}]);
-  }
-})();
-
-/* ====== Filters & State ====== */
-let VIEW='Week', GROUP='category', PRIO='', TBL_GROUP='category', YEAR='';
-let FOCUS=new Set();
-const idMap=()=> new Map(loadGoals().map((g,i)=>[g.id, fmtID(i+1)]));
-
-/* ====== Modal ====== */
-let editing=null;
-const modal={ back:$('#backdrop'), title:$('#modalTitle'), close:$('#closeModal'),
-  fields:{ t:$('#mTitle'), s:$('#mStart'), d:$('#mDue'), c:$('#mCat'), dep:$('#mDep'), p:$('#mPrio'), st:$('#mStatus') },
-  errs:{ t:$('#eTitle'), s:$('#eStart'), d:$('#eDue') }, save:$('#saveGoal')
-};
-function openModal(goal={}){
-  editing=goal.id||null; modal.title.textContent=editing?'Edit Goal':'Add Goal';
-  const cats=loadCats(); modal.fields.c.innerHTML=cats.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
-  const gl=loadGoals(); modal.fields.dep.innerHTML=`<option value="">None</option>`+gl.map(x=>`<option value="${x.id}">${esc(x.title)}</option>`).join('');
-  modal.fields.t.value=goal.title||''; modal.fields.s.value=goal.start_date||''; modal.fields.d.value=goal.due_date||'';
-  modal.fields.c.value=goal.categoryId||(cats[0]?.id||''); modal.fields.dep.value=goal.dependsOnId||'';
-  modal.fields.p.value=goal.priority||'medium'; modal.fields.st.value=goal.status||'not_started';
-  Object.values(modal.errs).forEach(e=>e.textContent=''); modal.save.disabled=true;
-  modal.back.style.display='flex'; modal.fields.t.focus();
-}
-function closeModal(){ modal.back.style.display='none'; editing=null; modal.save.disabled=true; }
-$('#addBtn').onclick=()=>openModal(); modal.close.onclick=closeModal;
-Object.values(modal.fields).forEach(el=>{ el.oninput=validate; el.onchange=validate; });
-function validate(){
-  let ok=true;
-  if(!modal.fields.t.value.trim()){ modal.errs.t.textContent='Title required'; ok=false } else modal.errs.t.textContent='';
-  if(!modal.fields.s.value){ modal.errs.s.textContent='Start required'; ok=false } else modal.errs.s.textContent='';
-  if(!modal.fields.d.value){ modal.errs.d.textContent='Due required'; ok=false }
-  else if(modal.fields.s.value>modal.fields.d.value){ modal.errs.d.textContent='Due after Start'; ok=false }
-  else modal.errs.d.textContent='';
-  modal.save.disabled=!ok;
-}
-modal.save.onclick=()=>{
-  const d={ title:modal.fields.t.value.trim(), start_date:modal.fields.s.value, due_date:modal.fields.d.value,
-            categoryId:modal.fields.c.value, dependsOnId:modal.fields.dep.value||null,
-            priority:modal.fields.p.value, status:modal.fields.st.value };
-  const list=loadGoals();
-  if(editing){ setGoals(list.map(g=>g.id===editing?{...g,...d}:g)); }
-  else setGoals([...list,{id:uid(),...d}]);
-  refresh(); closeModal();
-};
-window.addEventListener('keydown',e=>{
-  const open=modal.back.style.display==='flex';
-  if(e.key==='Escape'){ if(open) closeModal(); else {FOCUS.clear(); redrawDeps(); dimItems();} }
-  if(!open){
-    if(e.key==='/'){ e.preventDefault(); $('#search').focus(); }
-    if(e.key==='1') setView('Week'); if(e.key==='2') setView('1M'); if(e.key==='3') setView('6M');
-    if(e.key==='4') setView('YTD');  if(e.key==='5') setView('5Y'); if(e.key==='6') setView('All');
-    if(e.key==='n') openModal();
-  }
-});
-
-/* ====== Export / Import ====== */
-$('#exportBtn').onclick=()=>{
-  const blob=new Blob([JSON.stringify({goals:loadGoals(),categories:loadCats()},null,2)],{type:'application/json'});
-  const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='focusone-data.json'; a.click(); URL.revokeObjectURL(url);
-};
-$('#importBtn').onclick=()=>{
-  const i=document.createElement('input'); i.type='file'; i.accept='application/json';
-  i.onchange=()=>{ const f=i.files[0]; if(!f) return; const fr=new FileReader();
-    fr.onload=()=>{ try{ const d=JSON.parse(fr.result);
-      if(Array.isArray(d.goals)&&Array.isArray(d.categories)){ setCats(d.categories); setGoals(d.goals); refresh(); }
-      else alert('Invalid JSON');
-    }catch{ alert('Invalid JSON'); } };
-    fr.readAsText(f);
-  }; i.click();
-};
-
-/* ====== Quick Add ====== */
-(function initQA(){
-  const s=new Date(), d=new Date(); d.setDate(s.getDate()+30);
-  $('#qaStart').value=iso(s); $('#qaDue').value=iso(d);
-  const cats=loadCats(); $('#qaCat').innerHTML=cats.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
-})();
-$('#qaAdd').onclick=()=>{
-  const title=$('#qaTitle').value.trim(); if(!title) return alert('Title required');
-  const s=$('#qaStart').value, d=$('#qaDue').value; if(!s||!d||s>d) return alert('Set valid dates');
-  const g={id:uid(), title, start_date:s, due_date:d, priority:$('#qaPrio').value, status:'not_started', categoryId:$('#qaCat').value};
-  setGoals([...loadGoals(), g]); $('#qaTitle').value=''; refresh();
-};
-
-/* ====== Year/YTD buttons ====== */
-function buildYears(){
-  const y=$('#yearBtns'); y.innerHTML='';
-  const years=[...new Set(loadGoals().flatMap(g=>[g.start_date?.slice(0,4),g.due_date?.slice(0,4)]) )].filter(Boolean).sort();
-  const mk=(label,val)=>{ const b=document.createElement('button'); b.className='btn secondary'; b.textContent=label;
-    if(val===YEAR) b.classList.add('active'); b.onclick=()=>{ YEAR=(YEAR===val)?'':val; buildYears(); renderTable(); rebuildTimeline(); }; return b; };
-  y.appendChild(mk('All','')); y.appendChild(mk('YTD','YTD')); years.forEach(yr=>y.appendChild(mk(yr,yr)));
-}
-$('#clearBtn').onclick=()=>{ $('#search').value=''; $('#fStatus').value=''; $('#fPrio').value=''; PRIO=''; YEAR=''; syncPrioLegend(); buildYears(); renderTable(); rebuildTimeline(); renderStatus(); };
-
-/* ====== Status (donut) ====== */
-function renderStatus(){
-  const list=loadGoals();
-  const cts={ ns:list.filter(g=>g.status==='not_started').length,
-              ip:list.filter(g=>g.status==='in_progress').length,
-              bl:list.filter(g=>g.status==='blocked').length,
-              dn:list.filter(g=>g.status==='done').length };
-  const total=Object.values(cts).reduce((a,b)=>a+b,0);
-  const vals=[cts.ns,cts.ip,cts.bl,cts.dn], cols=['#e2e8f0','#8b5cf6','#111827','#22c55e'], labels=['Not started','In progress','Blocked','Done'];
-  const canvas=$('#statusMini'), ctx=canvas.getContext('2d'); ctx.clearRect(0,0,canvas.width,canvas.height);
-  const cx=70, cy=70, r=64, inner=40; let start=-Math.PI/2;
-  if(total===0){ ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fillStyle='#e5e7eb'; ctx.fill(); }
-  else vals.forEach((v,i)=>{ const a=(v/total)*2*Math.PI; ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,r,start,start+a); ctx.closePath(); ctx.fillStyle=cols[i]; ctx.fill(); start+=a; });
-  ctx.globalCompositeOperation='destination-out'; ctx.beginPath(); ctx.arc(cx,cy,inner,0,Math.PI*2); ctx.fill(); ctx.globalCompositeOperation='source-over';
-  const pct= total? Math.round(vals[3]/total*100):0; ctx.fillStyle='#0f172a'; ctx.font='700 18px ui-sans-serif,system-ui,-apple-system'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(pct+'%',cx,cy);
-  const legend=$('#statusLegend'); legend.innerHTML='';
-  labels.forEach((lab,i)=>{ const v=vals[i],p= total? Math.round(v/total*100):0; const div=document.createElement('div'); div.className='legend-item';
-    div.innerHTML=`<span class="dot" style="background:${cols[i]}"></span><span>${lab}: <b>${v}</b> (${p}%)</span>`; legend.appendChild(div);
-  });
-}
-
-/* ====== Table (grouped + inline edit) ====== */
-$('#search').oninput=renderTable; $('#fStatus').onchange=renderTable; $('#fPrio').onchange=()=>{ PRIO=$('#fPrio').value; syncPrioLegend(); renderTable(); rebuildTimeline(); };
-$('#tableGroup').onchange=e=>{ TBL_GROUP=e.target.value; renderTable(); };
-
-function renderTable(){
-  const q=($('#search').value||'').toLowerCase(), fs=$('#fStatus').value, fp=PRIO||$('#fPrio').value;
-  const today=todayISO(), yStart=iso(new Date(new Date().getFullYear(),0,1));
-  let list=loadGoals().filter(g=>{
-    if(q){ const cat=loadCats().find(c=>c.id===g.categoryId)?.name||''; if(!g.title.toLowerCase().includes(q)&&!cat.toLowerCase().includes(q)) return false; }
-    if(fs && g.status!==fs) return false;
-    if(fp && g.priority!==fp) return false;
-    if(YEAR==='YTD'){ if(!(g.due_date>=yStart && g.start_date<=today)) return false; }
-    else if(YEAR){ const sy=g.start_date?.slice(0,4), dy=g.due_date?.slice(0,4); if(sy!==YEAR && dy!==YEAR) return false; }
-    return true;
-  });
-  const cats=loadCats(), ids=idMap(), tb=$('#rows');
-  if(list.length===0){ tb.innerHTML='<tr><td colspan="9" class="no-data">No goals match your filters.</td></tr>'; return; }
-
-  const key=g=> TBL_GROUP==='category' ? (cats.find(c=>c.id===g.categoryId)?.name||'Uncategorized')
-               : TBL_GROUP==='status'   ? g.status.replace('_',' ')
-               : 'All';
-  const groups={}; list.forEach(g=>{ (groups[key(g)]||(groups[key(g)]=[])).push(g); });
-  const order=Object.keys(groups).sort();
-  const rowHTML=g=>{
-    const cat=cats.find(c=>c.id===g.categoryId)||{name:'Other',color:'#6b7280'};
-    const dep=g.dependsOnId? ids.get(g.dependsOnId):'';
-    return `<tr data-id="${g.id}">
-      <td><span class="pill id-pill">${ids.get(g.id)}</span></td>
-      <td data-field="title">${esc(g.title)} ${dep?`<span class="chip" title="Depends on ${dep}">↳ ${dep}</span>`:''}</td>
-      <td>${dep?`<span class="chip">${dep}</span>`:''}</td>
-      <td data-field="categoryId"><span class="category-pill" style="background:${cat.color}">${esc(cat.name)}</span></td>
-      <td data-field="start_date">${g.start_date||''}</td>
-      <td data-field="due_date">${g.due_date||''}</td>
-      <td data-field="priority"><span class="pill prio-${g.priority}">${g.priority}</span></td>
-      <td data-field="status"><span class="pill status-${g.status}">${g.status.replace('_',' ')}</span></td>
-      <td class="toolbar" style="gap:6px;">
-        <button class="btn secondary" data-edit="${g.id}">Edit</button>
-        <button class="btn warn" data-del="${g.id}">Delete</button>
-      </td>
-    </tr>`;
-  };
-  let html='';
-  order.forEach(name=>{
-    html+=`<tr class="group-row"><td colspan="9"><span class="group-toggle">▾</span>${esc(name)} <span class="muted">(${groups[name].length})</span></td></tr>`;
-    groups[name].forEach(g=> html+=rowHTML(g));
-  });
-  tb.innerHTML=html;
-
-  // collapse toggles
-  tb.querySelectorAll('.group-toggle').forEach(tg=>{
-    tg.onclick=()=>{
-      const open=tg.textContent.trim().startsWith('▾'); tg.textContent=open?'▸':'▾';
-      let el=tg.closest('tr').nextElementSibling;
-      while(el && !el.classList.contains('group-row')){ el.style.display=open?'none':'table-row'; el=el.nextElementSibling; }
-    };
-  });
-
-  // inline edit single-click
-  tb.querySelectorAll('td[data-field]').forEach(td=> td.onclick=()=>startInlineEdit(td));
-  tb.querySelectorAll('[data-edit]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); const g=loadGoals().find(x=>x.id===b.dataset.edit); if(g) openModal(g); });
-  tb.querySelectorAll('[data-del]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); const id=b.dataset.del; if(confirm('Delete this goal?')){ setGoals(loadGoals().filter(x=>x.id!==id)); refresh(); } });
-}
-
-function startInlineEdit(td){
-  const tr=td.closest('tr'); const id=tr.dataset.id; const list=loadGoals(); const g=list.find(x=>x.id===id); if(!g) return;
-  const field=td.dataset.field;
-  const commit=val=>{ const u={...g,[field]:val}; if(u.start_date && u.due_date && u.start_date>u.due_date){ alert('Start after Due'); renderTable(); return; } setGoals(list.map(x=>x.id===id?u:x)); refresh(); };
-  const cancel=()=>renderTable();
-  let ed;
-  if(field==='title'){ ed=document.createElement('input'); ed.value=g.title; ed.onkeydown=e=>{if(e.key==='Enter')commit(ed.value.trim()); if(e.key==='Escape')cancel()}; ed.onblur=()=>commit(ed.value.trim()); }
-  else if(field==='start_date'||field==='due_date'){ ed=document.createElement('input'); ed.type='date'; ed.value=g[field]||''; ed.onkeydown=e=>{if(e.key==='Enter')commit(ed.value); if(e.key==='Escape')cancel()}; ed.onblur=()=>commit(ed.value); }
-  else if(field==='priority'){ ed=document.createElement('select'); ['low','medium','high','critical'].forEach(p=>ed.appendChild(new Option(p,p,p===g.priority,p===g.priority))); ed.onchange=()=>commit(ed.value); ed.onkeydown=e=>{if(e.key==='Escape')cancel()}; }
-  else if(field==='status'){ ed=document.createElement('select'); ['not_started','in_progress','blocked','done'].forEach(p=>ed.appendChild(new Option(p,p,p===g.status,p===g.status))); ed.onchange=()=>commit(ed.value); ed.onkeydown=e=>{if(e.key==='Escape')cancel()}; }
-  else if(field==='categoryId'){ ed=document.createElement('select'); loadCats().forEach(c=>ed.appendChild(new Option(c.name,c.id,c.id===g.categoryId,c.id===g.categoryId))); ed.onchange=()=>commit(ed.value); ed.onkeydown=e=>{if(e.key==='Escape')cancel()}; }
-  td.innerHTML=''; td.appendChild(ed); ed.focus(); if(ed.select) ed.select();
-}
-
-/* ====== Timeline (vis-timeline) ====== */
-let timeline, itemsDS, groupsDS, depSvg;
-
-function setView(v){ VIEW=v; $$('#timelineCard [data-view]').forEach(b=>b.classList.toggle('active', b.dataset.view===v)); rebuildTimeline(); }
-$$('#timelineCard [data-view]').forEach(b=>b.onclick=()=>setView(b.dataset.view));
-$('#fitBtn').onclick=()=>{ VIEW='All'; rebuildTimeline(true); };
-$('#groupMode').onchange=e=>{ GROUP=e.target.value; rebuildTimeline(); };
-
-function rangeFor(view){
-  const t=new Date(), y=t.getFullYear();
-  switch(view){
-    case 'Week': return {start:t, end:addMonths(t,0,7)};
-    case '1M':   return {start:t, end:addMonths(t,1,0)};
-    case '6M':   return {start:t, end:addMonths(t,6,0)};
-    case 'YTD':  return {start:t, end:new Date(y,11,31)};
-    case '5Y':   return {start:t, end:new Date(y+5, t.getMonth(), t.getDate())};
-    default:     return null;
-  }
-}
-function addMonths(d, m, addDays){ const x=new Date(d); x.setMonth(x.getMonth()+m); if(addDays) x.setDate(x.getDate()+addDays); return x; }
-
-function rebuildTimeline(forceFit=false){
-  const raw=loadGoals();
-  // filters: PRIO + YEAR/YTD
-  const today=todayISO(), yStart=iso(new Date(new Date().getFullYear(),0,1));
-  let list=raw.filter(g=>{
-    if(PRIO && g.priority!==PRIO) return false;
-    if(YEAR==='YTD'){ if(!(g.due_date>=yStart && g.start_date<=today)) return false; }
-    else if(YEAR){ const sy=g.start_date?.slice(0,4), dy=g.due_date?.slice(0,4); if(sy!==YEAR && dy!==YEAR) return false; }
-    return true;
-  });
-  $('#itemCount').textContent = `Items: ${list.length}`;
-
-  // Groups
-  const cats=loadCats();
-  const groupKey=g=> GROUP==='category' ? (g.categoryId||'uncat')
-                    : GROUP==='status'   ? (g.status||'nostatus')
-                    : 'all';
-  const groupLabel=k=> GROUP==='category' ? (cats.find(c=>c.id===k)?.name||'Uncategorized')
-                     : GROUP==='status'   ? k.replace('_',' ')
-                     : 'All goals';
-  const groupColor=k=> GROUP==='category' ? (cats.find(c=>c.id===k)?.color||'#6b7280') : '#3b82f6';
-
-  const lanes={}; list.forEach(g=>{ const k=groupKey(g); (lanes[k]||(lanes[k]=[])).push(g); });
-
-  const groups = Object.keys(lanes).sort().map(k=>({
-    id:k,
-    content:`<span class="lane-dot" style="background:${groupColor(k)}"></span>${esc(groupLabel(k))} <span class="muted">(${lanes[k].length})</span>`,
-  }));
-
-  // Items
-  const ids=idMap();
-  const items = list.map(g=>{
-    const color = groupColor(groupKey(g));
-    const content = `${ids.get(g.id)} · ${esc(g.title.length>26? g.title.slice(0,24)+'…' : g.title)}`;
-    const style = `background:${color};border-color:rgba(0,0,0,.15)`;
-    return {
-      id:g.id, group:groupKey(g),
-      start:g.start_date, end:addDaysISO(g.due_date,1),  // vis uses end-exclusive; +1d shows inclusive visually
-      content, title:`${g.title}\n${g.start_date} → ${g.due_date}\n${g.priority.toUpperCase()} • ${g.status.replace('_',' ')}`,
-      className:(FOCUS.size && !FOCUS.has(g.id)) ? 'dim' : '',
-      style, dependsOnId:g.dependsOnId||null
-    };
-  });
-
-  // Quarter backgrounds
-  const backgrounds = quarterBackgrounds(list);
-
-  // Create or update vis
-  const container=document.getElementById('timeline');
-  if(!timeline){
-    itemsDS = new vis.DataSet(items.concat(backgrounds));
-    groupsDS = new vis.DataSet(groups);
-    timeline = new vis.Timeline(container, itemsDS, groupsDS, {
-      stack:true, multiselect:false, orientation:'top',
-      margin:{item:12, axis:28}, selectable:true,
-      editable:{updateTime:true, updateGroup:false, remove:false, add:false},
-      tooltip:{followMouse:true},
-      zoomable:true, moveable:true
-    });
-    // Save edits from drag/resize
-    itemsDS.on('update', (evt,props)=>{
-      if(!props || !props.items) return;
-      const all=loadGoals();
-      props.items.forEach(id=>{
-        const it=itemsDS.get(id); if(!it || !it.start || !it.end) return;
-        const s = toISO(it.start), e = toISO(addDays(it.end,-1)); // reverse +1
-        const g=all.find(x=>x.id===id); if(!g) return;
-        g.start_date=s; g.due_date=e;
-      });
-      setGoals(all); renderTable(); renderStatus(); drawDepsSoon();
-    });
-    // Select to focus chain
-    timeline.on('select',(p)=>{ if(p.items.length){ focusChain(p.items[0]); } else {FOCUS.clear(); dimItems(); drawDepsSoon(); } });
-    // Redraw deps with any change/scroll
-    timeline.on('changed', drawDepsSoon);
-    timeline.on('rangechanged', drawDepsSoon);
-    window.addEventListener('resize', drawDepsSoon);
-  } else {
-    // update data sources
-    itemsDS.clear(); itemsDS.add(items.concat(backgrounds));
-    groupsDS.clear(); groupsDS.add(groups);
-  }
-
-  // Set viewport
-  const rng = (VIEW==='All'&&!forceFit)? null : rangeFor(VIEW);
-  if(rng){ timeline.setWindow(rng.start, rng.end, {animation:true}); }
-  else if(forceFit || VIEW==='All'){ timeline.fit({animation:true}); }
-
-  // Build dependency overlay inside vis content
-  ensureDepSvg(); drawDepsSoon();
-}
-function addDaysISO(isoStr, n){ const d=new Date(isoStr); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
-function toISO(x){ const d=new Date(x); return iso(d); }
-
-function quarterBackgrounds(list){
-  if(list.length===0) return [];
-  const min=list.reduce((m,g)=> g.start_date<m?g.start_date:m, list[0].start_date);
-  const max=list.reduce((m,g)=> g.due_date>m?g.due_date:m, list[0].due_date);
-  const s=new Date(min), e=new Date(max); const items=[]; const qStart=new Date(s.getFullYear(), Math.floor(s.getMonth()/3)*3,1);
-  for(let d=new Date(qStart); d<=e; d=new Date(d.getFullYear(), d.getMonth()+3, 1)){
-    const label=`Q${Math.floor(d.getMonth()/3)+1} ${d.getFullYear()}`;
-    items.push({id:'q_'+d.getTime(), start:iso(d), end:iso(new Date(d.getFullYear(), d.getMonth()+3, 1)), type:'background', content:label});
-  }
-  return items;
-}
-
-/* dependency overlay */
-function ensureDepSvg(){
-  const content = timeline.dom.center.querySelector('.vis-content');
-  if(!content) return;
-  if(!depSvg){
-    depSvg = document.createElementNS('http://www.w3.org/2000/svg','svg');
-    depSvg.id='depSvg'; depSvg.style.position='absolute'; depSvg.style.left='0'; depSvg.style.top='0'; depSvg.style.pointerEvents='none';
-    content.appendChild(depSvg);
-  }
-  const r=content.getBoundingClientRect(); depSvg.setAttribute('width', r.width); depSvg.setAttribute('height', r.height);
-}
-function drawDependencies(){
-  if(!timeline || !depSvg) return;
-  const content = timeline.dom.center.querySelector('.vis-content');
-  const r=content.getBoundingClientRect(); depSvg.setAttribute('width', r.width); depSvg.setAttribute('height', r.height);
-  depSvg.innerHTML='';
-  const all=loadGoals(); const ids=idMap();
-  all.forEach(g=>{
-    if(!g.dependsOnId) return;
-    const from=content.querySelector(`.vis-item[data-id="${g.dependsOnId}"]`);
-    const to  =content.querySelector(`.vis-item[data-id="${g.id}"]`);
-    if(!from || !to) return;
-    const a=from.getBoundingClientRect(), b=to.getBoundingClientRect();
-    const x1=a.right - r.left, y1=a.top - r.top + a.height/2;
-    const x2=b.left  - r.left, y2=b.top - r.top + b.height/2;
-    const mid=(x1+x2)/2;
-    const path=document.createElementNS('http://www.w3.org/2000/svg','path');
-    path.setAttribute('d',`M${x1} ${y1} C ${mid} ${y1} ${mid} ${y2} ${x2} ${y2}`);
-    path.setAttribute('class','conn'); if(FOCUS.size && !(FOCUS.has(g.dependsOnId)&&FOCUS.has(g.id))) path.classList.add('dim');
-    depSvg.appendChild(path);
-    const arrow=document.createElementNS('http://www.w3.org/2000/svg','path');
-    arrow.setAttribute('d',`M ${x2-7} ${y2-4} L ${x2} ${y2} L ${x2-7} ${y2+4} Z`);
-    arrow.setAttribute('class','arrow'); if(FOCUS.size && !(FOCUS.has(g.dependsOnId)&&FOCUS.has(g.id))) arrow.classList.add('dim');
-    depSvg.appendChild(arrow);
-  });
-}
-let depTimer; function drawDepsSoon(){ clearTimeout(depTimer); depTimer=setTimeout(drawDependencies, 30); }
-
-function focusChain(id){
-  const all=loadGoals(), byId=new Map(all.map(g=>[g.id,g]));
-  FOCUS = new Set([id]);
-  let cur=byId.get(id); while(cur && cur.dependsOnId){ FOCUS.add(cur.dependsOnId); cur=byId.get(cur.dependsOnId); }
-  let expand=true; while(expand){ expand=false; for(const g of all){ if(g.dependsOnId && FOCUS.has(g.dependsOnId) && !FOCUS.has(g.id)){ FOCUS.add(g.id); expand=true; } }
-  }
-  dimItems(); drawDepsSoon();
-}
-function dimItems(){
-  const nodes=$$('#timeline .vis-item');
-  nodes.forEach(n=>{
-    const id=n.getAttribute('data-id');
-    if(FOCUS.size && !FOCUS.has(id)) n.classList.add('dim'); else n.classList.remove('dim');
-  });
-}
-
-/* ====== Priority legend ====== */
-const prioLegend=document.getElementById('prioLegend');
-prioLegend.addEventListener('click', e=>{
-  const p=e.target.closest('.clickable'); if(!p) return;
-  const val=p.dataset.prio; PRIO = (PRIO===val)? '' : val; $('#fPrio').value=PRIO; syncPrioLegend(); renderTable(); rebuildTimeline();
-});
-function syncPrioLegend(){ prioLegend.querySelectorAll('.clickable').forEach(x=>x.classList.toggle('active', x.dataset.prio===PRIO && PRIO)); }
-
-/* ====== Helpers ====== */
-function addDays(isoStr, n){ const d=new Date(isoStr); d.setDate(d.getDate()+n); return d; }
-
-/* ====== Boot & Refresh ====== */
-function refresh(){
-  buildYears();
-  renderTable();
-  rebuildTimeline();
-  renderStatus();
-  syncPrioLegend();
-}
-document.addEventListener('DOMContentLoaded', refresh);
-</script>
-</body>
-</html>
+const pad=n=>String(n).padStart(2,'0'); const iso=d=>`${d.getFull
