@@ -1,98 +1,182 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Focus.One — Dashboard</title>
   <style>
-    :root{--line:#e2e8f0;--muted:#64748b;--green:#22c55e;--violet:#8b5cf6;--amber:#f59e0b}
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;margin:0;background:#f7f9fc;color:#0f172a}
-    .wrap{max-width:900px;margin:24px auto;padding:0 16px}
-    header{padding:14px 20px;background:#fff;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center}
-    a.btn,button.btn{padding:10px 14px;border-radius:12px;border:1px solid var(--line);background:#fff;cursor:pointer;text-decoration:none;color:#0f172a;font-weight:600;}
-    .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;margin-top:16px}
-    .grid{display:grid;gap:12px;grid-template-columns:repeat(12,1fr)}
-    .g6{grid-column:span 6} .g12{grid-column:span 12}
-    .muted{color:var(--muted)}
-    canvas{max-width:100%;}
+    :root {
+      --bg:#f7f9fc; --fg:#0f172a; --muted:#64748b; --line:#e2e8f0; --card:#ffffff;
+      --accent:#0ea5e9; --accent2:#60a5fa;
+    }
+    body {
+      margin:0; padding:0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg); color: var(--fg);
+    }
+    header {
+      background:#fff; border-bottom:1px solid var(--line);
+      padding:14px 20px; display:flex; align-items:center; gap:8px;
+    }
+    .btn {
+      padding:10px 14px; border-radius:12px; border:0;
+      background: var(--accent2); color:#fff; font-weight:600;
+      cursor:pointer; text-decoration:none;
+    }
+    .btn.secondary {
+      background:#e2e8f0; color:#0f172a;
+    }
+    .wrap {
+      max-width:900px; margin:24px auto; padding:0 16px;
+    }
+    .card {
+      background:#fff; border:1px solid var(--line); border-radius:12px;
+      padding:24px; margin-bottom:24px;
+    }
+    .metrics {
+      display:flex; gap:24px; flex-wrap:wrap;
+    }
+    .metric {
+      flex:1 1 200px;
+      background: #f9fafb; border-radius:8px; padding:16px;
+      text-align:center;
+    }
+    .metric .value {
+      font-size:2.5rem; font-weight:700; margin-top:8px;
+    }
+    .metric .label {
+      font-size:0.9rem; color:var(--muted);
+    }
+    canvas {
+      width:100% !important; height:auto !important;
+    }
+    .small-table {
+      width:100%; border-collapse:collapse; margin-top:16px;
+    }
+    .small-table th, .small-table td {
+      border-bottom:1px solid var(--line); padding:8px; text-align:left;
+    }
+    .small-table th {
+      color:var(--muted); font-size:0.85rem;
+    }
+    .small-table td {
+      font-size:1rem;
+    }
   </style>
 </head>
 <body>
-<header>
-  <a class="btn" href="index.html">← Back to Goals</a>
-  <div style="font-weight:800">Dashboard</div>
-</header>
-<div class="wrap">
-  <div class="card">
-    <h2>Category Overview</h2>
-    <canvas id="chartCategories" width="400" height="200"></canvas>
+  <header>
+    <a class="btn secondary" href="index.html">← Back to Goals</a>
+    <div style="font-weight:800; font-size:1.25rem;">Dashboard</div>
+  </header>
+
+  <div class="wrap">
+    <!-- Top metrics -->
+    <div class="card">
+      <div class="metrics">
+        <div class="metric">
+          <div class="label">Total Goals</div>
+          <div class="value" id="mTotal">‑</div>
+        </div>
+        <div class="metric">
+          <div class="label">Completed %</div>
+          <div class="value" id="mDonePct">‑</div>
+        </div>
+        <div class="metric">
+          <div class="label">Overdue Goals</div>
+          <div class="value" id="mOverdue">‑</div>
+        </div>
+        <div class="metric">
+          <div class="label">Priority‑Weighted Score</div>
+          <div class="value" id="mScore">‑</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts row -->
+    <div class="card" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px,1fr)); gap:24px;">
+      <div>
+        <h3>Goals by Category</h3>
+        <canvas id="chartCategories"></canvas>
+      </div>
+      <div>
+        <h3>Goals by Status / Priority</h3>
+        <canvas id="chartStatus"></canvas>
+      </div>
+    </div>
+
+    <!-- Upcoming tasks / details -->
+    <div class="card">
+      <h3>Next Due Goals</h3>
+      <table class="small-table" id="tableUpcoming">
+        <thead><tr><th>Goal</th><th>Due</th><th>Status</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="muted" style="text-align:center;padding:18px;">Data stored locally in your browser.</div>
   </div>
-  <div class="card">
-    <h2>Status Overview</h2>
-    <canvas id="chartStatus" width="400" height="200"></canvas>
-  </div>
-  <div class="card">
-    <h2>Priority Overview</h2>
-    <canvas id="chartPriority" width="400" height="200"></canvas>
-  </div>
-  <div class="muted" style="text-align:center;padding:18px;">Data pulled from your goals in browser storage.</div>
-</div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-const goalsKey = 'focusone_goals';
-const categoriesKey = 'focusone_categories';
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    const goalsKey = 'focusone_goals';
+    const categoriesKey = 'focusone_categories';
+    const $ = s => document.querySelector(s);
 
-function loadGoals(){
-  try { return JSON.parse(localStorage.getItem(goalsKey)) || []; }
-  catch(e){ console.error(e); return []; }
-}
-function loadCategories(){
-  try { return JSON.parse(localStorage.getItem(categoriesKey)) || []; }
-  catch(e){ console.error(e); return []; }
-}
+    function loadGoals(){ try { return JSON.parse(localStorage.getItem(goalsKey))||[] } catch(e){ return[] } }
+    function loadCategories(){ try { return JSON.parse(localStorage.getItem(categoriesKey))||[] } catch(e){ return[] } }
 
-function createChart(ctxId, type, data, options={}){
-  const ctx = document.getElementById(ctxId).getContext('2d');
-  return new Chart(ctx, { type, data, options });
-}
+    function buildDashboard(){
+      const goals = loadGoals();
+      const cats  = loadCategories();
 
-function buildOverview(){
-  const goals = loadGoals();
-  const cats  = loadCategories();
+      const total     = goals.length;
+      const doneCount = goals.filter(g=>g.status==='done').length;
+      const overdue   = goals.filter(g=>g.due_date && g.due_date < new Date().toISOString().slice(0,10) && g.status!=='done').length;
+      const donePct   = total? Math.round(doneCount/total*100):0;
 
-  // Category counts
-  const catLabels = cats.map(c=>c.name);
-  const catColors = cats.map(c=>c.color);
-  const catCounts = cats.map(c=> goals.filter(g=>g.categoryId===c.id).length );
+      $('#mTotal').textContent    = total;
+      $('#mDonePct').textContent  = donePct + '%';
+      $('#mOverdue').textContent  = overdue;
+      $('#mScore').textContent    = '‑'; // you can compute your score logic here
 
-  createChart('chartCategories','doughnut',{
-    labels: catLabels,
-    datasets:[{ data:catCounts, backgroundColor:catColors }]
-  });
+      // Chart: category distribution
+      const catLabels = cats.map(c=>c.name);
+      const catColors = cats.map(c=>c.color);
+      const catCounts = cats.map(c=>goals.filter(g=>g.categoryId===c.id).length);
 
-  // Status counts
-  const statuses = ['not_started','in_progress','blocked','done'];
-  const statusLabels = ['Not started','In progress','Blocked','Done'];
-  const statusCounts = statuses.map(s=>goals.filter(g=>g.status===s).length);
-  createChart('chartStatus','pie',{
-    labels: statusLabels,
-    datasets:[{ data:statusCounts, backgroundColor:['#e2e8f0','#8b5cf6','#111827','#22c55e'] }]
-  });
+      new Chart($('#chartCategories').getContext('2d'), {
+        type:'doughnut',
+        data:{labels:catLabels, datasets:[{data:catCounts, backgroundColor:catColors}]},
+        options:{plugins:{legend:{position:'bottom'}}}
+      });
 
-  // Priority counts
-  const priorities = ['low','medium','high','critical'];
-  const prLabels    = ['Low','Medium','High','Critical'];
-  const prCounts    = priorities.map(p=>goals.filter(g=>g.priority===p).length);
-  createChart('chartPriority','bar',{
-    labels: prLabels,
-    datasets:[{ label:'Count', data:prCounts, backgroundColor:['#cbd5e1','#60a5fa','#f59e0b','#ef4444'] }]
-  },{
-    scales:{ y:{ beginAtZero:true } }
-  });
-}
+      // Chart: status distribution
+      const statuses  = ['not_started','in_progress','blocked','done'];
+      const statusLabels = ['Not started','In progress','Blocked','Done'];
+      const statusCounts = statuses.map(s=>goals.filter(g=>g.status===s).length);
+      new Chart($('#chartStatus').getContext('2d'), {
+        type:'bar',
+        data:{labels: statusLabels, datasets:[{label:'Goals', data:statusCounts, backgroundColor:['#e2e8f0','#8b5cf6','#111827','#22c55e']}]},
+        options:{scales:{y:{beginAtZero:true}}}
+      });
 
-buildOverview();
-</script>
+      // Upcoming due goals
+      const upcoming = goals
+        .filter(g=>g.due_date && g.status!=='done')
+        .sort((a,b)=>new Date(a.due_date) - new Date(b.due_date))
+        .slice(0,5);
+
+      const tbody = $('#tableUpcoming tbody');
+      tbody.innerHTML = upcoming.map(g=>`
+        <tr>
+          <td>${g.title}</td>
+          <td>${g.due_date}</td>
+          <td>${g.status.replace('_',' ')}</td>
+        </tr>`).join('');
+    }
+
+    buildDashboard();
+  </script>
 </body>
 </html>
