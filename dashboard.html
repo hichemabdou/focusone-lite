@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>Focus.One — Dashboard</title>
+  <style>
+    :root{--line:#e2e8f0;--muted:#64748b;--green:#22c55e;--violet:#8b5cf6;--amber:#f59e0b}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;margin:0;background:#f7f9fc;color:#0f172a}
+    .wrap{max-width:900px;margin:24px auto;padding:0 16px}
+    header{padding:14px 20px;background:#fff;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center}
+    a.btn,button.btn{padding:10px 14px;border-radius:12px;border:1px solid var(--line);background:#fff;cursor:pointer;text-decoration:none;color:#0f172a;font-weight:600;}
+    .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;margin-top:16px}
+    .grid{display:grid;gap:12px;grid-template-columns:repeat(12,1fr)}
+    .g6{grid-column:span 6} .g12{grid-column:span 12}
+    .muted{color:var(--muted)}
+    canvas{max-width:100%;}
+  </style>
+</head>
+<body>
+<header>
+  <a class="btn" href="index.html">← Back to Goals</a>
+  <div style="font-weight:800">Dashboard</div>
+</header>
+<div class="wrap">
+  <div class="card">
+    <h2>Category Overview</h2>
+    <canvas id="chartCategories" width="400" height="200"></canvas>
+  </div>
+  <div class="card">
+    <h2>Status Overview</h2>
+    <canvas id="chartStatus" width="400" height="200"></canvas>
+  </div>
+  <div class="card">
+    <h2>Priority Overview</h2>
+    <canvas id="chartPriority" width="400" height="200"></canvas>
+  </div>
+  <div class="muted" style="text-align:center;padding:18px;">Data pulled from your goals in browser storage.</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const goalsKey = 'focusone_goals';
+const categoriesKey = 'focusone_categories';
+
+function loadGoals(){
+  try { return JSON.parse(localStorage.getItem(goalsKey)) || []; }
+  catch(e){ console.error(e); return []; }
+}
+function loadCategories(){
+  try { return JSON.parse(localStorage.getItem(categoriesKey)) || []; }
+  catch(e){ console.error(e); return []; }
+}
+
+function createChart(ctxId, type, data, options={}){
+  const ctx = document.getElementById(ctxId).getContext('2d');
+  return new Chart(ctx, { type, data, options });
+}
+
+function buildOverview(){
+  const goals = loadGoals();
+  const cats  = loadCategories();
+
+  // Category counts
+  const catLabels = cats.map(c=>c.name);
+  const catColors = cats.map(c=>c.color);
+  const catCounts = cats.map(c=> goals.filter(g=>g.categoryId===c.id).length );
+
+  createChart('chartCategories','doughnut',{
+    labels: catLabels,
+    datasets:[{ data:catCounts, backgroundColor:catColors }]
+  });
+
+  // Status counts
+  const statuses = ['not_started','in_progress','blocked','done'];
+  const statusLabels = ['Not started','In progress','Blocked','Done'];
+  const statusCounts = statuses.map(s=>goals.filter(g=>g.status===s).length);
+  createChart('chartStatus','pie',{
+    labels: statusLabels,
+    datasets:[{ data:statusCounts, backgroundColor:['#e2e8f0','#8b5cf6','#111827','#22c55e'] }]
+  });
+
+  // Priority counts
+  const priorities = ['low','medium','high','critical'];
+  const prLabels    = ['Low','Medium','High','Critical'];
+  const prCounts    = priorities.map(p=>goals.filter(g=>g.priority===p).length);
+  createChart('chartPriority','bar',{
+    labels: prLabels,
+    datasets:[{ label:'Count', data:prCounts, backgroundColor:['#cbd5e1','#60a5fa','#f59e0b','#ef4444'] }]
+  },{
+    scales:{ y:{ beginAtZero:true } }
+  });
+}
+
+buildOverview();
+</script>
+</body>
+</html>
