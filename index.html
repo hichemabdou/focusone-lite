@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Focus.One Lite</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt/dist/frappe-gantt.css"/>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background:#f7f9fc; color:#0f172a; }
+      header { padding: 18px 20px; background:white; box-shadow: 0 1px 8px rgba(0,0,0,.06); position: sticky; top:0; z-index: 10; }
+      .brand { font-weight: 700; letter-spacing: .2px; }
+      .wrap { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
+      .card { background:white; border-radius:16px; padding:16px; box-shadow: 0 2px 12px rgba(15,23,42,.06); margin-bottom:16px; }
+      .grid { display:grid; gap:16px; grid-template-columns: repeat(12, 1fr); }
+      .g6 { grid-column: span 6; } .g12 { grid-column: span 12; }
+      label { font-size: 12px; color:#334155; display:block; margin-bottom:6px; }
+      input, select, textarea { width:100%; padding:10px 12px; border:1px solid #e5e7eb; border-radius:10px; background:#f9fafb; }
+      button { padding:10px 14px; border-radius:12px; border:0; background:#0ea5e9; color:white; font-weight:600; cursor:pointer; }
+      button.secondary { background:#e2e8f0; color:#0f172a; }
+      button.warn { background:#ef4444; }
+      h2 { margin: 0 0 10px; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { padding: 10px; border-bottom: 1px solid #f1f5f9; text-align: left; font-size: 14px;}
+      .badge { font-size:12px; padding:4px 8px; border-radius:9999px; background:#f1f5f9; }
+      .row { display:flex; gap:8px; align-items:center; flex-wrap: wrap;}
+      #gantt { overflow: auto; min-height: 260px; border:1px solid #edf2f7; border-radius:12px; }
+      .toolbar { display:flex; gap:8px; flex-wrap: wrap; }
+      .muted { color:#64748b; font-size: 13px; }
+      .kpi { display:flex; gap:16px; }
+      .kpi .item { background:#f8fafc; border:1px solid #e2e8f0; padding:12px; border-radius:12px; }
+      .footer { text-align:center; padding:20px; color:#94a3b8; }
+      @media (max-width: 900px) { .g6 { grid-column: span 12; } }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="wrap row">
+        <div class="brand">Focus.One <span class="muted">Lite</span></div>
+        <div style="flex:1"></div>
+        <button id="exportJsonBtn" class="secondary">Export JSON</button>
+        <button id="importJsonBtn" class="secondary">Import JSON</button>
+      </div>
+    </header>
+
+    <div class="wrap">
+      <div class="grid">
+        <div class="g12 card">
+          <h2>Quick Add Goal</h2>
+          <div class="grid">
+            <div class="g6">
+              <label>Title</label>
+              <input id="title" placeholder="e.g., Finish German A2 by March" />
+            </div>
+            <div class="g3">
+              <label>Start date</label>
+              <input id="start" type="date" />
+            </div>
+            <div class="g3">
+              <label>Due date</label>
+              <input id="due" type="date" />
+            </div>
+            <div class="g3">
+              <label>Priority</label>
+              <select id="priority">
+                <option>low</option><option selected>medium</option><option>high</option><option>critical</option>
+              </select>
+            </div>
+            <div class="g3">
+              <label>Status</label>
+              <select id="status">
+                <option selected>not_started</option><option>in_progress</option><option>blocked</option><option>done</option>
+              </select>
+            </div>
+            <div class="g6" style="display:flex; align-items:flex-end; gap:8px;">
+              <button id="addBtn">Add Goal</button>
+              <button id="clearBtn" class="secondary">Clear Form</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="g12 card">
+          <div class="row" style="justify-content:space-between;">
+            <h2>Timeline</h2>
+            <div class="toolbar">
+              <button data-view="Day" class="secondary">Day</button>
+              <button data-view="Week" class="secondary">Week</button>
+              <button data-view="Month" class="secondary">Month</button>
+              <button data-view="Year" class="secondary">Year</button>
+            </div>
+          </div>
+          <div id="gantt"></div><div id="ganttCount" class="muted" style="margin-top:6px;"></div>
+<div id="ganttError" class="muted" style="display:none;color:#ef4444;margin-top:8px;"></div>
+          <div class="muted">Click a bar to open the goal details.</div>
+        </div>
+
+        <div class="g12 card">
+          <div class="row" style="justify-content:space-between;">
+            <h2>Goals</h2>
+            <div class="toolbar">
+              <select id="filterStatus">
+                <option value="">All statuses</option>
+                <option>not_started</option><option>in_progress</option><option>blocked</option><option>done</option>
+              </select>
+              <select id="filterPriority">
+                <option value="">All priorities</option>
+                <option>low</option><option>medium</option><option>high</option><option>critical</option>
+              </select>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Title</th><th>Start</th><th>Due</th><th>Priority</th><th>Status</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="goalRows"></tbody>
+          </table>
+        </div>
+
+        <div class="g12 card">
+          <h2>Quarterly Review</h2>
+          <div class="grid">
+            <div class="g3">
+              <label>Quarter start</label>
+              <input id="qStart" type="date" />
+            </div>
+            <div class="g3">
+              <label>Quarter end</label>
+              <input id="qEnd" type="date" />
+            </div>
+            <div class="g6" style="display:flex; align-items:flex-end; gap:8px;">
+              <button id="computeBtn">Compute Score</button>
+              <button id="icsBtn" class="secondary">Download Review .ics</button>
+            </div>
+            <div class="g12">
+              <label>Notes</label>
+              <textarea id="notes" rows="4" placeholder="What moved the needle? What slipped? Focus for next quarter?"></textarea>
+            </div>
+            <div class="g12 kpi">
+              <div class="item"><div class="muted">Completion %</div><div id="kpiCompletion" style="font-weight:700;font-size:20px;">–</div></div>
+              <div class="item"><div class="muted">On‑time %</div><div id="kpiOnTime" style="font-weight:700;font-size:20px;">–</div></div>
+              <div class="item"><div class="muted">Priority‑weighted %</div><div id="kpiPwc" style="font-weight:700;font-size:20px;">–</div></div>
+              <div class="item"><div class="muted">Score</div><div id="kpiScore" style="font-weight:700;font-size:20px;">–</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">Focus.One Lite — local, private (stored in your browser). Export JSON to back up.</div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/isSameOrBefore.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/isSameOrAfter.js"></script>
+<script>dayjs.extend(window.dayjs_plugin_isSameOrBefore); dayjs.extend(window.dayjs_plugin_isSameOrAfter);</script>
+    <script src="https://cdn.jsdelivr.net/npm/frappe-gantt/dist/frappe-gantt.min.js"></script>
+    <script>
+      const $ = sel => document.querySelector(sel);
+      const goalsKey = 'focusone_goals';
+
+      function loadGoals(){
+        try { return JSON.parse(localStorage.getItem(goalsKey)) || []; } catch(e){ return []; }
+      }
+      function saveGoals(list){ localStorage.setItem(goalsKey, JSON.stringify(list)); refresh(); }
+
+      function uid(){ return 'g_' + Math.random().toString(36).slice(2,9); }
+
+      function addGoal(g){
+        const list = loadGoals();
+        list.push({ id: uid(), ...g });
+        saveGoals(list);
+      }
+
+      function updateGoal(id, patch){
+        const list = loadGoals().map(g => g.id===id ? {...g, ...patch} : g);
+        saveGoals(list);
+      }
+
+      function deleteGoal(id){
+        saveGoals(loadGoals().filter(g => g.id!==id));
+      }
+
+      function renderTable(){
+        const tbody = $('#goalRows');
+        const status = $('#filterStatus').value;
+        const prio = $('#filterPriority').value;
+        const list = loadGoals().filter(g => (!status || g.status===status) && (!prio || g.priority===prio));
+        tbody.innerHTML = list.map(g => `
+          <tr>
+            <td>${g.title}</td>
+            <td>${g.start_date||''}</td>
+            <td>${g.due_date||''}</td>
+            <td><span class="badge">${g.priority}</span></td>
+            <td>
+              <select data-id="${g.id}" class="statusSel">
+                ${['not_started','in_progress','blocked','done'].map(s => `<option ${g.status===s?'selected':''}>${s}</option>`).join('')}
+              </select>
+            </td>
+            <td class="row">
+              <button data-id="${g.id}" class="editBtn secondary">Edit</button>
+              <button data-id="${g.id}" class="delBtn warn">Delete</button>
+            </td>
+          </tr>
+        `).join('');
+
+        tbody.querySelectorAll('.statusSel').forEach(sel=>{
+          sel.addEventListener('change', e => {
+            const id = sel.getAttribute('data-id');
+            updateGoal(id, { status: sel.value }); refresh();
+          });
+        });
+        tbody.querySelectorAll('.delBtn').forEach(btn=>{
+          btn.addEventListener('click', e => {
+            const id = btn.getAttribute('data-id');
+            if(confirm('Delete this goal?')) deleteGoal(id);
+          });
+        });
+        tbody.querySelectorAll('.editBtn').forEach(btn=>{
+          btn.addEventListener('click', e => {
+            const id = btn.getAttribute('data-id');
+            const g = loadGoals().find(x=>x.id===id);
+            if(!g) return;
+            $('#title').value = g.title;
+            $('#start').value = g.start_date || '';
+            $('#due').value = g.due_date || '';
+            $('#priority').value = g.priority;
+            $('#status').value = g.status;
+            // Overwrite on save
+            $('#addBtn').textContent = 'Save Changes';
+            $('#addBtn').dataset.editing = id;
+          });
+        });
+      }
+
+      let gantt;
+      function renderGantt(){
+        const err = document.getElementById('ganttError');
+        if (typeof Gantt === 'undefined') {
+          console.error('Frappe Gantt library not loaded');
+          if (err) { err.style.display='block'; err.textContent = 'Gantt library failed to load. Check your internet connection and reopen the page.'; }
+          return;
+        }
+        const container = document.getElementById('gantt');
+        container.innerHTML = '';
+        const tasks = loadGoals().filter(g=>g.start_date && g.due_date).map(g => ({
+          id: g.id,
+          name: g.title,
+          start: g.start_date,
+          end: g.due_date,
+          progress: g.status === 'done' ? 100 : g.status === 'in_progress' ? 50 : 0,
+        }));
+        if(tasks.length===0){
+          container.innerHTML = '<div class="muted">No items to plot. Add a goal with both <b>Start date</b> and <b>Due date</b> to see it here.</div>';
+          return;
+        }
+        console.log('Gantt tasks:', tasks);
+        document.getElementById('ganttCount').textContent = 'Items on timeline: ' + tasks.length;
+        gantt = new Gantt('#gantt', tasks, {
+          view_mode: 'Month',
+          custom_popup_html: (task) => `<div class="card" style="padding:8px;"><b>${task.name}</b><br>${task.start} → ${task.end}</div>`
+        });
+      }
+
+      function refresh(){
+        renderTable();
+        renderGantt();
+      }
+
+      // Add / Save
+      $('#addBtn').addEventListener('click', () => {
+        const title = $('#title').value.trim();
+        const start = $('#start').value || null;
+        const due = $('#due').value || null;
+        const priority = $('#priority').value;
+        const status = $('#status').value;
+        if(!title){ alert('Title required'); return; }
+        if(!start || !due){ alert('Please set both Start and Due dates to appear on the timeline.'); return; }
+        if(start > due){ alert('Start date must be on or before Due date.'); return; }
+        const editing = $('#addBtn').dataset.editing;
+        if(editing){
+          updateGoal(editing, { title, start_date:start, due_date:due, priority, status });
+          $('#addBtn').textContent = 'Add Goal';
+          delete $('#addBtn').dataset.editing;
+        } else {
+          addGoal({ title, start_date:start, due_date:due, priority, status });
+        }
+        ['#title','#start','#due'].forEach(s => $(s).value=''); alert('Saved ✔');
+      });
+
+      $('#clearBtn').addEventListener('click', () => {
+        ['#title','#start','#due'].forEach(s => $(s).value=''); alert('Saved ✔');
+        $('#addBtn').textContent = 'Add Goal';
+        delete $('#addBtn').dataset.editing;
+      });
+
+      // Filters
+      $('#filterStatus').addEventListener('change', refresh);
+      $('#filterPriority').addEventListener('change', refresh);
+
+      // View mode buttons
+      document.querySelectorAll('[data-view]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if(!gantt) return;
+          gantt.change_view_mode(btn.dataset.view);
+        });
+      });
+
+      // Quarterly review compute
+      function weight(p){ return p==='low'?1:p==='medium'?2:p==='high'?3:5; }
+      $('#computeBtn').addEventListener('click', () => {
+        const qs = $('#qStart').value, qe = $('#qEnd').value;
+        if(!qs || !qe){ alert('Select quarter start & end dates'); return; }
+        const start = dayjs(qs), end = dayjs(qe);
+        const list = loadGoals().filter(g => g.start_date && g.due_date && dayjs(g.start_date).isBefore(end.add(1,'day')) && dayjs(g.due_date).isAfter(start.subtract(1,'day')));
+        const total = list.length;
+        if(total===0){ ['#kpiCompletion','#kpiOnTime','#kpiPwc','#kpiScore'].forEach(id=>$(id).textContent='0%'); return; }
+        const done = list.filter(g => g.status==='done');
+        const completion = Math.round(done.length/total*100);
+
+        const onTimeDone = done.filter(g => dayjs(g.due_date).isAfter(dayjs(g.completed_at||g.due_date)) || dayjs(g.completed_at||g.due_date).isBefore(dayjs(g.due_date).add(1,'day'))).length;
+        const onTime = Math.round((done.length? (onTimeDone/done.length*100) : 0));
+
+        const denom = list.reduce((acc,g)=>acc+weight(g.priority),0);
+        const num = list.reduce((acc,g)=>acc+(g.status==='done'?weight(g.priority):0),0);
+        const pwc = Math.round((denom? num/denom*100 : 0));
+
+        const score = Math.round(0.5*completion + 0.3*onTime + 0.2*pwc);
+
+        $('#kpiCompletion').textContent = completion + '%';
+        $('#kpiOnTime').textContent = onTime + '%';
+        $('#kpiPwc').textContent = pwc + '%';
+        $('#kpiScore').textContent = score;
+      });
+
+      // ICS download for review reminder
+      function download(filename, content, type='text/plain'){
+        const blob = new Blob([content], {type});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = filename; a.click();
+        URL.revokeObjectURL(url);
+      }
+      $('#icsBtn').addEventListener('click', () => {
+        const qs = $('#qStart').value, qe = $('#qEnd').value;
+        if(!qs || !qe){ alert('Select quarter start & end dates'); return; }
+        const uid = Math.random().toString(36).slice(2);
+        const dt = dayjs().utc().format('YYYYMMDDTHHmmss') + 'Z';
+        const ics = [
+          'BEGIN:VCALENDAR',
+          'VERSION:2.0',
+          'PRODID:-//Focus.One Lite//Goals//EN',
+          'CALSCALE:GREGORIAN',
+          'METHOD:PUBLISH',
+          'BEGIN:VEVENT',
+          `UID:review-${uid}@focusone-lite`,
+          `DTSTAMP:${dt}`,
+          `DTSTART;VALUE=DATE:${qs.replaceAll('-','')}`,
+          `DTEND;VALUE=DATE:${qe.replaceAll('-','')}`,
+          'SUMMARY:Quarterly Review - Focus.One',
+          'DESCRIPTION:Open Focus.One Lite and complete your review.',
+          'END:VEVENT',
+          'END:VCALENDAR'
+        ].join('\r\n');
+        download('focusone-review.ics', ics, 'text/calendar');
+      });
+
+      // Export / Import
+      $('#exportJsonBtn').addEventListener('click', () => {
+        const data = { goals: loadGoals() };
+        download('focusone-data.json', JSON.stringify(data, null, 2), 'application/json');
+      });
+      $('#importJsonBtn').addEventListener('click', () => {
+        const inp = document.createElement('input'); inp.type='file'; inp.accept='application/json';
+        inp.onchange = () => {
+          const file = inp.files[0]; if(!file) return;
+          const fr = new FileReader();
+          fr.onload = () => {
+            try {
+              const data = JSON.parse(fr.result);
+              if(data && Array.isArray(data.goals)){ localStorage.setItem(goalsKey, JSON.stringify(data.goals)); refresh(); }
+              else alert('Invalid JSON');
+            } catch(e){ alert('Invalid JSON'); }
+          };
+          fr.readAsText(file);
+        };
+        inp.click();
+      });
+
+      // Seed example if empty
+      if(loadGoals().length===0){
+        saveGoals([
+          {id: uid(), title:'German A2 course', start_date: dayjs().startOf('month').format('YYYY-MM-DD'), due_date: dayjs().add(2,'month').endOf('month').format('YYYY-MM-DD'), priority:'high', status:'in_progress'},
+          {id: uid(), title:'Write 2 chapters of SQM book', start_date: dayjs().add(1,'week').format('YYYY-MM-DD'), due_date: dayjs().add(3,'month').format('YYYY-MM-DD'), priority:'medium', status:'not_started'}
+        ]);
+      } else {
+        refresh();
+      }
+    </script>
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        try { refresh(); } catch(e){ console.error(e); }
+      });
+    </script>
+  </body>
+</html>
