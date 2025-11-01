@@ -206,6 +206,9 @@
       function monthLabel(x){ return x.toLocaleString(undefined,{ month:'short', year:'numeric' }); }
 
       function renderGantt(view='Month'){
+        // Map priority -> exact bar color
+const prioColor = { low:'#cbd5e1', medium:'#60a5fa', high:'#f59e0b', critical:'#ef4444' };
+
         const container = document.getElementById('gantt');
         const countEl = document.getElementById('ganttCount');
         const items = loadGoals().filter(g=>g.start_date && g.due_date);
@@ -260,6 +263,8 @@
           rect.setAttribute('x', String(barX)); rect.setAttribute('y', String(y));
           rect.setAttribute('width', String(barW)); rect.setAttribute('height','20');
           rect.setAttribute('rx','6'); rect.setAttribute('ry','6');
+          rect.setAttribute('fill', prioColor[g.priority || 'medium']); // ensure bar color matches priority
+
           rect.setAttribute('class','prio-' + (g.priority||'medium'));
           rect.setAttribute('fill-opacity', g.status==='done' ? '0.7' : '1.0');
           rect.setAttribute('stroke','#0f172a22'); rect.setAttribute('stroke-width','1');
@@ -349,6 +354,12 @@
       } else {
         refresh();
       }
+      // Auto-close native date pickers on selection (Safari/Chrome)
+['start','due','qStart','qEnd'].forEach(id => {
+  const el = document.getElementById(id);
+  if(el) el.addEventListener('change', () => el.blur());
+});
+
     </script>
   </body>
 </html>
