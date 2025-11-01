@@ -16,10 +16,6 @@
 <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/fr.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/en.js"></script>
 
-<!-- Intro.js (onboarding) -->
-<link rel="stylesheet" href="https://unpkg.com/intro.js/minified/introjs.min.css">
-<script src="https://unpkg.com/intro.js/minified/intro.min.js"></script>
-
 <!-- Quill (rich notes) -->
 <link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.min.js"></script>
@@ -61,11 +57,14 @@ window.__FB__ = FB;
   header .inner{max-width:1200px;margin:0 auto;padding:14px 20px;display:flex;gap:8px;align-items:center}
   .brand{font-weight:800;letter-spacing:.2px}
   .spacer{flex:1}
-  .btn{padding:10px 14px;border-radius:12px;border:0;background:var(--primary);color:#fff;font-weight:600;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:8px}
+  .btn{padding:10px 14px;border-radius:12px;border:0;background:var(--primary);color:#fff;font-weight:600;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:8px;transition:transform .08s ease, box-shadow .2s ease}
+  .btn:hover{transform:translateY(-1px);box-shadow:0 8px 18px rgba(2,6,23,.12)}
+  .btn:active{transform:translateY(0)}
   .btn.secondary{background:#edf2f7;color:var(--fg);border:1px solid var(--line)}
   .btn.warn{background:var(--red);color:#fff}
   .btn.ghost{background:transparent;border:1px dashed var(--line);color:var(--muted)}
-  .wrap{max-width:1200px;margin:22px auto;padding:0 16px}
+  .wrap{max-width:1200px;margin:22px auto;padding:0 16px;transition:filter .2s ease}
+  body.modal-open .wrap{filter:blur(3px);pointer-events:none;user-select:none}
   .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:16px;box-shadow:0 6px 24px rgba(15,23,42,.06)}
   h2{margin:0 0 10px 0}
   .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
@@ -89,6 +88,7 @@ window.__FB__ = FB;
   .status-not_started{background:#e2e8f0;color:#0f172a}
   .status-in_progress{background:#8b5cf6;color:#fff}
   .status-blocked{background:#111827;color:#fff}
+  .status-paused{background:#94a3b8;color:#0f172a}
   .status-done{background:#22c55e;color:#fff}
   .category-pill{padding:3px 8px;border-radius:12px;font-size:12px;font-weight:600;color:#fff}
   .legend .pill.clickable{cursor:pointer;opacity:.95}
@@ -123,12 +123,14 @@ window.__FB__ = FB;
   .toast{position:fixed;bottom:16px;right:16px;background:var(--card);color:var(--fg);border:1px solid var(--line);box-shadow:0 10px 30px rgba(0,0,0,.16);padding:10px 12px;border-radius:12px;z-index:50}
   /* Modals */
   .backdrop{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.35);backdrop-filter:blur(2px);z-index:40}
-  .modal{width:min(860px,calc(100vw - 24px));}
+  .modal{width:min(860px,calc(100vw - 24px));outline:0}
   .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:12px}
   .g12{grid-column:span 12}.g6{grid-column:span 6}.g4{grid-column:span 4}
   .quill{height:120px}
   /* Compact utility */
   .hide{display:none !important}
+  /* Focus styles */
+  :focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radius:8px}
 </style>
 </head>
 <body>
@@ -139,9 +141,9 @@ window.__FB__ = FB;
     <div class="brand">Focus.One <span class="muted">Lite</span></div>
     <div class="spacer"></div>
 
-    <button id="tourBtn" class="btn secondary" title="Quick tour (Shift+?)">Tour</button>
-    <button id="themeBtn" class="btn secondary" title="Toggle light/dark (Shift+D)">Theme</button>
-    <button id="syncBtn" class="btn secondary" title="Sign in / Sync">Sign in</button>
+    <!-- removed Tour button -->
+    <button id="themeBtn" class="btn secondary" title="Toggle light/dark (Shift+D)" aria-label="Toggle theme">Theme</button>
+    <button id="syncBtn" class="btn secondary" title="Sign in / Sync" aria-label="Sign in / Sync">Sign in</button>
 
     <a class="btn secondary" href="dashboard.html" title="Full Dashboard">Dashboard</a>
     <a class="btn secondary" href="review.html" title="Quarterly Review">Quarterly Review</a>
@@ -156,7 +158,7 @@ window.__FB__ = FB;
 <div class="wrap" id="main">
 
   <!-- TIMELINE -->
-  <div id="timelineCard" class="card" data-intro="Your roadmap. Zoom with Ctrl + wheel, drag items to reschedule, click to focus a chain.">
+  <div id="timelineCard" class="card">
     <div class="toolbar" style="justify-content:space-between;">
       <h2>Timeline</h2>
       <div class="toolbar">
@@ -179,11 +181,11 @@ window.__FB__ = FB;
         <button id="fitBtn" class="btn secondary" title="Optimal zoom to see all">Fit</button>
 
         <label class="muted">Zoom</label>
-        <input id="zoomSlider" type="range" min="0" max="100" value="50" title="Zoom slider (hold Ctrl to wheel-zoom)">
+        <input id="zoomSlider" type="range" min="0" max="100" value="50" title="Zoom slider (hold Ctrl to wheel-zoom)" aria-label="Zoom slider">
       </div>
     </div>
 
-    <div id="timeline"></div>
+    <div id="timeline" aria-label="Goals timeline"></div>
 
     <div class="toolbar" style="justify-content:space-between;margin-top:8px;">
       <div class="legend" id="prioLegend">
@@ -196,15 +198,15 @@ window.__FB__ = FB;
         <span id="itemCount" class="muted" style="margin-left:8px"></span>
       </div>
       <div class="toolbar">
-        <label class="muted">Range:</label><input id="rangeStart" class="chip" placeholder="Start date">
-        <input id="rangeEnd" class="chip" placeholder="End date">
+        <label class="muted">Range:</label><input id="rangeStart" class="chip" placeholder="Start date" aria-label="Range start">
+        <input id="rangeEnd" class="chip" placeholder="End date" aria-label="Range end">
         <button id="rangeSet" class="btn secondary">Apply</button>
       </div>
     </div>
   </div>
 
   <!-- STATUS -->
-  <div class="card" data-intro="At a glance. Click a segment to filter below.">
+  <div class="card">
     <div class="toolbar" style="justify-content:space-between;">
       <h2>Status</h2>
       <div class="toolbar" style="gap:16px;align-items:center">
@@ -215,7 +217,7 @@ window.__FB__ = FB;
   </div>
 
   <!-- GOALS -->
-  <div class="card" data-intro="Fast table with inline edits, tags, notes, bulk actions.">
+  <div class="card">
     <div class="toolbar" style="justify-content:space-between;align-items:end;">
       <h2>Goals</h2>
       <div class="toolbar">
@@ -292,57 +294,50 @@ window.__FB__ = FB;
 
 <!-- Add/Edit Modal -->
 <div id="goalModal" class="backdrop" role="dialog" aria-modal="true" aria-label="Goal editor">
-  <div class="card modal">
+  <div class="card modal" tabindex="-1">
     <div class="toolbar" style="justify-content:space-between;">
       <h2 id="modalTitle">Add Goal</h2>
-      <button id="closeModal" class="btn secondary">Close</button>
+      <button id="closeModal" class="btn secondary" aria-label="Close goal editor">Close</button>
     </div>
 
     <div class="grid">
       <div class="g12">
-        <label>Title</label>
+        <label for="mTitle">Title</label>
         <input id="mTitle" autocomplete="off">
         <div id="eTitle" class="muted"></div>
       </div>
 
       <div class="g6">
-        <label>Start date</label>
+        <label for="mStart">Start date</label>
         <input id="mStart" type="text" placeholder="Start">
         <div id="eStart" class="muted"></div>
       </div>
       <div class="g6">
-        <label>Due date</label>
+        <label for="mDue">Due date</label>
         <input id="mDue" type="text" placeholder="Due">
         <div id="eDue" class="muted"></div>
       </div>
 
       <div class="g6">
-        <label>Category</label>
+        <label for="mCat">Category</label>
         <select id="mCat"></select>
       </div>
       <div class="g6">
-        <label>Status</label>
-        <select id="mStatus">
-          <option>planning</option>
-          <option>not_started</option>
-          <option>in_progress</option>
-          <option>paused</option>
-          <option>blocked</option>
-          <option>done</option>
-        </select>
+        <label for="mStatus">Status</label>
+        <select id="mStatus"></select>
       </div>
 
       <div class="g6">
-        <label>Priority</label>
+        <label for="mPrio">Priority</label>
         <select id="mPrio"><option>low</option><option selected>medium</option><option>high</option><option>critical</option></select>
       </div>
       <div class="g6">
-        <label>Depends on</label>
+        <label for="mDep">Depends on</label>
         <select id="mDep"><option value="">None</option></select>
       </div>
 
       <div class="g12">
-        <label>Tags (comma separated)</label>
+        <label for="mTags">Tags (comma separated)</label>
         <input id="mTags" placeholder="e.g., german, fitness">
       </div>
 
@@ -352,7 +347,7 @@ window.__FB__ = FB;
       </div>
 
       <div class="g6">
-        <label>Recurrence</label>
+        <label for="mRecur">Recurrence</label>
         <select id="mRecur">
           <option value="">None</option>
           <option value="W1">Weekly</option>
@@ -362,12 +357,12 @@ window.__FB__ = FB;
         </select>
       </div>
       <div class="g6">
-        <label>Shift dependents if I move</label>
+        <label for="mShift">Shift dependents if I move</label>
         <select id="mShift"><option value="no" selected>No</option><option value="yes">Yes, shift chain</option></select>
       </div>
 
       <div class="g12">
-        <label>Attachments (URLs)</label>
+        <label for="mLinks">Attachments (URLs)</label>
         <input id="mLinks" placeholder="https://… , https://…">
       </div>
     </div>
@@ -380,16 +375,16 @@ window.__FB__ = FB;
 
 <!-- Settings Modal -->
 <div id="settingsModal" class="backdrop" aria-modal="true" role="dialog" aria-label="Settings">
-  <div class="card modal">
+  <div class="card modal" tabindex="-1">
     <div class="toolbar" style="justify-content:space-between;">
       <h2>Settings</h2>
-      <button id="closeSettings" class="btn secondary">Close</button>
+      <button id="closeSettings" class="btn secondary" aria-label="Close settings">Close</button>
     </div>
 
     <div class="grid">
       <div class="g12"><h3>Localization</h3></div>
       <div class="g4">
-        <label>Date format</label>
+        <label for="sDateFmt">Date format</label>
         <select id="sDateFmt">
           <option value="auto" selected>Auto (locale)</option>
           <option value="Y-m-d">YYYY-MM-DD</option>
@@ -398,14 +393,14 @@ window.__FB__ = FB;
         </select>
       </div>
       <div class="g4">
-        <label>First day of week</label>
+        <label for="sDow">First day of week</label>
         <select id="sDow">
           <option value="1" selected>Monday</option>
           <option value="0">Sunday</option>
         </select>
       </div>
       <div class="g4">
-        <label>Theme</label>
+        <label for="sTheme">Theme</label>
         <select id="sTheme">
           <option value="light">Light</option>
           <option value="dark">Dark</option>
@@ -433,6 +428,8 @@ const once=(el,ev,fn)=>{const h=(...a)=>{el.removeEventListener(ev,h);fn(...a)};
 const pad=n=>String(n).padStart(2,'0');
 const iso=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 const toISO=x=>{const d=new Date(x); return iso(d);}
+const addDays=(dateStr,n)=>{const d=new Date(dateStr); d.setDate(d.getDate()+n); return iso(d);}
+const esc=s=>(s??'').replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 const idFmt=i=>'G'+String(i).padStart(2,'0');
 const showToast=(msg)=>{ const t=$('#toast'); t.textContent=msg; t.classList.remove('hide'); setTimeout(()=>t.classList.add('hide'), 2200); }
 const storeKeys={ goals:'focusone_goals', cats:'focusone_categories', statuses:'focusone_statuses', ui:'focusone_ui' };
@@ -454,12 +451,11 @@ const driver={
     }
   },
   _setAuthHandlers(){
-    driver._auth.onAuthStateChanged(auth, async(u)=>{
+    driver._auth?.onAuthStateChanged(auth, async(u)=>{
       user=u || null;
       $('#syncBtn').textContent = user? 'Sign out' : 'Sign in';
       $('#storageInfo').textContent = user? 'Synced securely to your account.' : 'Data stored locally in your browser.';
       if(user && FB.enabled){
-        // Pull cloud doc; if empty, push local
         const ref=driver._fs.doc(db,'focusone',user.uid);
         const snap=await driver._fs.getDoc(ref);
         if(snap.exists()){
@@ -506,7 +502,7 @@ function loadStatuses(){ return load(storeKeys.statuses, [
 ]);}
 function setStatuses(v){ save(storeKeys.statuses, v); driver.push(); }
 
-function loadUI(){ return load(storeKeys.ui, {dateFmt:'auto', dow:1, theme:'auto', filters:{}}); }
+function loadUI(){ return load(storeKeys.ui, {dateFmt:'auto', dow:1, theme:'auto', filters:{}, patterned:false, hideDone:false}); }
 function setUI(v){ save(storeKeys.ui, v); }
 
 /* Seeds if empty */
@@ -529,9 +525,9 @@ function setUI(v){ save(storeKeys.ui, v); }
 
 /* ===================== UI State & Globals ===================== */
 let VIEW='6M', GROUP='category', PRIO='', TBL_GROUP='category', YEAR='', HIDE_DONE=false, PATTERNED=false;
-let RANGE=null;                 // {start,end} custom range
-let FOCUS=new Set();            // focused dependency chain
-let COLLAPSED=new Set();        // collapsed groups in timeline
+let RANGE=null;
+let FOCUS=new Set();
+let COLLAPSED=new Set();
 let timeline, itemsDS, groupsDS, depSvg, quill, qaStart, qaDue, mStart, mDue, rStart, rEnd;
 
 const idMap=()=> new Map(loadGoals().map((g,i)=>[g.id, idFmt(i+1)]));
@@ -547,16 +543,19 @@ function applyTheme(){
 $('#themeBtn').onclick=()=>{ const ui=loadUI(); ui.theme = ui.theme==='dark'?'light' : ui.theme==='light'?'auto':'dark'; setUI(ui); applyTheme(); showToast(`Theme: ${ui.theme}`); };
 document.addEventListener('keydown',e=>{if(e.shiftKey && (e.key==='D'||e.key==='d')) $('#themeBtn').click();});
 
-/* Flatpickr helpers based on settings */
-function fpOpts(){ const ui=loadUI(); const dateFmt = ui.dateFmt==='auto' ? undefined : ui.dateFmt;
-  return { dateFormat: dateFmt || 'Y-m-d', weekNumbers:true, allowInput:true, clickOpens:true, locale: ui.dow==0?'en': 'en', firstDayOfWeek: Number(ui.dow) };
+function detectLocale2(){ // 'de', 'fr', 'en' based on browser
+  const l=(navigator.language||'en').slice(0,2);
+  return ['de','fr','en'].includes(l)? l : 'en';
 }
-
-/* ===================== Onboarding ===================== */
-$('#tourBtn').onclick=()=> introJs().setOptions({
-  nextLabel:'Next', prevLabel:'Back', doneLabel:'Done', showProgress:true, disableInteraction:false,
-}).start();
-document.addEventListener('keydown',e=>{ if(e.shiftKey && e.key==='?') $('#tourBtn').click(); });
+/* Flatpickr helpers based on settings */
+function fpOpts(){
+  const ui=loadUI();
+  const dateFmt = ui.dateFmt==='auto' ? undefined : ui.dateFmt;
+  const lang=detectLocale2();
+  const base = (flatpickr.l10ns?.[lang]) || flatpickr.l10ns.default;
+  const locale = {...base, firstDayOfWeek:Number(ui.dow)};
+  return { dateFormat: dateFmt || 'Y-m-d', weekNumbers:true, allowInput:true, clickOpens:true, closeOnSelect:true, locale };
+}
 
 /* ===================== Export / Import ===================== */
 $('#exportBtn').onclick=()=>{
@@ -580,12 +579,19 @@ $('#importBtn').onclick=()=>{
 const setModal=$('#settingsModal');
 function openSettings(){
   setModal.style.display='flex';
-  // Localization
+  trapFocus(setModal);
+  document.body.classList.add('modal-open');
+  document.body.style.overflow='hidden';
   const ui=loadUI(); $('#sDateFmt').value=ui.dateFmt||'auto'; $('#sDow').value=ui.dow??1; $('#sTheme').value=ui.theme||'auto';
-  // Categories table
   renderCatTable(); renderStatusTable();
 }
-$('#settingsBtn').onclick=openSettings; $('#closeSettings').onclick=()=>setModal.style.display='none';
+$('#settingsBtn').onclick=openSettings;
+$('#closeSettings').onclick=closeSettings;
+function closeSettings(){
+  setModal.style.display='none';
+  document.body.classList.remove('modal-open');
+  document.body.style.overflow='';
+}
 $('#sDateFmt').onchange=()=>{ const ui=loadUI(); ui.dateFmt=$('#sDateFmt').value; setUI(ui); buildPickers(); refreshTimeline(); };
 $('#sDow').onchange=()=>{ const ui=loadUI(); ui.dow=$('#sDow').value; setUI(ui); buildPickers(); refreshTimeline(); };
 $('#sTheme').onchange=()=>{ const ui=loadUI(); ui.theme=$('#sTheme').value; setUI(ui); applyTheme(); };
@@ -594,7 +600,7 @@ function renderCatTable(){
   const wrap=$('#catTable'); const cats=loadCats();
   wrap.innerHTML = `<table><thead><tr><th>Name</th><th>Color</th><th></th></tr></thead><tbody>${cats.map((c,i)=>`
     <tr>
-      <td><input data-cname="${c.id}" value="${c.name}"></td>
+      <td><input data-cname="${c.id}" value="${esc(c.name)}"></td>
       <td><input type="color" data-ccolor="${c.id}" value="${c.color}"></td>
       <td class="toolbar">
         <button class="btn secondary" data-cup="${c.id}">↑</button>
@@ -614,7 +620,7 @@ function renderStatusTable(){
   const wrap=$('#statusTable'); const sts=loadStatuses();
   wrap.innerHTML=`<table><thead><tr><th>Name</th><th>Color</th><th></th></tr></thead><tbody>${sts.map((s,i)=>`
     <tr>
-      <td><input data-sname="${s.id}" value="${s.name}"></td>
+      <td><input data-sname="${s.id}" value="${esc(s.name)}"></td>
       <td><input type="color" data-scolor="${s.id}" value="${s.color}"></td>
       <td class="toolbar">
         <button class="btn secondary" data-sup="${s.id}">↑</button>
@@ -635,14 +641,14 @@ const modal=$('#goalModal');
 let editing=null;
 function openModal(g={}){
   editing=g.id||null; $('#modalTitle').textContent=editing?'Edit Goal':'Add Goal';
-  // categories
-  $('#mCat').innerHTML=loadCats().map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
-  $('#mStatus').innerHTML=loadStatuses().map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
-  // depends (list current)
-  $('#mDep').innerHTML = `<option value="">None</option>` + loadGoals().map(x=>`<option value="${x.id}">${x.title}</option>`).join('');
+  // categories / statuses
+  $('#mCat').innerHTML=loadCats().map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  $('#mStatus').innerHTML=loadStatuses().map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
+  // depends
+  $('#mDep').innerHTML = `<option value="">None</option>` + loadGoals().map(x=>`<option value="${x.id}">${esc(x.title)}</option>`).join('');
   // values
   $('#mTitle').value=g.title||''; quill.setContents(quill.clipboard.convert(g.notes||'')); 
-  $('#mStart')._fp.setDate(g.start_date||null); $('#mDue')._fp.setDate(g.due_date||null);
+  $('#mStart')._fp.setDate(g.start_date||null, true); $('#mDue')._fp.setDate(g.due_date||null, true);
   $('#mCat').value=g.categoryId||$('#mCat').value;
   $('#mStatus').value=g.status||'not_started';
   $('#mPrio').value=g.priority||'medium';
@@ -652,10 +658,20 @@ function openModal(g={}){
   $('#mRecur').value=g.recur||'';
   $('#mShift').value='no';
   $('#saveGoal').disabled=true;
+
   modal.style.display='flex';
+  document.body.classList.add('modal-open');
+  document.body.style.overflow='hidden';
+  const dialog = modal.querySelector('.modal');
+  dialog.focus();
+  trapFocus(modal);
   $('#mTitle').focus();
 }
-function closeGoal(){ modal.style.display='none'; editing=null; }
+function closeGoal(){ 
+  modal.style.display='none'; editing=null; 
+  document.body.classList.remove('modal-open');
+  document.body.style.overflow='';
+}
 $('#addBtn').onclick=()=>openModal();
 $('#closeModal').onclick=closeGoal;
 ['#mTitle','#mStart','#mDue','#mCat','#mStatus','#mPrio','#mDep','#mTags','#mRecur'].forEach(sel=>{
@@ -671,7 +687,13 @@ function validateGoal(){
   $('#eDue').textContent= d ? (s>d?'Due must be after start':'') : 'Due required';
   $('#saveGoal').disabled=!ok;
 }
-$('#saveGoal').onclick=()=>{
+$('#saveGoal').onclick=saveGoal;
+document.addEventListener('keydown', (e)=>{
+  const anyOpen = modal.style.display==='flex' || $('#settingsModal').style.display==='flex';
+  if(e.key==='Escape' && anyOpen){ if(modal.style.display==='flex') closeGoal(); if($('#settingsModal').style.display==='flex') closeSettings(); }
+  if(e.key==='Enter' && modal.style.display==='flex' && !$('#saveGoal').disabled){ saveGoal(); }
+});
+function saveGoal(){
   const d={
     title:$('#mTitle').value.trim(),
     start_date: $('#mStart').value, due_date: $('#mDue').value,
@@ -683,10 +705,29 @@ $('#saveGoal').onclick=()=>{
     recur: $('#mRecur').value
   };
   let list=loadGoals();
-  if(editing){ list = list.map(x=>x.id===editing? {...x,...d}:x); }
+  if(editing){ 
+    const before=list.find(x=>x.id===editing);
+    const updated={...before,...d};
+    // optional: if shifting chain requested
+    if($('#mShift').value==='yes'){
+      const delta = (new Date(updated.start_date)-new Date(before.start_date))/86400000;
+      if(delta!==0){
+        const byId=new Map(list.map(x=>[x.id,x]));
+        const queue=list.filter(x=>x.dependsOnId===editing).map(x=>x.id);
+        while(queue.length){
+          const id=queue.shift(); const g=byId.get(id); if(!g) continue;
+          const ns=new Date(g.start_date); ns.setDate(ns.getDate()+delta);
+          const ne=new Date(g.due_date); ne.setDate(ne.getDate()+delta);
+          g.start_date=iso(ns); g.due_date=iso(ne);
+          list.filter(x=>x.dependsOnId===g.id).forEach(x=>queue.push(x.id));
+        }
+      }
+    }
+    list = list.map(x=>x.id===editing? updated:x);
+  }
   else { list = [...list, {id:crypto.randomUUID(), ...d}]; }
   setGoals(list); refresh(); closeGoal();
-};
+}
 
 /* ===================== Year Buttons & Filters ===================== */
 let YEAR_BTNS=$('#yearBtns');
@@ -697,7 +738,9 @@ function buildYears(){
     b.onclick=()=>{ YEAR=(YEAR===val)?'':val; buildYears(); renderTable(); refreshTimeline(); }; return b; };
   YEAR_BTNS.appendChild(mk('All','')); YEAR_BTNS.appendChild(mk('YTD','YTD')); years.forEach(y=>YEAR_BTNS.appendChild(mk(y,y)));
 }
-$('#clearBtn').onclick=()=>{ $('#search').value=''; $('#fStatus').value=''; $('#fPrio').value=''; PRIO=''; YEAR=''; HIDE_DONE=false; $('#hideDone').checked=false; FOCUS.clear(); COLLAPSED.clear(); syncPrioLegend(); buildYears(); renderTable(); refreshTimeline(); renderStatus(); };
+$('#clearBtn').onclick=()=>{ $('#search').value=''; $('#fStatus').value=''; $('#fPrio').value=''; PRIO=''; YEAR=''; 
+  const ui=loadUI(); HIDE_DONE=ui.hideDone=false; PATTERNED=ui.patterned=false; setUI(ui);
+  $('#hideDone').checked=false; $('#cbPatterns').checked=false; FOCUS.clear(); COLLAPSED.clear(); syncPrioLegend(); buildYears(); renderTable(); refreshTimeline(); renderStatus(); };
 
 /* ===================== Status (donut, clickable) ===================== */
 function renderStatus(){
@@ -715,7 +758,7 @@ function renderStatus(){
   const legend=$('#statusLegend'); legend.innerHTML='';
   labs.forEach((lab,i)=>{ const v=vals[i],p=Math.round(v/total*100);
     const div=document.createElement('button'); div.className='legend-item btn secondary'; div.style.borderColor=cols[i]; div.style.color='var(--fg)';
-    div.innerHTML=`<span class="dot" style="background:${cols[i]}"></span><span>${lab}: <b>${v}</b> (${p}%)</span>`;
+    div.innerHTML=`<span class="dot" style="background:${cols[i]}"></span><span>${esc(lab)}: <b>${v}</b> (${p}%)</span>`;
     div.onclick=()=>{ $('#fStatus').value = $('#fStatus').value===statuses[i].id ? '' : statuses[i].id; renderTable(); refreshTimeline(); };
     legend.appendChild(div);
   });
@@ -768,7 +811,7 @@ function renderTable(){
   const row=g=>{
     const cat=cats.find(c=>c.id===g.categoryId)||{name:'Other',color:'#6b7280'};
     const dep=g.dependsOnId? ids.get(g.dependsOnId):'';
-    const tagHtml=(g.tags||[]).map(t=>`<span class="chip">${t}</span>`).join(' ');
+    const tagHtml=(g.tags||[]).map(t=>`<span class="chip">${esc(t)}</span>`).join(' ');
     return `<tr data-id="${g.id}">
       <td><input type="checkbox" data-id="${g.id}"></td>
       <td><span class="pill id-pill">${ids.get(g.id)}</span></td>
@@ -778,7 +821,7 @@ function renderTable(){
       <td data-field="start_date">${g.start_date||''}</td>
       <td data-field="due_date">${g.due_date||''}</td>
       <td data-field="priority"><span class="pill prio-${g.priority}">${g.priority}</span></td>
-      <td data-field="status"><span class="pill status-${g.status}">${g.status.replace('_',' ')}</span></td>
+      <td data-field="status"><span class="pill status-${g.status}">${esc(g.status.replace('_',' '))}</span></td>
       <td data-field="tags">${tagHtml}</td>
       <td class="toolbar" style="gap:6px;">
         <button class="btn secondary" data-edit="${g.id}">Edit</button>
@@ -829,8 +872,8 @@ function setView(v){ VIEW=v; $$('#timelineCard [data-view]').forEach(b=>b.classL
 $$('#timelineCard [data-view]').forEach(b=>b.onclick=()=>setView(b.dataset.view));
 $('#fitBtn').onclick=()=>{ VIEW='All'; refreshTimeline(true); };
 $('#groupMode').onchange=e=>{ GROUP=e.target.value; COLLAPSED.clear(); refreshTimeline(); };
-$('#hideDone').onchange=()=>{ HIDE_DONE=$('#hideDone').checked; renderTable(); refreshTimeline(); };
-$('#cbPatterns').onchange=()=>{ PATTERNED=$('#cbPatterns').checked; $('#timeline').classList.toggle('patterned', PATTERNED); };
+$('#hideDone').onchange=()=>{ HIDE_DONE=$('#hideDone').checked; const ui=loadUI(); ui.hideDone=HIDE_DONE; setUI(ui); renderTable(); refreshTimeline(); };
+$('#cbPatterns').onchange=()=>{ PATTERNED=$('#cbPatterns').checked; const ui=loadUI(); ui.patterned=PATTERNED; setUI(ui); $('#timeline').classList.toggle('patterned', PATTERNED); };
 $('#rangeSet').onclick=()=>{ if(rStart.selectedDates[0]&&rEnd.selectedDates[0]){ RANGE={start:rStart.selectedDates[0], end:rEnd.selectedDates[0]}; refreshTimeline(); renderTable(); }};
 
 function viewWindow(){ if(!timeline){ const r=rangeFor(VIEW)||{start:new Date(), end:new Date(new Date().getFullYear(), new Date().getMonth()+1, 1)}; return r; } const w=timeline.getWindow(); return {start:w.start,end:w.end}; }
@@ -888,31 +931,35 @@ function refreshTimeline(forceFit=false){
                : GROUP==='tag'      ? k
                : GROUP==='year'     ? k
                : 'All goals';
-  const color=k=> GROUP==='category' ? (cats.find(c=>c.id===k)?.color||'#6b7280')
+  const laneColor=k=> GROUP==='category' ? (cats.find(c=>c.id===k)?.color||'#6b7280')
                : GROUP==='status'   ? (statusesById.get(k)?.color||'#6b7280')
                : GROUP==='priority' ? ({low:'#94a3b8',medium:'#60a5fa',high:'#f59e0b',critical:'#ef4444'}[k]||'#3b82f6')
                : GROUP==='tag'      ? '#3b82f6'
                : GROUP==='year'     ? '#0ea5e9'
                : '#3b82f6';
+  const prioColor=p=>({low:'#cbd5e1',medium:'#60a5fa',high:'#f59e0b',critical:'#ef4444'}[p]||'#3b82f6');
 
   // groups order by visible count
   const lanes={}; list.forEach(g=>{ const k=key(g); (lanes[k]||(lanes[k]=[])).push(g); });
   const rng=viewWindow();
   const activeScore=k=> (lanes[k]||[]).reduce((a,g)=> a + (new Date(g.due_date)>=rng.start && new Date(g.start_date)<=rng.end ? 1 : 0), 0);
   const order=Object.keys(lanes).sort((a,b)=> activeScore(b)-activeScore(a) || label(a).localeCompare(label(b)));
-  const groups = order.map(k=>({ id:k, content:`<span class="lane-dot" style="background:${color(k)}"></span>${label(k)} <span class="muted">(${lanes[k].length})</span>`, order:activeScore(k), visible:!COLLAPSED.has(k) }));
+  const groups = order.map(k=>({ id:k, content:`<span class="lane-dot" style="background:${laneColor(k)}"></span>${esc(label(k))} <span class="muted">(${lanes[k].length})</span>`, order:activeScore(k), visible:!COLLAPSED.has(k) }));
 
   // items (with recurrence: render shadow instances)
   const items=[];
   function pushBar(g,start,end){
     const k=key(g); if(COLLAPSED.has(k)) return;
+    const pcol = prioColor(g.priority);
+    const lcol = laneColor(k);
     items.push({
       id:g.id + (start!==g.start_date? '_r'+start : ''),  // unique for recurrences
       group:k, subgroup:(g.dependsOnId||g.id),
       start, end: addDays(end,1), 
       content:`${ids.get(g.id)} · ${esc(g.title.length>28?g.title.slice(0,26)+'…':g.title)}`,
       title:`${g.title}\n${g.start_date} → ${g.due_date}\n${g.priority} • ${g.status}`,
-      style:`background:${color(k)};border-color:rgba(0,0,0,.15)`,
+      // priority as fill, lane color as left marker
+      style:`background:${pcol};border-color:rgba(0,0,0,.15);border-left:4px solid ${lcol}`,
       className:(FOCUS.size && !FOCUS.has(g.id)) ? 'dim' : '',
       dependsOnId:g.dependsOnId||null,
       _root:g.id
@@ -921,9 +968,9 @@ function refreshTimeline(forceFit=false){
   list.forEach(g=>{
     if(!g.recur){ pushBar(g,g.start_date,g.due_date); }
     else{
-      // simple instances within visible window only
       const r=viewWindow(); let s=new Date(g.start_date), e=new Date(g.due_date);
-      while(e<=r.end){ // move forward until window end
+      // step forward until we pass the window end
+      while(e<=r.end){
         if(e>=r.start) pushBar(g, iso(s), iso(e));
         if(g.recur.startsWith('W')){ s.setDate(s.getDate()+7); e.setDate(e.getDate()+7); }
         else if(g.recur.startsWith('M')){ s.setMonth(s.getMonth()+1); e.setMonth(e.getMonth()+1); }
@@ -953,7 +1000,7 @@ function refreshTimeline(forceFit=false){
     itemsDS=new vis.DataSet(items.concat(backs));
     groupsDS=new vis.DataSet(groups);
     timeline=new vis.Timeline(container, itemsDS, groupsDS, opts);
-    // drag/resize save + dependency alerts
+    // drag/resize save + dependency guard
     itemsDS.on('update', (evt,props)=>{
       if(!props||!props.items) return; const all=loadGoals(); let changed=false;
       props.items.forEach(id=>{
@@ -963,12 +1010,11 @@ function refreshTimeline(forceFit=false){
         const s=toISO(it.start), e=toISO(new Date(it.end.getTime()-86400000));
         if(prevS!==s || prevE!==e){
           root.start_date=s; root.due_date=e; changed=true;
-          // dependency guard: if prerequisite ends after dependent starts
           const affected=all.filter(g=>g.dependsOnId===root.id);
           affected.forEach(dep=>{
             if(new Date(root.due_date) > new Date(dep.start_date)){
               if(confirm(`"${root.title}" now ends after "${dep.title}" starts. Shift dependent to maintain gap?`)){
-                const shift = (new Date(root.due_date) - new Date(dep.start_date))/86400000 + 1;
+                const shift = Math.ceil((new Date(root.due_date) - new Date(dep.start_date))/86400000) + 1;
                 const ns=new Date(dep.start_date); ns.setDate(ns.getDate()+shift);
                 const ne=new Date(dep.due_date); ne.setDate(ne.getDate()+shift);
                 dep.start_date=iso(ns); dep.due_date=iso(ne);
@@ -981,7 +1027,7 @@ function refreshTimeline(forceFit=false){
     });
     // focus chain
     timeline.on('select',p=>{ if(p.items.length){ const node=itemsDS.get(p.items[0]); focusChain(node._root); } else {FOCUS.clear(); dimItems(); drawDepsSoon();} });
-    // collapse group on click label
+    // collapse group on label click
     timeline.on('click',p=>{
       if(p.what==='group-label' && p.group){ if(COLLAPSED.has(p.group)) COLLAPSED.delete(p.group); else COLLAPSED.add(p.group); refreshTimeline(); }
     });
@@ -995,30 +1041,28 @@ function refreshTimeline(forceFit=false){
 
   // viewport
   const r=(VIEW==='All'&&!forceFit)? null : rangeFor(VIEW);
-  if(r){ timeline.setWindow(r.start, r.end, {animation:true}); } else if(forceFit || VIEW==='All'){ // improved Fit: margin 8%
-    const range = items.filter(x=>!x.type).reduce((acc,it)=>{
-      const s=new Date(it.start), e=new Date(it.end); if(s<acc.s)acc.s=s; if(e>acc.e)acc.e=e; return acc;
-    },{s:new Date(8640000000000000), e:new Date(-8640000000000000)});
-    const span = range.e - range.s; const pad = span*0.08; timeline.setWindow(new Date(range.s-pad), new Date(range.e+pad), {animation:true});
+  if(r){ timeline.setWindow(r.start, r.end, {animation:true}); } else if(forceFit || VIEW==='All'){
+    const listItems=items.filter(x=>!x.type);
+    if(listItems.length){
+      const range = listItems.reduce((acc,it)=>{
+        const s=new Date(it.start), e=new Date(it.end); if(s<acc.s)acc.s=s; if(e>acc.e)acc.e=e; return acc;
+      },{s:new Date(8640000000000000), e:new Date(-8640000000000000)});
+      const span = range.e - range.s; const pad = span*0.08; timeline.setWindow(new Date(range.s-pad), new Date(range.e+pad), {animation:true});
+    }
   }
 
-  // patterns toggle
   $('#timeline').classList.toggle('patterned', PATTERNED);
-
   ensureDepSvg(); drawDepsSoon();
   $('#itemCount').textContent=`Items: ${items.filter(x=>!x.type).length}`;
 }
 
 function quarterMonthBands(){
-  // bands across current window
   const w=viewWindow(); const s=new Date(w.start), e=new Date(w.end);
   const arr=[];
-  // quarters
   const qs=new Date(s.getFullYear(), Math.floor(s.getMonth()/3)*3,1);
   for(let d=new Date(qs); d<=e; d=new Date(d.getFullYear(), d.getMonth()+3,1)){
     arr.push({id:'q_'+d.getTime(), start:iso(d), end:iso(new Date(d.getFullYear(), d.getMonth()+3,1)), type:'background', className:'qbg', content:`Q${Math.floor(d.getMonth()/3)+1} ${d.getFullYear()}`});
   }
-  // months alternating
   const ms=new Date(s.getFullYear(), s.getMonth(),1); let togg=false;
   for(let d=new Date(ms); d<=e; d=new Date(d.getFullYear(), d.getMonth()+1,1)){
     arr.push({id:'m_'+d.getTime(), start:iso(d), end:iso(new Date(d.getFullYear(), d.getMonth()+1,1)), type:'background', className:(togg?'mbg-a':'mbg-b')});
@@ -1045,14 +1089,11 @@ function syncPrioLegend(){ prioLegend.querySelectorAll('.clickable').forEach(x=>
 /* ===================== Build calendars (flatpickr) ===================== */
 function buildPickers(){
   const opts=fpOpts();
-  // Quick add
   if(qaStart){ qaStart.destroy(); qaDue.destroy(); }
   qaStart=flatpickr('#qaStart',{...opts, defaultDate:new Date()});
   qaDue=flatpickr('#qaDue',{...opts, defaultDate:new Date(new Date().setDate(new Date().getDate()+30))});
-  // Modal
   if(mStart){ mStart.destroy(); mDue.destroy(); }
   mStart=flatpickr('#mStart',opts); mDue=flatpickr('#mDue',opts);
-  // custom range
   if(rStart){ rStart.destroy(); rEnd.destroy(); }
   rStart=flatpickr('#rangeStart',opts); rEnd=flatpickr('#rangeEnd',opts);
 }
@@ -1075,23 +1116,34 @@ document.addEventListener('keydown',e=>{
   }
 });
 
+/* ===================== Focus trap for modals ===================== */
+function trapFocus(scopeEl){
+  const focusable = scopeEl.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+  const first = focusable[0], last = focusable[focusable.length-1];
+  scopeEl.addEventListener('keydown', function(e){
+    if(e.key !== 'Tab') return;
+    if(e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+    else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+  }, { once:true });
+}
+
 /* ===================== Boot ===================== */
 function refresh(){
-  // dropdowns
-  $('#qaCat').innerHTML=loadCats().map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
-  // pickers & notes
+  $('#qaCat').innerHTML=loadCats().map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
   buildPickers();
   if(!quill){ quill = new Quill('#mNotes',{theme:'snow'}); }
-  // year buttons & table & status & timeline
+  const ui=loadUI();
+  HIDE_DONE=ui.hideDone||false; PATTERNED=ui.patterned||false;
+  $('#hideDone').checked=HIDE_DONE; $('#cbPatterns').checked=PATTERNED;
   buildYears(); renderTable(); renderStatus(); refreshTimeline(); applyTheme();
   // persist filters (load once)
-  const ui=loadUI(); const f=ui.filters||{};
+  const f=ui.filters||{};
   if(f.status) $('#fStatus').value=f.status; if(f.priority) { $('#fPrio').value=f.priority; PRIO=f.priority; syncPrioLegend(); }
   if(f.group) { GROUP=f.group; $('#groupMode').value=GROUP; }
   if(f.view) setView(f.view);
 }
 window.addEventListener('beforeunload',()=>{
-  const ui=loadUI(); ui.filters={status:$('#fStatus').value, priority:PRIO||$('#fPrio').value, group:$('#groupMode').value, view:VIEW}; setUI(ui);
+  const ui=loadUI(); ui.filters={status:$('#fStatus').value, priority:PRIO||$('#fPrio').value, group:$('#groupMode').value, view:VIEW}; ui.hideDone=HIDE_DONE; ui.patterned=PATTERNED; setUI(ui);
 });
 driver.init().then(refresh);
 </script>
