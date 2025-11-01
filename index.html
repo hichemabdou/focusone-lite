@@ -2,762 +2,97 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Focus.One Lite</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>Focus.One — Dashboard</title>
   <style>
-    :root {
-      --bg:#f7f9fc; --fg:#0f172a; --muted:#64748b; --line:#e2e8f0; --card:#ffffff;
-      --blue:#60a5fa; --amber:#f59e0b; --red:#ef4444; --slate:#cbd5e1; --green:#22c55e; --violet:#8b5cf6;
-    }
-    * { box‑sizing: border-box; }
-    body { font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-           margin:0; background:var(--bg); color:var(--fg); }
-    header { padding:14px 20px; background:#fff; border-bottom:1px solid var(--line);
-             position:sticky; top:0; z-index:5; }
-    .wrap { max-width:1100px; margin:24px auto; padding:0 16px; }
-    .brand { font-weight:800; letter-spacing:.2px; }
-    .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-    .spacer { flex:1; }
-    .btn { padding:10px 14px; border-radius:12px; border:0; background:#0ea5e9; color:#fff; font-weight:600; cursor:pointer; text-decoration:none; display:inline-block; }
-    .btn.secondary { background:#e2e8f0; color:#0f172a; }
-    .btn.warn { background:var(--red); }
-    .card { background:#fff; border:1px solid var(--line); border-radius:16px; padding:16px; margin-bottom:16px; }
-    .toolbar { display:flex; gap:8px; flex-wrap:wrap; }
-    .muted { color:var(--muted); font-size:13px; }
-    .grid { display:grid; gap:12px; grid-template-columns:repeat(12,1fr); align-items:end; }
-    .g12{grid-column:span 12;} .g6{grid-column:span 6;} .g3{grid-column:span 3;}
-    label{font-size:12px;color:#334155;margin-bottom:6px;display:block}
-    input,select,textarea { width:100%; padding:10px 12px; border:1px solid #e5e7eb; border-radius:10px; background:#f9fafb; }
-    table{width:100%;border-collapse:collapse;}
-    th,td{padding:10px;border-bottom:1px solid #f1f5f9;text-align:left;font-size:14px}
-    #gantt { overflow:auto; min-height:280px; border:1px solid var(--line); border-radius:12px; background:#fff; }
-    .pill{display:inline-block;padding:3px 8px;border-radius:9999px;font-size:12px;font-weight:600;}
-    .prio-low{background:#cbd5e1;color:#0f172a;}
-    .prio-medium{background:#60a5fa;color:#fff;}
-    .prio-high{background:#f59e0b;color:#fff;}
-    .prio-critical{background:#ef4444;color:#fff;}
-    .status-not_started{background:#e2e8f0;color:#0f172a;}
-    .status-in_progress{background:#8b5cf6;color:#fff;}
-    .status-blocked{background:#111827;color:#fff;}
-    .status-done{background:#22c55e;color:#fff;}
-    .axis{font-size:11px;fill:#475569;}
-    .label{font-size:12px;}
-    @media(max-width:820px){.g6{grid-column:span 12;} .g3{grid-column:span 6;}}
-
-    /* --- MODAL --- */
-    .backdrop {
-      position: fixed; inset:0; background:rgba(15,23,42,.35);
-      display: none; align-items:center; justify-content:center; z-index:15;
-      /* no blur so background remains visible */
-    }
-    .backdrop.show { display:flex; }
-    .modal {
-      width: min(680px, calc(100vw - 24px)); background:#fff; border:1px solid var(--line);
-      border-radius:16px; box-shadow:0 10px 40px rgba(0,0,0,.18); padding:16px;
-      animation: pop .15s ease;
-    }
-    @keyframes pop { from{transform:scale(.98);opacity:.6} to{transform:scale(1);opacity:1} }
-    .modal header { position: static; border:0; padding:0 0 8px 0; }
-    .modal .actions { display:flex; gap:8px; justify-content:flex-end; margin-top:10px; }
-    .legend{display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;}
-    .legend .pill{opacity:.85;}
-    .summary{display:flex; gap:8px; flex-wrap:wrap; margin:10px 0;}
-    .fadeIn{animation:fade .25s ease;}
-    @keyframes fade{from{opacity:0} to{opacity:1}}
-    .toolbar button.view-active{background:var(--blue); color:#fff;}
-    .no-data{text-align:center;padding:20px;color:var(--muted);}
-
-    /* Category pill style */
-    .category-pill { padding:3px 8px; border-radius:12px; font-size:12px; font-weight:600; color:#fff; }
-
+    :root{--line:#e2e8f0;--muted:#64748b;--green:#22c55e;--violet:#8b5cf6;--amber:#f59e0b}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;margin:0;background:#f7f9fc;color:#0f172a}
+    .wrap{max-width:900px;margin:24px auto;padding:0 16px}
+    header{padding:14px 20px;background:#fff;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center}
+    a.btn,button.btn{padding:10px 14px;border-radius:12px;border:1px solid var(--line);background:#fff;cursor:pointer;text-decoration:none;color:#0f172a;font-weight:600;}
+    .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;margin-top:16px}
+    .grid{display:grid;gap:12px;grid-template-columns:repeat(12,1fr)}
+    .g6{grid-column:span 6} .g12{grid-column:span 12}
+    .muted{color:var(--muted)}
+    canvas{max-width:100%;}
   </style>
 </head>
 <body>
-  <header>
-    <div class="wrap row">
-      <div class="brand">Focus.One <span class="muted">Lite</span></div>
-      <div class="spacer"></div>
-      <a class="btn secondary" href="review.html">Quarterly Review</a>
-      <button id="manageCategoriesBtn" class="btn secondary" type="button">Manage Categories</button>
-      <button id="exportJsonBtn" class="btn secondary" type="button">Export JSON</button>
-      <button id="importJsonBtn" class="btn secondary" type="button">Import JSON</button>
-      <button id="openAddBtn" class="btn" type="button">Add Goal</button>
-    </div>
-  </header>
-
-  <div class="wrap">
-    <!-- Timeline -->
-    <div class="card">
-      <div class="row" style="justify-content:space-between;">
-        <h2>Timeline</h2>
-        <div class="toolbar" id="viewButtons">
-          <button data-view="Month" class="btn secondary view-active" type="button">Month</button>
-          <button data-view="Quarter" class="btn secondary" type="button">Quarter</button>
-          <button data-view="Year" class="btn secondary" type="button">Year</button>
-          <select id="filterYearTimeline" class="btn secondary" style="padding:10px;border-radius:12px;border:0;background:#e2e8f0;color:#0f172a;">
-            <option value="">All Years</option>
-          </select>
-        </div>
-      </div>
-      <div id="gantt" class="fadeIn"></div>
-      <div class="legend">
-        <span class="pill prio-low">low</span>
-        <span class="pill prio-medium">medium</span>
-        <span class="pill prio-high">high</span>
-        <span class="pill prio-critical">critical</span>
-        <span class="muted" id="ganttCount"></span>
-      </div>
-    </div>
-
-    <!-- Status summary -->
-    <div class="card">
-      <h2>Status</h2>
-      <div id="statusSummary" class="summary"></div>
-    </div>
-
-    <!-- Goals table -->
-    <div class="card">
-      <div class="row" style="justify-content:space-between;">
-        <h2>Goals</h2>
-        <div class="toolbar">
-          <select id="filterStatus" class="btn secondary">
-            <option value="">All statuses</option>
-            <option value="not_started">Not started</option>
-            <option value="in_progress">In progress</option>
-            <option value="blocked">Blocked</option>
-            <option value="done">Done</option>
-          </select>
-          <select id="filterPriority" class="btn secondary">
-            <option value="">All priorities</option>
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-            <option value="critical">Critical</option>
-          </select>
-          <select id="filterYearTable" class="btn secondary">
-            <option value="">All Years</option>
-          </select>
-          <button id="clearFiltersBtn" class="btn secondary" type="button">Clear Filters</button>
-        </div>
-      </div>
-      <table>
-        <thead><tr><th>Title</th><th>Category</th><th>Start</th><th>Due</th><th>Priority</th><th>Status</th><th></th></tr></thead>
-        <tbody id="goalRows"></tbody>
-      </table>
-    </div>
-
-    <div class="muted" style="text-align:center;padding:18px;">Data stored locally in your browser.</div>
+<header>
+  <a class="btn" href="index.html">← Back to Goals</a>
+  <div style="font-weight:800">Dashboard</div>
+</header>
+<div class="wrap">
+  <div class="card">
+    <h2>Category Overview</h2>
+    <canvas id="chartCategories" width="400" height="200"></canvas>
   </div>
-
-  <!-- Add/Edit Goal Modal -->
-  <div id="backdrop" class="backdrop" aria-modal="true" role="dialog">
-    <div class="modal" role="document">
-      <header class="row" style="justify-content:space-between;">
-        <h2 id="modalTitle">Add Goal</h2>
-        <button id="closeModalBtn" class="btn secondary" type="button">Close</button>
-      </header>
-      <div class="grid">
-        <div class="g12">
-          <label for="m_title">Title</label>
-          <input id="m_title" placeholder="e.g., Finish German A2 by March" />
-          <div class="muted" id="m_title_error"></div>
-        </div>
-        <div class="g6">
-          <label for="m_start">Start date</label>
-          <input id="m_start" type="date" />
-          <div class="muted" id="m_start_error"></div>
-        </div>
-        <div class="g6">
-          <label for="m_due">Due date</label>
-          <input id="m_due" type="date" />
-          <div class="muted" id="m_due_error"></div>
-        </div>
-        <div class="g6">
-          <label for="m_category">Category</label>
-          <select id="m_category"></select>
-        </div>
-        <div class="g6">
-          <label for="m_priority">Priority</label>
-          <select id="m_priority">
-            <option value="low">low</option>
-            <option value="medium" selected>medium</option>
-            <option value="high">high</option>
-            <option value="critical">critical</option>
-          </select>
-        </div>
-        <div class="g6">
-          <label for="m_status">Status</label>
-          <select id="m_status">
-            <option value="not_started" selected>not_started</option>
-            <option value="in_progress">in_progress</option>
-            <option value="blocked">blocked</option>
-            <option value="done">done</option>
-          </select>
-        </div>
-      </div>
-      <div class="actions">
-        <button id="saveBtn" class="btn" type="button" disabled>Save</button>
-      </div>
-    </div>
+  <div class="card">
+    <h2>Status Overview</h2>
+    <canvas id="chartStatus" width="400" height="200"></canvas>
   </div>
-
-  <!-- Manage Categories Modal -->
-  <div id="catBackdrop" class="backdrop" aria-modal="true" role="dialog">
-    <div class="modal" role="document">
-      <header class="row" style="justify-content:space-between;">
-        <h2>Manage Categories</h2>
-        <button id="closeCatBtn" class="btn secondary" type="button">Close</button>
-      </header>
-      <div id="categoryList" style="margin-bottom:16px;"></div>
-      <div class="actions">
-        <button id="addCategoryBtn" class="btn" type="button">Add Category</button>
-      </div>
-    </div>
+  <div class="card">
+    <h2>Priority Overview</h2>
+    <canvas id="chartPriority" width="400" height="200"></canvas>
   </div>
+  <div class="muted" style="text-align:center;padding:18px;">Data pulled from your goals in browser storage.</div>
+</div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-// #region Data & Storage Helpers
 const goalsKey = 'focusone_goals';
 const categoriesKey = 'focusone_categories';
 
-function loadGoals(){ try{ return JSON.parse(localStorage.getItem(goalsKey))||[] }catch(e){ console.error(e); return [] } }
-function storeGoals(list){ localStorage.setItem(goalsKey, JSON.stringify(list)); refreshAll(); }
-
-function loadCategories(){ try{ return JSON.parse(localStorage.getItem(categoriesKey))||[] }catch(e){ console.error(e); return [] } }
-function storeCategories(list){ localStorage.setItem(categoriesKey, JSON.stringify(list)); }
-
-// Unique ID generator
-function uid(){ return 'x_' + Math.random().toString(36).slice(2,9); }
-
-// Pre‑populate default categories if none exist
-(function ensureDefaultCategories(){
-  const cats = loadCategories();
-  if(cats.length === 0){
-    const defaults = [
-      { id: uid(), name:'Wealth',       color:'#4b5563' },
-      { id: uid(), name:'Language',     color:'#2563eb' },
-      { id: uid(), name:'Immigration',  color:'#d97706' },
-      { id: uid(), name:'Career',       color:'#16a34a' },
-      { id: uid(), name:'Business',     color:'#0d9488' },
-      { id: uid(), name:'Health',       color:'#dc2626' },
-      { id: uid(), name:'Relationship', color:'#9333ea' },
-      { id: uid(), name:'Real Estate',  color:'#f59e0b' },
-      { id: uid(), name:'Creative',     color:'#f43f5e' },
-      { id: uid(), name:'Other',        color:'#6b7280' }
-    ];
-    storeCategories(defaults);
-  }
-})();
-
-// #endregion
-
-// #region Modal Handling
-const $ = s => document.querySelector(s);
-const backdrop = $('#backdrop');
-const catBackdrop = $('#catBackdrop');
-
-// Form elements
-const fields = {
-  title:    $('#m_title'),
-  start:    $('#m_start'),
-  due:      $('#m_due'),
-  category: $('#m_category'),
-  priority: $('#m_priority'),
-  status:   $('#m_status')
-};
-const errs = {
-  title: $('#m_title_error'),
-  start: $('#m_start_error'),
-  due:   $('#m_due_error')
-};
-const saveBtn = $('#saveBtn');
-
-let editingId = null;
-
-function openModal(goal = {}) {
-  editingId = goal.id || null;
-  $('#modalTitle').textContent = editingId ? 'Edit Goal' : 'Add Goal';
-
-  fields.title.value    = goal.title      || '';
-  fields.start.value    = goal.start_date || '';
-  fields.due.value      = goal.due_date   || '';
-  fields.category.value = goal.categoryId || '';
-  fields.priority.value = goal.priority   || 'medium';
-  fields.status.value   = goal.status     || 'not_started';
-
-  // Clear errors
-  Object.values(errs).forEach(e => e.textContent = '');
-
-  // Show modal
-  backdrop.classList.add('show');
-  fields.title.focus();
-  saveBtn.disabled = true;
-
-  populateCategorySelect();
+function loadGoals(){
+  try { return JSON.parse(localStorage.getItem(goalsKey)) || []; }
+  catch(e){ console.error(e); return []; }
+}
+function loadCategories(){
+  try { return JSON.parse(localStorage.getItem(categoriesKey)) || []; }
+  catch(e){ console.error(e); return []; }
 }
 
-function closeModal() {
-  backdrop.classList.remove('show');
-  editingId = null;
-  saveBtn.disabled = true;
-  $('#openAddBtn').focus();
+function createChart(ctxId, type, data, options={}){
+  const ctx = document.getElementById(ctxId).getContext('2d');
+  return new Chart(ctx, { type, data, options });
 }
 
-$('#openAddBtn').addEventListener('click', () => openModal({}));
-$('#closeModalBtn').addEventListener('click', closeModal);
-window.addEventListener('keydown', e => {
-  if(e.key === 'Escape' && backdrop.classList.contains('show')){
-    e.preventDefault();
-    closeModal();
-  }
-});
-
-// Populate category dropdown
-function populateCategorySelect(){
-  const cats = loadCategories();
-  fields.category.innerHTML = cats.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
-  // Ensure “Other” exists and selected if no category
-  if(!fields.category.value){
-    const other = cats.find(c=>c.name === 'Other') || cats[0];
-    if(other) fields.category.value = other.id;
-  }
-}
-
-// Validation
-function validateForm(){
-  let valid = true;
-  if(!fields.title.value.trim()){
-    errs.title.textContent = 'Title is required.';
-    valid = false;
-  } else {
-    errs.title.textContent = '';
-  }
-
-  if(!fields.start.value){
-    errs.start.textContent = 'Start date is required.';
-    valid = false;
-  } else {
-    errs.start.textContent = '';
-  }
-
-  if(!fields.due.value){
-    errs.due.textContent = 'Due date is required.';
-    valid = false;
-  } else if(fields.start.value && fields.start.value > fields.due.value){
-    errs.due.textContent = 'Due date must be on or after Start date.';
-    valid = false;
-  } else {
-    errs.due.textContent = '';
-  }
-
-  saveBtn.disabled = !valid;
-}
-
-fields.title.addEventListener('input',    validateForm);
-fields.start.addEventListener('change',   validateForm);
-fields.due.addEventListener('change',     validateForm);
-fields.category.addEventListener('change', validateForm);
-fields.priority.addEventListener('change', validateForm);
-fields.status.addEventListener('change',   validateForm);
-
-saveBtn.addEventListener('click', () => {
-  const goal = {
-    title:      fields.title.value.trim(),
-    start_date: fields.start.value,
-    due_date:   fields.due.value,
-    categoryId: fields.category.value,
-    priority:   fields.priority.value,
-    status:     fields.status.value
-  };
-  if(editingId){
-    const list = loadGoals().map(g => g.id === editingId ? {...g, ...goal} : g);
-    storeGoals(list);
-  } else {
-    const list = loadGoals();
-    list.push({ id: uid(), ...goal });
-    storeGoals(list);
-  }
-  closeModal();
-});
-
-// #endregion
-
-// #region Manage Categories Modal
-$('#manageCategoriesBtn').addEventListener('click', () => {
-  showCategoriesModal();
-});
-$('#closeCatBtn').addEventListener('click', () => {
-  catBackdrop.classList.remove('show');
-});
-
-function showCategoriesModal(){
-  catBackdrop.classList.add('show');
-  renderCategoryList();
-}
-
-function renderCategoryList(){
-  const listEl = $('#categoryList');
-  const cats = loadCategories();
-  listEl.innerHTML = cats.map(c => `
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-      <input type="text" value="${escapeHtml(c.name)}" data‑id="${c.id}" class="cat-name" style="flex:1;padding:6px;border:1px solid var(--line);border-radius:6px;" />
-      <input type="color" value="${c.color}" data‑id="${c.id}" class="cat-color" title="Pick color" />
-      <button class="btn warn cat-delete" data‑id="${c.id}" type="button">Delete</button>
-    </div>
-  `).join('');
-
-  // Add event listeners
-  listEl.querySelectorAll('.cat-name').forEach(input => {
-    input.addEventListener('change', () => {
-      const id = input.dataset.id;
-      const cats2 = loadCategories().map(c => c.id === id ? {...c, name: input.value} : c);
-      storeCategories(cats2);
-      renderCategoryList();
-    });
-  });
-  listEl.querySelectorAll('.cat-color').forEach(input => {
-    input.addEventListener('change', () => {
-      const id = input.dataset.id;
-      const cats2 = loadCategories().map(c => c.id === id ? {...c, color: input.value} : c);
-      storeCategories(cats2);
-      renderCategoryList();
-    });
-  });
-  listEl.querySelectorAll('.cat-delete').forEach(btn => {
-    btn.addEventListener('click', () => {
-      if(confirm('Delete category and reassign goals to Other?')){
-        const id = btn.dataset.id;
-        const catsOld = loadCategories();
-        const newCats = catsOld.filter(c => c.id !== id);
-        // Reassign affected goals
-        const other = newCats.find(c => c.name === 'Other') || newCats[0];
-        const goals = loadGoals().map(g => g.categoryId === id ? {...g, categoryId: other.id} : g);
-        storeGoals(goals);
-        storeCategories(newCats);
-        renderCategoryList();
-      }
-    });
-  });
-}
-
-// Add category button
-$('#addCategoryBtn').addEventListener('click', () => {
-  const name = prompt('New category name:');
-  if(name && name.trim()){
-    const color = prompt('Pick a hex color (e.g. #123456) for this category:', '#6b7280');
-    if(color){
-      const cats = loadCategories();
-      cats.push({ id: uid(), name: name.trim(), color: color });
-      storeCategories(cats);
-      renderCategoryList();
-    }
-  }
-});
-
-// #endregion
-
-// #region Filters & Rendering
-const filterStatus     = $('#filterStatus');
-const filterPriority   = $('#filterPriority');
-const filterYearTable  = $('#filterYearTable');
-const filterYearTimeline= $('#filterYearTimeline');
-const clearFiltersBtn  = $('#clearFiltersBtn');
-
-// Populate year filters
-function populateYearFilters(){
+function buildOverview(){
   const goals = loadGoals();
-  const yearsSet = new Set();
-  goals.forEach(g => {
-    if(g.start_date) yearsSet.add(g.start_date.slice(0,4));
-    if(g.due_date)   yearsSet.add(g.due_date.slice(0,4));
-  });
-  const years = Array.from(yearsSet).sort();
-  const opts = ['<option value="">All Years</option>']
-    .concat(years.map(y => `<option value="${y}">${y}</option>`)).join('');
-  filterYearTable.innerHTML = opts;
-  filterYearTimeline.innerHTML = opts;
-}
+  const cats  = loadCategories();
 
-function renderTable(){
-  const tbody = $('#goalRows');
-  const fs = filterStatus.value, fp = filterPriority.value, fy = filterYearTable.value;
-  const cats = loadCategories();
-  const list = loadGoals().filter(g => {
-    if(fs && g.status !== fs) return false;
-    if(fp && g.priority !== fp) return false;
-    if(fy){
-      const sy = g.start_date ? g.start_date.slice(0,4) : null;
-      const dy = g.due_date   ? g.due_date.slice(0,4) : null;
-      if(sy !== fy && dy !== fy) return false;
-    }
-    return true;
+  // Category counts
+  const catLabels = cats.map(c=>c.name);
+  const catColors = cats.map(c=>c.color);
+  const catCounts = cats.map(c=> goals.filter(g=>g.categoryId===c.id).length );
+
+  createChart('chartCategories','doughnut',{
+    labels: catLabels,
+    datasets:[{ data:catCounts, backgroundColor:catColors }]
   });
 
-  if(list.length === 0){
-    tbody.innerHTML = `<tr><td colspan="7" class="no-data">No goals found.</td></tr>`;
-  } else {
-    tbody.innerHTML = list.map(g => {
-      const cat = cats.find(c => c.id === g.categoryId) || {name:'Other',color:'#6b7280'};
-      return `
-      <tr>
-        <td>${escapeHtml(g.title)}</td>
-        <td><span class="category-pill" style="background:${cat.color}">${escapeHtml(cat.name)}</span></td>
-        <td>${g.start_date || ''}</td>
-        <td>${g.due_date   || ''}</td>
-        <td><span class="pill prio-${g.priority}">${g.priority}</span></td>
-        <td><span class="pill status-${g.status}">${g.status.replace('_',' ')}</span></td>
-        <td class="row" style="gap:4px;flex-wrap:nowrap;">
-          <button class="btn secondary" data-edit="${g.id}" type="button">Edit</button>
-          <button class="btn warn"      data-del="${g.id}"  type="button">Delete</button>
-        </td>
-      </tr>`;
-    }).join('');
-  }
-
-  // Attach events
-  tbody.querySelectorAll('[data-edit]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const g = loadGoals().find(x=>x.id === btn.dataset.edit);
-      if(g) openModal(g);
-    });
+  // Status counts
+  const statuses = ['not_started','in_progress','blocked','done'];
+  const statusLabels = ['Not started','In progress','Blocked','Done'];
+  const statusCounts = statuses.map(s=>goals.filter(g=>g.status===s).length);
+  createChart('chartStatus','pie',{
+    labels: statusLabels,
+    datasets:[{ data:statusCounts, backgroundColor:['#e2e8f0','#8b5cf6','#111827','#22c55e'] }]
   });
-  tbody.querySelectorAll('[data-del]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      if(confirm('Delete this goal?')) removeGoal(btn.dataset.del);
-    });
+
+  // Priority counts
+  const priorities = ['low','medium','high','critical'];
+  const prLabels    = ['Low','Medium','High','Critical'];
+  const prCounts    = priorities.map(p=>goals.filter(g=>g.priority===p).length);
+  createChart('chartPriority','bar',{
+    labels: prLabels,
+    datasets:[{ label:'Count', data:prCounts, backgroundColor:['#cbd5e1','#60a5fa','#f59e0b','#ef4444'] }]
+  },{
+    scales:{ y:{ beginAtZero:true } }
   });
 }
 
-function renderSummary(){
-  const list = loadGoals();
-  const now = new Date().toISOString().slice(0,10);
-  const total = list.length;
-  const done  = list.filter(g => g.status === 'done').length;
-  const blocked = list.filter(g => g.status === 'blocked').length;
-  const inprog  = list.filter(g => g.status === 'in_progress').length;
-  const open    = total - done;
-  const overdue = list.filter(g => g.due_date && g.due_date < now && g.status !== 'done').length;
-  const ontime  = list.filter(g => g.due_date && g.status === 'done' && g.due_date >= (g.start_date || '') ).length;
-
-  $('#statusSummary').innerHTML = `
-    <span class="pill status-done">Done: ${done}</span>
-    <span class="pill status-in_progress">In progress: ${inprog}</span>
-    <span class="pill status-blocked">Blocked: ${blocked}</span>
-    <span class="pill status-not_started">Open: ${open}</span>
-    <span class="pill prio-high">Overdue: ${overdue}</span>
-    <span class="pill prio-medium">On‑time: ${ontime}</span>
-  `;
-}
-
-let currentView = 'Month';
-$('#viewButtons').addEventListener('click', e => {
-  if(e.target.matches('button[data-view]')){
-    currentView = e.target.dataset.view;
-    document.querySelectorAll('#viewButtons button').forEach(b => b.classList.remove('view-active'));
-    e.target.classList.add('view-active');
-    drawGantt();
-  }
-});
-filterYearTimeline.addEventListener('change', drawGantt);
-
-function daysBetween(a,b){ return Math.max(0, Math.ceil((new Date(b)-new Date(a))/86400000)); }
-function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
-function monthLabel(x){ return x.toLocaleString(undefined,{month:'short',year:'numeric'}); }
-
-function drawGantt(){
-  const container = $('#gantt'), countEl = $('#ganttCount');
-  const fy  = filterYearTimeline.value;
-  let items = loadGoals().filter(g => g.start_date && g.due_date);
-  if(fy){
-    items = items.filter(g => {
-      const sy = g.start_date.slice(0,4);
-      const dy = g.due_date.slice(0,4);
-      return (sy === fy || dy === fy);
-    });
-  }
-  container.innerHTML = '';
-  if(items.length === 0){
-    container.innerHTML = `<div class="muted no-data" style="padding:12px;">No items to plot for this year. Add a goal or adjust filter.</div>`;
-    countEl.textContent = 'Items: 0';
-    return;
-  }
-
-  countEl.textContent = 'Items: '+items.length;
-  let min = items[0].start_date, max = items[0].due_date;
-  items.forEach(g=>{
-    if(g.start_date < min) min = g.start_date;
-    if(g.due_date   > max) max = g.due_date;
-  });
-
-  const pad = currentView === 'Year'    ? 30
-            : currentView === 'Quarter' ? 14
-            : 7;
-  const minPad = addDays(min, -pad), maxPad = addDays(max, pad);
-  const totalDays = Math.max(1, daysBetween(minPad, maxPad));
-  const pxPerDay  = currentView === 'Year' ? 4 : (currentView === 'Quarter' ? 8 : 16);
-  const height    = Math.min(600, 60 + items.length * 32);
-  const width     = Math.min(3000, 120 + totalDays * pxPerDay);
-
-  const NS = 'http://www.w3.org/2000/svg';
-  const svg = document.createElementNS(NS,'svg');
-  svg.setAttribute('width', width);
-  svg.setAttribute('height', height);
-
-  const step = currentView === 'Month' ? 7 : (currentView === 'Quarter' ? 14 : 30);
-
-  // grid lines
-  for(let i=0; i<=totalDays; i+=step){
-    const date = addDays(minPad, i);
-    const x = 100 + i * pxPerDay;
-    const line = document.createElementNS(NS,'line');
-    line.setAttribute('x1', x); line.setAttribute('y1', 24);
-    line.setAttribute('x2', x); line.setAttribute('y2', height);
-    line.setAttribute('stroke','#e2e8f0'); line.setAttribute('stroke-width','1');
-    svg.appendChild(line);
-
-    const text = document.createElementNS(NS,'text');
-    text.setAttribute('x', x+4); text.setAttribute('y', 16); text.setAttribute('class','axis');
-    text.textContent = (currentView==='Month') ?
-      date.toLocaleDateString(undefined,{month:'short', day:'numeric'}) :
-      monthLabel(date);
-    svg.appendChild(text);
-  }
-
-  const cats = loadCategories();
-
-  items.forEach((g,i)=>{
-    const y = 36 + i*32;
-    const titleText = document.createElementNS(NS,'text');
-    titleText.setAttribute('x','8'); titleText.setAttribute('y', y+12);
-    titleText.setAttribute('class','label');
-    titleText.textContent = g.title;
-    svg.appendChild(titleText);
-
-    const startOffset = daysBetween(minPad, new Date(g.start_date));
-    const barX        = 100 + startOffset * pxPerDay;
-    const barW        = Math.max(6, daysBetween(new Date(g.start_date), new Date(g.due_date)) * pxPerDay);
-
-    const rect = document.createElementNS(NS,'rect');
-    rect.setAttribute('x', barX); rect.setAttribute('y', y);
-    rect.setAttribute('width', barW); rect.setAttribute('height',20);
-    rect.setAttribute('rx',6); rect.setAttribute('ry',6);
-
-    const cat = cats.find(c => c.id === g.categoryId) || {color:'#6b7280'};
-    rect.setAttribute('fill', cat.color);
-    rect.setAttribute('fill-opacity', g.status === 'done' ? '0.7' : '1.0');
-    rect.setAttribute('stroke', '#0f172a22'); rect.setAttribute('stroke-width','1');
-
-    rect.style.cursor = 'pointer';
-    rect.addEventListener('click', () => {
-      const g0 = loadGoals().find(x=>x.id === g.id);
-      if(g0) openModal(g0);
-    });
-
-    svg.appendChild(rect);
-  });
-
-  container.appendChild(svg);
-}
-
-// #endregion
-
-// Export / Import JSON
-$('#exportJsonBtn').onclick = () => {
-  const blob = new Blob([JSON.stringify({goals: loadGoals(), categories: loadCategories()}, null, 2)],
-                        { type:'application/json' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href     = url;
-  a.download = 'focusone-data.json';
-  a.click();
-  URL.revokeObjectURL(url);
-};
-$('#importJsonBtn').onclick = () => {
-  const input = document.createElement('input');
-  input.type  = 'file';
-  input.accept= 'application/json';
-  input.onchange = ()=> {
-    const f = input.files[0]; if(!f) return;
-    const fr= new FileReader();
-    fr.onload = ()=> {
-      try {
-        const d = JSON.parse(fr.result);
-        if(Array.isArray(d.goals) && Array.isArray(d.categories)){
-          if(confirm('Replace existing data? (OK = replace)')){
-            storeCategories(d.categories);
-            storeGoals(d.goals);
-          } else {
-            const cats0 = loadCategories();
-            const mergedCats = cats0.concat(d.categories.filter(c=>!cats0.find(x=>x.id===c.id)));
-            storeCategories(mergedCats);
-            const goals0 = loadGoals();
-            const mergedGoals = goals0.concat(d.goals.map(g=> ({...g, id: uid()})));
-            storeGoals(mergedGoals);
-          }
-        } else {
-          alert('Invalid JSON format. Must include “goals” and “categories”.');
-        }
-      } catch(e){
-        alert('Invalid JSON file.');
-      }
-    };
-    fr.readAsText(f);
-  };
-  input.click();
-};
-
-// Filters change handlers
-filterStatus.addEventListener('change', renderTable);
-filterPriority.addEventListener('change', renderTable);
-filterYearTable.addEventListener('change', renderTable);
-clearFiltersBtn.addEventListener('click', () => {
-  filterStatus.value = '';
-  filterPriority.value = '';
-  filterYearTable.value = '';
-  renderTable();
-});
-
-// Utility
-function escapeHtml(str){
-  return str.replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-}
-
-// Boot sequence
-if(loadGoals().length === 0){
-  const today = new Date();
-  const inDays = d=>{
-    const x = new Date(today); x.setDate(x.getDate()+d);
-    return x.toISOString().slice(0,10);
-  };
-  const cats = loadCategories();
-  const otherCat = cats.find(c=>c.name==='Other');
-  storeGoals([
-    { id: uid(), title:'German A2 course', start_date:inDays(0), due_date:inDays(60),
-      categoryId: otherCat.id, priority:'high', status:'in_progress' },
-    { id: uid(), title:'SQM book — 2 chapters', start_date:inDays(7), due_date:inDays(120),
-      categoryId: otherCat.id, priority:'medium', status:'not_started' },
-    { id: uid(), title:'Gym — 52 sessions', start_date:inDays(-14), due_date:inDays(168),
-      categoryId: otherCat.id, priority:'critical', status:'not_started' }
-  ]);
-} else {
-  refreshAll();
-}
-populateYearFilters();
-
-// Refresh function
-function refreshAll(){
-  populateYearFilters();
-  renderTable();
-  drawGantt();
-  renderSummary();
-}
-
-// Auto‑close date pickers on selection
-['m_start','m_due'].forEach(id=>{
-  const el = document.getElementById(id);
-  if(el) el.addEventListener('change', ()=>el.blur());
-});
-
+buildOverview();
 </script>
 </body>
 </html>
