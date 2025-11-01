@@ -9,132 +9,140 @@
 <link rel="stylesheet" href="https://unpkg.com/vis-timeline@latest/styles/vis-timeline-graph2d.min.css">
 <script src="https://unpkg.com/vis-timeline@latest/standalone/umd/vis-timeline-graph2d.min.js"></script>
 
-<!-- Flatpickr -->
+<!-- Flatpickr (calendars + locale) -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/de.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/fr.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/en.js"></script>
 
-<!-- Quill -->
+<!-- Quill (rich notes) -->
 <link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.min.js"></script>
 
-<!-- Firebase (optional) -->
+<!-- Firebase (optional cloud sync) -->
 <script type="module">
-const FB = { enabled:false, config:{} };
+const FB = {
+  enabled: false,
+  config: {}
+};
 window.__FB__ = FB;
 </script>
 
 <style>
   :root{
-    --bg:#f6f7fb; --fg:#0f172a; --muted:#64748b; --line:#e5e7eb; --card:#ffffff;
+    --bg:#f6f7fb; --fg:#0f172a; --muted:#667085; --line:#e5e7eb; --card:#ffffff;
     --primary:#0ea5e9; --primary-2:#60a5fa; --pill:#eef2f7;
     --green:#22c55e; --violet:#8b5cf6; --amber:#f59e0b; --red:#ef4444; --slate:#94a3b8;
+    --prio-low:#cbd5e1; --prio-medium:#60a5fa; --prio-high:#f59e0b; --prio-critical:#ef4444;
     --pattern:repeating-linear-gradient(45deg, rgba(255,255,255,.25) 0 8px, rgba(0,0,0,.15) 8px 16px);
   }
   [data-theme="dark"]{
-    --bg:#0b1220; --fg:#e5e7eb; --muted:#94a3b8; --line:#1f2937; --card:#0f172a;
+    --bg:#0b1220; --fg:#e5e7eb; --muted:#98a2b3; --line:#1f2937; --card:#0f172a;
     --pill:#0b1624; --primary:#22a1f1; --primary-2:#3db1fb;
   }
   *{box-sizing:border-box}
-  body{font-family:ui-sans-serif,system-ui,-apple-system,"SF Pro Display","Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans";
-       background:var(--bg); color:var(--fg); margin:0;}
-  header{position:sticky;top:0;z-index:20;background:var(--card);border-bottom:1px solid var(--line);backdrop-filter:saturate(180%) blur(8px)}
-  header .inner{max-width:1200px;margin:0 auto;padding:10px 16px;display:flex;gap:8px;align-items:center}
+  body{
+    font-family:ui-sans-serif, system-ui, -apple-system, "SF Pro Display", "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans";
+    background:var(--bg); color:var(--fg); margin:0;
+  }
+
+  header{position:sticky;top:0;z-index:20;background:color-mix(in srgb, var(--card) 85%, transparent);border-bottom:1px solid var(--line);backdrop-filter:saturate(180%) blur(8px)}
+  header .inner{max-width:1200px;margin:0 auto;padding:12px 16px;display:flex;gap:8px;align-items:center}
   .brand{font-weight:800;letter-spacing:.2px}
   .spacer{flex:1}
 
-  /* Buttons — slimmer, premium */
-  .btn{padding:8px 12px;border-radius:12px;border:1px solid transparent;background:var(--primary);color:#fff;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:8px;line-height:1.1;transition:background .15s,transform .06s}
-  .btn:hover{transform:translateY(-0.5px)}
-  .btn.secondary{background:transparent;border-color:var(--line);color:var(--fg)}
-  .btn.secondary.active{background:var(--fg); color:#fff; border-color:var(--fg)}
-  .btn.warn{background:var(--red);color:#fff}
+  /* Buttons – premium ghost style */
+  .btn{padding:9px 12px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--fg);font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:8px;box-shadow:0 1px 0 rgba(15,23,42,.03)}
+  .btn:hover{background:color-mix(in srgb, var(--card) 92%, var(--fg) 8%)}
+  .btn.primary{background:var(--primary);color:#fff;border-color:color-mix(in srgb, var(--primary) 70%, black);box-shadow:0 4px 16px rgba(14,165,233,.18)}
+  .btn.warn{background:#fff;border-color:color-mix(in srgb, var(--red) 40%, var(--line)); color:var(--red)}
   .btn.ghost{background:transparent;border:1px dashed var(--line);color:var(--muted)}
-  .segmented .btn.secondary{border-radius:10px}
-  .segmented .btn.secondary:not(:first-child){margin-left:-6px}
-  .segmented .btn.secondary.active{background:var(--primary);border-color:var(--primary);color:#fff}
+  .btn.active{outline:2px solid var(--primary)}
 
-  .wrap{max-width:1200px;margin:18px auto;padding:0 16px;transition:filter .2s ease}
-  body.modal-open .wrap{filter:blur(3px);pointer-events:none;user-select:none}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px;margin-bottom:14px;box-shadow:0 6px 24px rgba(15,23,42,.06)}
+  .wrap{max-width:1200px;margin:22px auto;padding:0 16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:16px;box-shadow:0 6px 24px rgba(15,23,42,.06)}
   h2{margin:0 0 10px 0}
   .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
   .chip{padding:6px 10px;border-radius:9999px;background:var(--pill);color:var(--fg);font-weight:600;font-size:12px;border:1px solid var(--line)}
   .muted{color:var(--muted);font-size:13px}
-  input,select{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:transparent;color:var(--fg)}
+  input,select{padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:transparent;color:var(--fg)}
   input::placeholder{color:var(--muted)}
   .quick{display:grid;grid-template-columns:2.2fr 1fr 1fr 1fr 1fr auto;gap:8px}
   @media(max-width:980px){.quick{grid-template-columns:1fr 1fr 1fr 1fr 1fr auto}}
   @media(max-width:720px){.quick{grid-template-columns:1fr 1fr}}
-
   table{width:100%;border-collapse:collapse}
-  th,td{padding:10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}
+  th,td{padding:12px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}
   thead th{position:sticky;top:0;background:var(--card);z-index:1}
   tbody tr:nth-child(odd){background:color-mix(in srgb, var(--card) 96%, var(--fg) 4%)}
+  tbody tr.editing{outline:2px solid var(--primary); background:color-mix(in srgb, var(--card) 93%, var(--primary) 7%)}
   .pill{display:inline-block;padding:3px 8px;border-radius:9999px;font-size:12px;font-weight:700}
   .id-pill{background:var(--pill);color:var(--fg);border:1px solid var(--line)}
-  .prio-low{background:#cbd5e1;color:#0f172a}
-  .prio-medium{background:#60a5fa;color:#fff}
-  .prio-high{background:#f59e0b;color:#fff}
-  .prio-critical{background:#ef4444;color:#fff}
+  .prio-low{background:var(--prio-low);color:#0f172a}
+  .prio-medium{background:var(--prio-medium);color:#fff}
+  .prio-high{background:var(--prio-high);color:#fff}
+  .prio-critical{background:var(--prio-critical);color:#fff}
   .status-not_started{background:#e2e8f0;color:#0f172a}
   .status-in_progress{background:#8b5cf6;color:#fff}
   .status-blocked{background:#111827;color:#fff}
-  .status-paused{background:#94a3b8;color:#0f172a}
   .status-done{background:#22c55e;color:#fff}
   .category-pill{padding:3px 8px;border-radius:12px;font-size:12px;font-weight:600;color:#fff}
   .legend .pill.clickable{cursor:pointer;opacity:.95}
   .legend .pill.clickable.active{outline:2px solid var(--primary)}
   .no-data{color:var(--muted);padding:14px;text-align:center}
 
-  /* Timeline area */
-  #timeline{height:520px;border-radius:14px;border:1px solid var(--line);background:var(--card)}
-  .lane-dot{display:inline-block;width:8px;height:8px;border-radius:999px;margin-right:6px;vertical-align:middle}
-  .vis-item .vis-item-content{font-weight:700;padding:2px 8px;border-radius:8px; text-shadow:0 1px 0 rgba(0,0,0,.25)}
+  /* Timeline frame fixed height; content scrolls internally if needed */
+  #timeline{height:540px;border-radius:14px;border:1px solid var(--line);background:var(--card)}
+  .lane-dot{display:inline-block;width:10px;height:10px;border-radius:999px;margin-right:8px;vertical-align:middle;border:1px solid rgba(0,0,0,.12)}
+  .vis-item .vis-item-content{
+    color:#fff;font-weight:700;padding:3px 10px;border-radius:10px;
+    text-shadow:0 1px 1px rgba(0,0,0,.3);
+    letter-spacing:.1px;font-size:13px;
+    border:1px solid rgba(0,0,0,.12)
+  }
   .vis-item.dim .vis-item-content{opacity:.18}
   .vis-selected .vis-item-content{outline:2px solid var(--primary)}
   .vis-time-axis .vis-text{color:var(--muted)}
   .vis-group{cursor:pointer}
-
+  .vis-labelset .vis-group .vis-inner{font-weight:700}
+  /* Priority-colored bars + category accent at the left */
+  .bar-accent{position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:10px 0 0 10px;opacity:.8}
   /* Background bands */
-  .vis-item.vis-background.qbg .vis-item-content{color:var(--muted);opacity:.28;font-weight:700}
+  .vis-item.vis-background.qbg .vis-item-content{color:var(--muted);opacity:.75;font-weight:800;letter-spacing:.4px}
   .vis-item.vis-background.mbg-a{background:rgba(2,6,23,.03);border:none}
-  .vis-item.vis-background.mbg-b{background:rgba(2,6,23,.05);border:none}
-
+  .vis-item.vis-background.mbg-b{background:rgba(2,6,23,.055);border:none}
+  .vis-item.vis-background.yearline{background:transparent;border-left:3px solid rgba(14,165,233,.65)}
   /* Patterns for color-blind assist */
   .patterned .vis-item:not(.vis-background) .vis-item-content{background-image:var(--pattern);background-blend-mode:overlay}
-
   /* Dependency overlay */
   #depSvg path.conn{stroke:var(--muted);stroke-width:1.6;fill:none;stroke-dasharray:4 3}
   #depSvg path.arrow{fill:var(--muted)}
   #depSvg .dim{opacity:.18}
 
-  /* Status */
-  #statusMini{width:140px;height:140px}
-  .legend-list{display:flex;gap:8px;flex-wrap:wrap}
+  /* Donut + KPIs */
+  #statusMini{width:160px;height:160px}
+  .kpis{display:flex;gap:12px;flex-wrap:wrap}
+  .kpi{display:flex;align-items:center;gap:10px;padding:10px 14px;border:1px solid var(--line);border-radius:14px;background:var(--card);font-weight:700}
+  .kpi .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+
+  .legend-list{display:flex;gap:12px;flex-wrap:wrap}
   .legend-item{display:flex;align-items:center;gap:6px}
-  .dot{width:10px;height:10px;border-radius:2px;display:inline-block}
-  .kpis{display:flex;gap:10px;flex-wrap:wrap}
-  .kpi{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:12px;padding:8px 10px;background:var(--card)}
-  .kpi .val{font-weight:800}
 
   /* Group headers */
   .group-row{background:color-mix(in srgb, var(--card) 92%, var(--fg) 8%);font-weight:800}
   .group-toggle{cursor:pointer;color:var(--fg);margin-right:6px}
 
-  /* Toast, Modals */
+  /* Toast */
   .toast{position:fixed;bottom:16px;right:16px;background:var(--card);color:var(--fg);border:1px solid var(--line);box-shadow:0 10px 30px rgba(0,0,0,.16);padding:10px 12px;border-radius:12px;z-index:50}
+
+  /* Modals */
   .backdrop{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.35);backdrop-filter:blur(2px);z-index:40}
-  .modal{width:min(860px,calc(100vw - 24px));outline:0}
+  .modal{width:min(860px,calc(100vw - 24px));}
   .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:12px}
   .g12{grid-column:span 12}.g6{grid-column:span 6}.g4{grid-column:span 4}
   .quill{height:120px}
-  .hide{display:none !important}
 
-  /* Focus */
-  :focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radius:8px}
+  .hide{display:none !important}
 </style>
 </head>
 <body>
@@ -145,16 +153,16 @@ window.__FB__ = FB;
     <div class="brand">Focus.One <span class="muted">Lite</span></div>
     <div class="spacer"></div>
 
-    <button id="themeBtn" class="btn secondary" aria-label="Toggle theme">Theme</button>
-    <button id="syncBtn" class="btn secondary" aria-label="Sign in / Sync">Sign in</button>
+    <button id="themeBtn" class="btn" title="Toggle light/dark (Shift+D)">Theme</button>
+    <button id="syncBtn" class="btn" title="Sign in / Sync">Sign in</button>
 
-    <a class="btn secondary" href="dashboard.html">Dashboard</a>
-    <a class="btn secondary" href="review.html">Quarterly Review</a>
+    <a class="btn" href="dashboard.html" title="Full Dashboard">Dashboard</a>
+    <a class="btn" href="review.html" title="Quarterly Review">Quarterly Review</a>
 
-    <button id="exportBtn" class="btn secondary">Export</button>
-    <button id="importBtn" class="btn secondary">Import</button>
-    <button id="settingsBtn" class="btn secondary">Settings</button>
-    <button id="addBtn" class="btn">Add Goal</button>
+    <button id="exportBtn" class="btn" title="Export JSON/CSV">Export</button>
+    <button id="importBtn" class="btn" title="Import JSON">Import</button>
+    <button id="settingsBtn" class="btn" title="Settings">Settings</button>
+    <button id="addBtn" class="btn primary" title="Add goal (N)">Add Goal</button>
   </div>
 </header>
 
@@ -164,9 +172,9 @@ window.__FB__ = FB;
   <div id="timelineCard" class="card">
     <div class="toolbar" style="justify-content:space-between;">
       <h2>Timeline</h2>
-      <div class="toolbar segmented">
+      <div class="toolbar">
         <label class="muted">Group:</label>
-        <select id="groupMode" class="btn secondary" aria-label="Group timeline">
+        <select id="groupMode" class="btn" aria-label="Group timeline">
           <option value="category" selected>Category</option>
           <option value="status">Status</option>
           <option value="priority">Priority</option>
@@ -175,39 +183,37 @@ window.__FB__ = FB;
           <option value="none">None</option>
         </select>
 
-        <button class="btn secondary" data-view="Week">Week</button>
-        <button class="btn secondary" data-view="1M">1M</button>
-        <button class="btn secondary" data-view="6M" aria-current="true">6M</button>
-        <button class="btn secondary" data-view="YTD">YTD</button>
-        <button class="btn secondary" data-view="5Y">5Y</button>
-        <button class="btn secondary" data-view="All">All</button>
-        <button id="fitBtn" class="btn secondary">Fit</button>
+        <button class="btn" data-view="Week" title="From today + 1 week">Week</button>
+        <button class="btn" data-view="1M" title="From today + 1 month">1M</button>
+        <button class="btn" data-view="6M" title="From today + 6 months">6M</button>
+        <button class="btn" data-view="YTD" title="Year to date">YTD</button>
+        <button class="btn" data-view="5Y" title="Next 5 years">5Y</button>
+        <button class="btn" data-view="All" title="All goals">All</button>
+        <button id="fitBtn" class="btn" title="Optimal zoom to see all">Fit</button>
+        <label class="chip"><input id="autoFit" type="checkbox" checked> auto-fit</label>
 
         <label class="muted">Zoom</label>
-        <input id="zoomSlider" type="range" min="0" max="100" value="50" aria-label="Zoom slider">
-        <label class="muted">Height</label>
-        <input id="heightSlider" type="range" min="360" max="900" value="520" aria-label="Height slider">
+        <input id="zoomSlider" type="range" min="0" max="100" value="50" title="Zoom slider (hold Ctrl to wheel-zoom)">
       </div>
     </div>
 
-    <div id="timeline" aria-label="Goals timeline"></div>
+    <div id="timeline"></div>
 
     <div class="toolbar" style="justify-content:space-between;margin-top:8px;">
       <div class="legend" id="prioLegend">
-        <span class="pill prio-low clickable" data-prio="low">low</span>
-        <span class="pill prio-medium clickable" data-prio="medium">medium</span>
-        <span class="pill prio-high clickable" data-prio="high">high</span>
-        <span class="pill prio-critical clickable" data-prio="critical">critical</span>
+        <span class="pill prio-low clickable" data-prio="low" title="Filter low">low</span>
+        <span class="pill prio-medium clickable" data-prio="medium" title="Filter medium">medium</span>
+        <span class="pill prio-high clickable" data-prio="high" title="Filter high">high</span>
+        <span class="pill prio-critical clickable" data-prio="critical" title="Filter critical">critical</span>
         <label class="chip"><input id="hideDone" type="checkbox"> hide done</label>
         <label class="chip"><input id="cbPatterns" type="checkbox"> color-blind patterns</label>
         <span id="itemCount" class="muted" style="margin-left:8px"></span>
       </div>
       <div class="toolbar">
-        <label class="muted">Range:</label>
-        <input id="rangeStart" class="chip" placeholder="Start date" aria-label="Range start">
-        <input id="rangeEnd" class="chip" placeholder="End date" aria-label="Range end">
-        <button id="rangeSet" class="btn secondary">Apply</button>
-        <button id="rangeClear" class="btn secondary">Reset</button>
+        <label class="muted">Range:</label><input id="rangeStart" class="chip" placeholder="Start date">
+        <input id="rangeEnd" class="chip" placeholder="End date">
+        <button id="rangeSet" class="btn">Apply</button>
+        <button id="rangeClear" class="btn ghost">Reset</button>
       </div>
     </div>
   </div>
@@ -216,13 +222,13 @@ window.__FB__ = FB;
   <div class="card">
     <div class="toolbar" style="justify-content:space-between;">
       <h2>Status</h2>
-      <div class="toolbar" style="gap:16px;align-items:center">
+      <div class="toolbar" style="gap:18px;align-items:center">
         <div class="kpis">
-          <div class="kpi"><span class="dot" style="background:#ef4444"></span><span>Overdue</span><span id="kOver" class="val">0</span></div>
-          <div class="kpi"><span class="dot" style="background:#f59e0b"></span><span>Due ≤14d</span><span id="kSoon" class="val">0</span></div>
-          <div class="kpi"><span class="dot" style="background:#8b5cf6"></span><span>Conflicts</span><span id="kConf" class="val">0</span></div>
+          <div class="kpi" id="kOver"><span class="dot" style="background:var(--red)"></span><span>Overdue <b id="kOverN">0</b></span></div>
+          <div class="kpi"><span class="dot" style="background:var(--amber)"></span><span>Due ≤14d <b id="kSoonN">0</b></span></div>
+          <div class="kpi"><span class="dot" style="background:#0f172a"></span><span>Conflicts <b id="kConfN">0</b></span></div>
         </div>
-        <canvas id="statusMini" width="140" height="140" aria-label="Status donut"></canvas>
+        <canvas id="statusMini" width="160" height="160" aria-label="Completion donut"></canvas>
         <div id="statusLegend" class="legend-list" role="list"></div>
       </div>
     </div>
@@ -234,7 +240,7 @@ window.__FB__ = FB;
       <h2>Goals</h2>
       <div class="toolbar">
         <input id="search" placeholder="Search title, category or tag ( / )" style="min-width:260px" aria-label="search goals">
-        <select id="fStatus" class="btn secondary" aria-label="filter status">
+        <select id="fStatus" class="btn" aria-label="filter status">
           <option value="">All statuses</option>
           <option value="not_started">Not started</option>
           <option value="in_progress">In progress</option>
@@ -243,26 +249,26 @@ window.__FB__ = FB;
           <option value="planning">Planning</option>
           <option value="done">Done</option>
         </select>
-        <select id="fPrio" class="btn secondary" aria-label="filter priority">
+        <select id="fPrio" class="btn" aria-label="filter priority">
           <option value="">All priorities</option>
           <option value="low">Low</option><option value="medium">Medium</option>
           <option value="high">High</option><option value="critical">Critical</option>
         </select>
         <div id="yearBtns" class="toolbar"></div>
-        <select id="tableGroup" class="btn secondary" aria-label="group table">
+        <select id="tableGroup" class="btn" aria-label="group table">
           <option value="category" selected>Group: Category</option>
           <option value="status">Group: Status</option>
           <option value="priority">Group: Priority</option>
           <option value="none">Group: None</option>
         </select>
-        <button id="clearBtn" class="btn secondary">Clear</button>
+        <button id="clearBtn" class="btn">Clear</button>
       </div>
     </div>
 
     <!-- Bulk actions -->
     <div class="toolbar" id="bulkBar" style="display:none;margin:10px 0;">
       <span class="chip" id="bulkCount">0 selected</span>
-      <select id="bulkAction" class="btn secondary">
+      <select id="bulkAction" class="btn">
         <option value="">Bulk action…</option>
         <option value="status:done">Mark done</option>
         <option value="status:in_progress">Mark in progress</option>
@@ -273,7 +279,7 @@ window.__FB__ = FB;
         <option value="priority:critical">Priority → Critical</option>
         <option value="delete">Delete</option>
       </select>
-      <button id="bulkApply" class="btn">Apply</button>
+      <button id="bulkApply" class="btn primary">Apply</button>
     </div>
 
     <!-- Quick Add -->
@@ -283,7 +289,7 @@ window.__FB__ = FB;
       <input id="qaDue" type="text" placeholder="Due" aria-label="quick due">
       <select id="qaPrio" aria-label="quick priority"><option>low</option><option selected>medium</option><option>high</option><option>critical</option></select>
       <select id="qaCat" aria-label="quick category"></select>
-      <button id="qaAdd" class="btn">Add</button>
+      <button id="qaAdd" class="btn primary">Add</button>
     </div>
 
     <table aria-label="Goals table">
@@ -306,50 +312,50 @@ window.__FB__ = FB;
 
 <!-- Add/Edit Modal -->
 <div id="goalModal" class="backdrop" role="dialog" aria-modal="true" aria-label="Goal editor">
-  <div class="card modal" tabindex="-1">
+  <div class="card modal">
     <div class="toolbar" style="justify-content:space-between;">
       <h2 id="modalTitle">Add Goal</h2>
-      <button id="closeModal" class="btn secondary" aria-label="Close goal editor">Close</button>
+      <button id="closeModal" class="btn">Close</button>
     </div>
 
     <div class="grid">
       <div class="g12">
-        <label for="mTitle">Title</label>
+        <label>Title</label>
         <input id="mTitle" autocomplete="off">
         <div id="eTitle" class="muted"></div>
       </div>
 
       <div class="g6">
-        <label for="mStart">Start date</label>
+        <label>Start date</label>
         <input id="mStart" type="text" placeholder="Start">
         <div id="eStart" class="muted"></div>
       </div>
       <div class="g6">
-        <label for="mDue">Due date</label>
+        <label>Due date</label>
         <input id="mDue" type="text" placeholder="Due">
         <div id="eDue" class="muted"></div>
       </div>
 
       <div class="g6">
-        <label for="mCat">Category</label>
+        <label>Category</label>
         <select id="mCat"></select>
       </div>
       <div class="g6">
-        <label for="mStatus">Status</label>
+        <label>Status</label>
         <select id="mStatus"></select>
       </div>
 
       <div class="g6">
-        <label for="mPrio">Priority</label>
+        <label>Priority</label>
         <select id="mPrio"><option>low</option><option selected>medium</option><option>high</option><option>critical</option></select>
       </div>
       <div class="g6">
-        <label for="mDep">Depends on</label>
+        <label>Depends on</label>
         <select id="mDep"><option value="">None</option></select>
       </div>
 
       <div class="g12">
-        <label for="mTags">Tags (comma separated)</label>
+        <label>Tags (comma separated)</label>
         <input id="mTags" placeholder="e.g., german, fitness">
       </div>
 
@@ -359,7 +365,7 @@ window.__FB__ = FB;
       </div>
 
       <div class="g6">
-        <label for="mRecur">Recurrence</label>
+        <label>Recurrence</label>
         <select id="mRecur">
           <option value="">None</option>
           <option value="W1">Weekly</option>
@@ -369,34 +375,34 @@ window.__FB__ = FB;
         </select>
       </div>
       <div class="g6">
-        <label for="mShift">Shift dependents if I move</label>
+        <label>Shift dependents if I move</label>
         <select id="mShift"><option value="no" selected>No</option><option value="yes">Yes, shift chain</option></select>
       </div>
 
       <div class="g12">
-        <label for="mLinks">Attachments (URLs)</label>
+        <label>Attachments (URLs)</label>
         <input id="mLinks" placeholder="https://… , https://…">
       </div>
     </div>
 
     <div class="toolbar" style="justify-content:flex-end;margin-top:10px">
-      <button id="saveGoal" class="btn" disabled>Save</button>
+      <button id="saveGoal" class="btn primary" disabled>Save</button>
     </div>
   </div>
 </div>
 
 <!-- Settings Modal -->
 <div id="settingsModal" class="backdrop" aria-modal="true" role="dialog" aria-label="Settings">
-  <div class="card modal" tabindex="-1">
+  <div class="card modal">
     <div class="toolbar" style="justify-content:space-between;">
       <h2>Settings</h2>
-      <button id="closeSettings" class="btn secondary" aria-label="Close settings">Close</button>
+      <button id="closeSettings" class="btn">Close</button>
     </div>
 
     <div class="grid">
       <div class="g12"><h3>Localization</h3></div>
       <div class="g4">
-        <label for="sDateFmt">Date format</label>
+        <label>Date format</label>
         <select id="sDateFmt">
           <option value="auto" selected>Auto (locale)</option>
           <option value="Y-m-d">YYYY-MM-DD</option>
@@ -405,14 +411,14 @@ window.__FB__ = FB;
         </select>
       </div>
       <div class="g4">
-        <label for="sDow">First day of week</label>
+        <label>First day of week</label>
         <select id="sDow">
           <option value="1" selected>Monday</option>
           <option value="0">Sunday</option>
         </select>
       </div>
       <div class="g4">
-        <label for="sTheme">Theme</label>
+        <label>Theme</label>
         <select id="sTheme">
           <option value="light">Light</option>
           <option value="dark">Dark</option>
@@ -436,38 +442,67 @@ window.__FB__ = FB;
 <script type="module">
 /* ===================== Utilities & Storage ===================== */
 const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
+const once=(el,ev,fn)=>{const h=(...a)=>{el.removeEventListener(ev,h);fn(...a)}; el.addEventListener(ev,h);};
 const pad=n=>String(n).padStart(2,'0');
 const iso=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-const toISO=x=>iso(new Date(x));
-const addDays=(dateStr,n)=>{const d=new Date(dateStr); d.setDate(d.getDate()+n); return iso(d)}
-const esc=s=>(s??'').replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
-const showToast=(msg)=>{ const t=$('#toast'); t.textContent=msg; t.classList.remove('hide'); setTimeout(()=>t.classList.add('hide'), 1800); }
+const toISO=x=>{const d=new Date(x); return iso(d);}
+const idFmt=i=>'G'+String(i).padStart(2,'0');
+const esc=s=>String(s||'').replace(/[&<>"]/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+const showToast=(msg)=>{ const t=$('#toast'); t.textContent=msg; t.classList.remove('hide'); setTimeout(()=>t.classList.add('hide'), 2200); }
 const storeKeys={ goals:'focusone_goals', cats:'focusone_categories', statuses:'focusone_statuses', ui:'focusone_ui' };
 
 const FB=window.__FB__ || {enabled:false};
 let auth=null, db=null, user=null;
 
-/* Storage driver (local / Firestore) — unchanged behavior */
-const driver={ async init(){ if(FB.enabled){ const { initializeApp }=await import('https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js');
-  const { getAuth,onAuthStateChanged,GoogleAuthProvider,signInWithPopup,signOut }=await import('https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js');
-  const { getFirestore,doc,getDoc,setDoc }=await import('https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js');
-  const app=initializeApp(FB.config); auth=getAuth(app); db=getFirestore(app);
-  driver._fs={doc,setDoc,getDoc}; driver._auth={onAuthStateChanged,GoogleAuthProvider,signInWithPopup,signOut};
-  driver._auth.onAuthStateChanged(auth, async(u)=>{ user=u||null; $('#syncBtn').textContent=user?'Sign out':'Sign in';
-    $('#storageInfo').textContent=user?'Synced securely to your account.':'Data stored locally in your browser.';
-    if(user){ const ref=driver._fs.doc(db,'focusone',user.uid); const snap=await driver._fs.getDoc(ref);
-      if(snap.exists()){ const d=snap.data(); if(d.goals) localStorage.setItem(storeKeys.goals, JSON.stringify(d.goals));
-        if(d.cats) localStorage.setItem(storeKeys.cats, JSON.stringify(d.cats)); if(d.statuses) localStorage.setItem(storeKeys.statuses, JSON.stringify(d.statuses));
-      } else { await driver._fs.setDoc(ref,{goals:loadGoals(),cats:loadCats(),statuses:loadStatuses()}); }
-    } refresh();
-  }); } }, async sign(){ if(!FB.enabled){ showToast('Cloud sync not configured'); return; }
-  if(user){ await driver._auth.signOut(auth); return; } const prov=new driver._auth.GoogleAuthProvider(); await driver._auth.signInWithPopup(auth,prov);
-}, async push(){ if(!user||!FB.enabled) return; const ref=driver._fs.doc(db,'focusone',user.uid);
-  await driver._fs.setDoc(ref,{goals:loadGoals(),cats:loadCats(),statuses:loadStatuses()},{merge:true}); showToast('Synced ✓'); } };
+const driver={
+  async init(){
+    if(FB.enabled){
+      const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js');
+      const { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } = await import('https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js');
+      const { getFirestore, doc, getDoc, setDoc } = await import('https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js');
+      const app=initializeApp(FB.config); auth=getAuth(app); db=getFirestore(app);
+      driver._fs={doc,setDoc,getDoc};
+      driver._auth={onAuthStateChanged,GoogleAuthProvider,signInWithPopup,signOut};
+      driver._setAuthHandlers();
+    }
+  },
+  _setAuthHandlers(){
+    driver._auth?.onAuthStateChanged?.(auth, async(u)=>{
+      user=u || null;
+      $('#syncBtn').textContent = user? 'Sign out' : 'Sign in';
+      $('#storageInfo').textContent = user? 'Synced securely to your account.' : 'Data stored locally in your browser.';
+      if(user && FB.enabled){
+        const ref=driver._fs.doc(db,'focusone',user.uid);
+        const snap=await driver._fs.getDoc(ref);
+        if(snap.exists()){
+          const d=snap.data();
+          if(d.goals) localStorage.setItem(storeKeys.goals, JSON.stringify(d.goals));
+          if(d.cats) localStorage.setItem(storeKeys.cats, JSON.stringify(d.cats));
+          if(d.statuses) localStorage.setItem(storeKeys.statuses, JSON.stringify(d.statuses));
+        }else{
+          await driver._fs.setDoc(ref, {goals:loadGoals(), cats:loadCats(), statuses:loadStatuses()});
+        }
+        refresh();
+      } else {
+        refresh();
+      }
+    });
+  },
+  async sign(){ if(!FB.enabled){ showToast('Cloud sync not configured'); return; }
+    if(user){ await driver._auth.signOut(auth); return; }
+    const prov=new driver._auth.GoogleAuthProvider(); await driver._auth.signInWithPopup(auth,prov);
+  },
+  async push(){ if(!user || !FB.enabled) return;
+    const ref=driver._fs.doc(db,'focusone',user.uid);
+    await driver._fs.setDoc(ref,{goals:loadGoals(),cats:loadCats(),statuses:loadStatuses()},{merge:true});
+    showToast('Synced to cloud ✓');
+  }
+};
 $('#syncBtn').onclick=()=>driver.sign();
 
-const load=(k,def)=>{ try{return JSON.parse(localStorage.getItem(k)) ?? def}catch{return def} };
-const save=(k,v)=>localStorage.setItem(k, JSON.stringify(v));
+/* Local storage helpers */
+const load = (k,def)=>{ try{ return JSON.parse(localStorage.getItem(k)) ?? def }catch{ return def } };
+const save = (k,v)=> localStorage.setItem(k, JSON.stringify(v));
 
 function loadGoals(){ return load(storeKeys.goals, []); }
 function setGoals(v){ save(storeKeys.goals, v); driver.push(); }
@@ -482,9 +517,11 @@ function loadStatuses(){ return load(storeKeys.statuses, [
   {id:'done', name:'done', color:'#22c55e'}
 ]);}
 function setStatuses(v){ save(storeKeys.statuses, v); driver.push(); }
-function loadUI(){ return load(storeKeys.ui, {dateFmt:'auto', dow:1, theme:'auto', filters:{}, patterned:false, hideDone:false, height:520, customRange:null}) }
+
+function loadUI(){ return load(storeKeys.ui, {dateFmt:'auto', dow:1, theme:'auto', filters:{}}); }
 function setUI(v){ save(storeKeys.ui, v); }
 
+/* Seeds if empty */
 (function seed(){
   if(loadCats().length===0){
     setCats([
@@ -502,15 +539,15 @@ function setUI(v){ save(storeKeys.ui, v); }
   }
 })();
 
-/* ============== Globals & helpers ============== */
-let VIEW='6M', GROUP='category', PRIO='', TBL_GROUP='category', YEAR='', HIDE_DONE=false, PATTERNED=false;
-let RANGE=null;                // {start:Date,end:Date} for custom viewport
-let FOCUS=new Set(), COLLAPSED=new Set();
+/* ===================== UI State ===================== */
+let VIEW='All', GROUP='category', PRIO='', TBL_GROUP='category', YEAR='', HIDE_DONE=false, PATTERNED=false;
+let RANGE=null;
+let FOCUS=new Set(); let COLLAPSED=new Set();
 let timeline, itemsDS, groupsDS, depSvg, quill, qaStart, qaDue, mStart, mDue, rStart, rEnd;
-const idFmt=i=>'G'+String(i).padStart(2,'0');
+
 const idMap=()=> new Map(loadGoals().map((g,i)=>[g.id, idFmt(i+1)]));
 
-/* ===== Theme & localization ===== */
+/* ===================== Theme & Localization ===================== */
 function applyTheme(){
   const pref=loadUI().theme||'auto';
   const root=document.documentElement;
@@ -519,19 +556,20 @@ function applyTheme(){
 }
 $('#themeBtn').onclick=()=>{ const ui=loadUI(); ui.theme = ui.theme==='dark'?'light' : ui.theme==='light'?'auto':'dark'; setUI(ui); applyTheme(); showToast(`Theme: ${ui.theme}`); };
 document.addEventListener('keydown',e=>{if(e.shiftKey && (e.key==='D'||e.key==='d')) $('#themeBtn').click();});
-const detectLocale2=()=>{const l=(navigator.language||'en').slice(0,2); return ['de','fr','en'].includes(l)? l : 'en';}
+
+/* Flatpickr helpers */
 function fpOpts(){
-  const ui=loadUI(); const dateFmt = ui.dateFmt==='auto' ? undefined : ui.dateFmt;
-  const loc=flatpickr.l10ns?.[detectLocale2()] || flatpickr.l10ns.default;
-  return { dateFormat: dateFmt || 'Y-m-d', weekNumbers:true, allowInput:true, clickOpens:true, closeOnSelect:true, locale:{...loc, firstDayOfWeek:Number(ui.dow)} };
+  const ui=loadUI();
+  const dateFmt = ui.dateFmt==='auto' ? undefined : ui.dateFmt;
+  return { dateFormat: dateFmt || 'Y-m-d', weekNumbers:true, allowInput:true, clickOpens:true, locale: 'en', firstDayOfWeek: Number(ui.dow) };
 }
 
-/* ===== Export / Import ===== */
+/* ===================== Export / Import ===================== */
 $('#exportBtn').onclick=()=>{
   const data={goals:loadGoals(),categories:loadCats(),statuses:loadStatuses()};
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='focusone-data.json'; a.click(); URL.revokeObjectURL(url);
-  showToast('Exported: focusone-data.json');
+  showToast('Exported JSON: focusone-data.json');
 };
 $('#importBtn').onclick=()=>{
   const i=document.createElement('input'); i.type='file'; i.accept='application/json';
@@ -544,28 +582,27 @@ $('#importBtn').onclick=()=>{
   }; i.click();
 };
 
-/* ===== Settings ===== */
+/* ===================== Settings (categories/statuses/localization) ===================== */
 const setModal=$('#settingsModal');
 function openSettings(){
-  setModal.style.display='flex'; trapFocus(setModal); document.body.classList.add('modal-open'); document.body.style.overflow='hidden';
+  setModal.style.display='flex';
   const ui=loadUI(); $('#sDateFmt').value=ui.dateFmt||'auto'; $('#sDow').value=ui.dow??1; $('#sTheme').value=ui.theme||'auto';
   renderCatTable(); renderStatusTable();
 }
-$('#settingsBtn').onclick=openSettings;
-$('#closeSettings').onclick=()=>{ setModal.style.display='none'; document.body.classList.remove('modal-open'); document.body.style.overflow=''; };
-$('#sDateFmt').onchange=()=>{ const ui=loadUI(); ui.dateFmt=$('#sDateFmt').value; setUI(ui); buildPickers(); refreshTimeline(); };
-$('#sDow').onchange=()=>{ const ui=loadUI(); ui.dow=$('#sDow').value; setUI(ui); buildPickers(); refreshTimeline(); };
+$('#settingsBtn').onclick=openSettings; $('#closeSettings').onclick=()=>setModal.style.display='none';
+$('#sDateFmt').onchange=()=>{ const ui=loadUI(); ui.dateFmt=$('#sDateFmt').value; setUI(ui); buildPickers(); refreshTimeline(true); };
+$('#sDow').onchange=()=>{ const ui=loadUI(); ui.dow=$('#sDow').value; setUI(ui); buildPickers(); refreshTimeline(true); };
 $('#sTheme').onchange=()=>{ const ui=loadUI(); ui.theme=$('#sTheme').value; setUI(ui); applyTheme(); };
 
 function renderCatTable(){
   const wrap=$('#catTable'); const cats=loadCats();
-  wrap.innerHTML = `<table><thead><tr><th>Name</th><th>Color</th><th></th></tr></thead><tbody>${cats.map(c=>`
+  wrap.innerHTML = `<table><thead><tr><th>Name</th><th>Color</th><th></th></tr></thead><tbody>${cats.map((c,i)=>`
     <tr>
-      <td><input data-cname="${c.id}" value="${esc(c.name)}"></td>
+      <td><input data-cname="${c.id}" value="${c.name}"></td>
       <td><input type="color" data-ccolor="${c.id}" value="${c.color}"></td>
       <td class="toolbar">
-        <button class="btn secondary" data-cup="${c.id}">↑</button>
-        <button class="btn secondary" data-cdown="${c.id}">↓</button>
+        <button class="btn" data-cup="${c.id}">↑</button>
+        <button class="btn" data-cdown="${c.id}">↓</button>
         <button class="btn warn" data-cdel="${c.id}">Delete</button>
       </td>
     </tr>`).join('')}</tbody></table>`;
@@ -579,13 +616,13 @@ $('#addCat').onclick=()=>{ const cats=loadCats(); cats.push({id:crypto.randomUUI
 
 function renderStatusTable(){
   const wrap=$('#statusTable'); const sts=loadStatuses();
-  wrap.innerHTML=`<table><thead><tr><th>Name</th><th>Color</th><th></th></tr></thead><tbody>${sts.map(s=>`
+  wrap.innerHTML=`<table><thead><tr><th>Name</th><th>Color</th><th></th></tr></thead><tbody>${sts.map((s,i)=>`
     <tr>
-      <td><input data-sname="${s.id}" value="${esc(s.name)}"></td>
+      <td><input data-sname="${s.id}" value="${s.name}"></td>
       <td><input type="color" data-scolor="${s.id}" value="${s.color}"></td>
       <td class="toolbar">
-        <button class="btn secondary" data-sup="${s.id}">↑</button>
-        <button class="btn secondary" data-sdown="${s.id}">↓</button>
+        <button class="btn" data-sup="${s.id}">↑</button>
+        <button class="btn" data-sdown="${s.id}">↓</button>
         <button class="btn warn" data-sdel="${s.id}">Delete</button>
       </td>
     </tr>`).join('')}</tbody></table>`;
@@ -597,110 +634,126 @@ function renderStatusTable(){
 }
 $('#addStatus').onclick=()=>{ const v=loadStatuses(); v.push({id:crypto.randomUUID(), name:'new_status', color:'#64748b'}); setStatuses(v); renderStatusTable(); renderTable(); rebuildTimeline(); };
 
-/* ===== Goal modal ===== */
-const modal=$('#goalModal'); let editing=null;
+/* ===================== Goal Modal ===================== */
+const modal=$('#goalModal');
+let editing=null;
 function openModal(g={}){
   editing=g.id||null; $('#modalTitle').textContent=editing?'Edit Goal':'Add Goal';
-  $('#mCat').innerHTML=loadCats().map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
-  $('#mStatus').innerHTML=loadStatuses().map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
-  $('#mDep').innerHTML = `<option value="">None</option>` + loadGoals().map(x=>`<option value="${x.id}">${esc(x.title)}</option>`).join('');
+  $('#mCat').innerHTML=loadCats().map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  $('#mStatus').innerHTML=loadStatuses().map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  $('#mDep').innerHTML = `<option value="">None</option>` + loadGoals().map(x=>`<option value="${x.id}">${x.title}</option>`).join('');
   $('#mTitle').value=g.title||''; quill.setContents(quill.clipboard.convert(g.notes||'')); 
-  $('#mStart')._fp.setDate(g.start_date||null, true); $('#mDue')._fp.setDate(g.due_date||null, true);
-  $('#mCat').value=g.categoryId||$('#mCat').value; $('#mStatus').value=g.status||'not_started';
-  $('#mPrio').value=g.priority||'medium'; $('#mDep').value=g.dependsOnId||'';
-  $('#mTags').value=(g.tags||[]).join(', '); $('#mLinks').value=(g.links||[]).join(', ');
-  $('#mRecur').value=g.recur||''; $('#mShift').value='no'; $('#saveGoal').disabled=true;
-
-  modal.style.display='flex'; trapFocus(modal); document.body.classList.add('modal-open'); document.body.style.overflow='hidden';
+  $('#mStart')._fp.setDate(g.start_date||null); $('#mDue')._fp.setDate(g.due_date||null);
+  $('#mCat').value=g.categoryId||$('#mCat').value;
+  $('#mStatus').value=g.status||'not_started';
+  $('#mPrio').value=g.priority||'medium';
+  $('#mDep').value=g.dependsOnId||'';
+  $('#mTags').value=(g.tags||[]).join(', ');
+  $('#mLinks').value=(g.links||[]).join(', ');
+  $('#mRecur').value=g.recur||'';
+  $('#mShift').value='no';
+  $('#saveGoal').disabled=true;
+  modal.style.display='flex';
   $('#mTitle').focus();
 }
-function closeGoal(){ modal.style.display='none'; editing=null; document.body.classList.remove('modal-open'); document.body.style.overflow=''; }
-$('#addBtn').onclick=()=>openModal(); $('#closeModal').onclick=closeGoal;
+function closeGoal(){ modal.style.display='none'; editing=null; }
+$('#addBtn').onclick=()=>openModal();
+$('#closeModal').onclick=closeGoal;
 ['#mTitle','#mStart','#mDue','#mCat','#mStatus','#mPrio','#mDep','#mTags','#mRecur'].forEach(sel=>{
-  $(sel).addEventListener('input',validateGoal); $(sel).addEventListener('change',validateGoal);
+  $(sel).addEventListener('input',validateGoal);
+  $(sel).addEventListener('change',validateGoal);
 });
 function validateGoal(){
-  const title=$('#mTitle').value.trim(); const s=$('#mStart').value, d=$('#mDue').value;
+  const title=$('#mTitle').value.trim();
+  const s=$('#mStart').value, d=$('#mDue').value;
   let ok=!!title && !!s && !!d && s<=d;
-  $('#eTitle').textContent=title?'':'Title required'; $('#eStart').textContent=s?'':'Start required';
-  $('#eDue').textContent= d ? (s>d?'Due must be after start':'') : 'Due required'; $('#saveGoal').disabled=!ok;
+  $('#eTitle').textContent=title?'':'Title required'; 
+  $('#eStart').textContent=s?'':'Start required';
+  $('#eDue').textContent= d ? (s>d?'Due must be after start':'') : 'Due required';
+  $('#saveGoal').disabled=!ok;
 }
-$('#saveGoal').onclick=saveGoal;
-document.addEventListener('keydown',(e)=>{
-  const anyOpen = modal.style.display==='flex' || $('#settingsModal').style.display==='flex';
-  if(e.key==='Escape' && anyOpen){ if(modal.style.display==='flex') closeGoal(); if($('#settingsModal').style.display==='flex') $('#closeSettings').click(); }
-  if(e.key==='Enter' && modal.style.display==='flex' && !$('#saveGoal').disabled){ saveGoal(); }
-});
-function saveGoal(){
-  const d={ title:$('#mTitle').value.trim(), start_date: $('#mStart').value, due_date: $('#mDue').value,
+$('#saveGoal').onclick=()=>{
+  const d={
+    title:$('#mTitle').value.trim(),
+    start_date: $('#mStart').value, due_date: $('#mDue').value,
     categoryId: $('#mCat').value, status: $('#mStatus').value, priority: $('#mPrio').value,
-    dependsOnId: $('#mDep').value || null, tags: $('#mTags').value.split(',').map(s=>s.trim()).filter(Boolean),
-    notes: quill.root.innerHTML.trim(), links: $('#mLinks').value.split(',').map(s=>s.trim()).filter(Boolean),
-    recur: $('#mRecur').value };
+    dependsOnId: $('#mDep').value || null,
+    tags: $('#mTags').value.split(',').map(s=>s.trim()).filter(Boolean),
+    notes: quill.root.innerHTML.trim(),
+    links: $('#mLinks').value.split(',').map(s=>s.trim()).filter(Boolean),
+    recur: $('#mRecur').value
+  };
   let list=loadGoals();
-  if(editing){
-    const before=list.find(x=>x.id===editing); const updated={...before,...d};
-    if($('#mShift').value==='yes'){ const delta=(new Date(updated.start_date)-new Date(before.start_date))/86400000;
-      if(delta!==0){ const byId=new Map(list.map(x=>[x.id,x])); const q=list.filter(x=>x.dependsOnId===editing).map(x=>x.id);
-        while(q.length){ const id=q.shift(); const g=byId.get(id); if(!g) continue;
-          const ns=new Date(g.start_date); ns.setDate(ns.getDate()+delta);
-          const ne=new Date(g.due_date); ne.setDate(ne.getDate()+delta);
-          g.start_date=iso(ns); g.due_date=iso(ne);
-          list.filter(x=>x.dependsOnId===g.id).forEach(x=>q.push(x.id));
-        } } }
-    list=list.map(x=>x.id===editing?updated:x);
-  } else { list=[...list,{id:crypto.randomUUID(),...d}]; }
+  if(editing){ list = list.map(x=>x.id===editing? {...x,...d}:x); }
+  else { list = [...list, {id:crypto.randomUUID(), ...d}]; }
   setGoals(list); refresh(); closeGoal();
-}
+};
 
-/* ===== Year buttons & filters ===== */
+/* ===================== Year Buttons & Filters ===================== */
 let YEAR_BTNS=$('#yearBtns');
 function buildYears(){
   YEAR_BTNS.innerHTML='';
   const years=[...new Set(loadGoals().flatMap(g=>[g.start_date?.slice(0,4),g.due_date?.slice(0,4)]) )].filter(Boolean).sort();
-  const mk=(label,val)=>{ const b=document.createElement('button'); b.className='btn secondary'; b.textContent=label; if(val===YEAR) b.classList.add('active');
-    b.onclick=()=>{ YEAR=(YEAR===val)?'':val; buildYears(); renderTable(); refreshTimeline(); }; return b; };
+  const mk=(label,val)=>{ const b=document.createElement('button'); b.className='btn'; b.textContent=label; if(val===YEAR) b.classList.add('active');
+    b.onclick=()=>{ YEAR=(YEAR===val)?'':val; buildYears(); renderTable(); refreshTimeline(true); }; return b; };
   YEAR_BTNS.appendChild(mk('All','')); YEAR_BTNS.appendChild(mk('YTD','YTD')); years.forEach(y=>YEAR_BTNS.appendChild(mk(y,y)));
 }
-$('#clearBtn').onclick=()=>{ $('#search').value=''; $('#fStatus').value=''; $('#fPrio').value=''; PRIO=''; YEAR=''; 
-  const ui=loadUI(); HIDE_DONE=ui.hideDone=false; PATTERNED=ui.patterned=false; ui.customRange=null; setUI(ui);
-  $('#hideDone').checked=false; $('#cbPatterns').checked=false; FOCUS.clear(); COLLAPSED.clear(); syncPrioLegend(); buildYears(); renderTable(); refreshTimeline(); renderStatus(); };
+$('#clearBtn').onclick=()=>{ $('#search').value=''; $('#fStatus').value=''; $('#fPrio').value=''; PRIO=''; YEAR=''; HIDE_DONE=false; $('#hideDone').checked=false; RANGE=null; $('#rangeStart').value=''; $('#rangeEnd').value=''; FOCUS.clear(); COLLAPSED.clear(); syncPrioLegend(); buildYears(); renderTable(); refreshTimeline(true); renderStatus(); };
 
-/* ===== Status (donut + KPIs) ===== */
+/* ===================== Status (KPI + donut) ===================== */
 function renderStatus(){
-  const L=loadGoals(); const today=new Date();
-  const overdue=L.filter(g=>g.status!=='done' && new Date(g.due_date)<today).length;
-  const soon=L.filter(g=>g.status!=='done' && new Date(g.due_date)>=today && (new Date(g.due_date)-today)<=14*86400000).length;
-  const conf=L.filter(g=>g.dependsOnId).filter(g=>{
-    const p=loadGoals().find(x=>x.id===g.dependsOnId); return p && new Date(p.due_date)>new Date(g.start_date);
-  }).length;
-  $('#kOver').textContent=overdue; $('#kSoon').textContent=soon; $('#kConf').textContent=conf;
-
-  const by=(id)=>L.filter(g=>g.status===id).length;
+  const L=loadGoals();
   const statuses=loadStatuses();
+  const by=(id)=>L.filter(g=>g.status===id).length;
   const vals=statuses.map(s=>by(s.id)), cols=statuses.map(s=>s.color), labs=statuses.map(s=>s.name);
   const total=vals.reduce((a,b)=>a+b,0)||1;
-  const canvas=$('#statusMini'), ctx=canvas.getContext('2d'); ctx.clearRect(0,0,canvas.width,canvas.height);
-  const cx=70, cy=70, r=64, inner=40; let start=-Math.PI/2;
-  vals.forEach((v,i)=>{ const a=(v/total)*2*Math.PI; ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,r,start,start+a); ctx.closePath(); ctx.fillStyle=cols[i]; ctx.fill(); start+=a; });
-  ctx.globalCompositeOperation='destination-out'; ctx.beginPath(); ctx.arc(cx,cy,inner,0,Math.PI*2); ctx.fill(); ctx.globalCompositeOperation='source-over';
+
+  // KPIs
+  const today=new Date();
+  const overdue=L.filter(g=>g.status!=='done' && new Date(g.due_date) < today).length;
+  const soon=L.filter(g=>g.status!=='done' && new Date(g.due_date) >= today && (new Date(g.due_date)-today)<=14*86400000).length;
+  const conf=conflicts(L).length;
+  $('#kOverN').textContent=overdue; $('#kSoonN').textContent=soon; $('#kConfN').textContent=conf;
+  $('#kOver').style.outline = overdue? '2px solid var(--red)' : 'none';
+
+  // Donut: % done
   const doneIdx = labs.findIndex(l=>l==='done'), pct = total? Math.round((vals[doneIdx]||0)/total*100):0;
-  ctx.fillStyle='var(--fg)'; ctx.font='700 18px ui-sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(pct+'%',cx,cy);
+  const canvas=$('#statusMini'), ctx=canvas.getContext('2d'); ctx.clearRect(0,0,canvas.width,canvas.height);
+  const cx=80, cy=80, r=68, inner=44; let start=-Math.PI/2;
+  const arcSegs=[
+    {v:vals[doneIdx]||0, c:'#22c55e'},
+    {v: total-(vals[doneIdx]||0), c:'#e5e7eb'}
+  ];
+  arcSegs.forEach(seg=>{ const a=(seg.v/total)*2*Math.PI; ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,r,start,start+a); ctx.closePath(); ctx.fillStyle=seg.c; ctx.fill(); start+=a; });
+  ctx.globalCompositeOperation='destination-out'; ctx.beginPath(); ctx.arc(cx,cy,inner,0,Math.PI*2); ctx.fill(); ctx.globalCompositeOperation='source-over';
+  ctx.fillStyle='var(--fg)'; ctx.font='700 22px ui-sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(pct+'%',cx,cy);
+
   const legend=$('#statusLegend'); legend.innerHTML='';
   labs.forEach((lab,i)=>{ const v=vals[i],p=Math.round(v/total*100);
-    const div=document.createElement('button'); div.className='legend-item btn secondary'; div.style.borderColor=cols[i];
-    div.innerHTML=`<span class="dot" style="background:${cols[i]}"></span><span>${esc(lab)}: <b>${v}</b> (${p}%)</span>`;
-    div.onclick=()=>{ $('#fStatus').value = $('#fStatus').value===statuses[i].id ? '' : statuses[i].id; renderTable(); refreshTimeline(); };
+    const div=document.createElement('button'); div.className='legend-item btn'; div.style.borderColor=cols[i]; div.style.color='var(--fg)';
+    div.innerHTML=`<span class="dot" style="background:${cols[i]}"></span><span>${lab}: <b>${v}</b> (${p}%)</span>`;
+    div.onclick=()=>{ $('#fStatus').value = $('#fStatus').value===statuses[i].id ? '' : statuses[i].id; renderTable(); refreshTimeline(true); };
     legend.appendChild(div);
   });
 }
 
-/* ===== Table (grouped + inline edit + bulk) ===== */
-$('#search').oninput=renderTable; $('#fStatus').onchange=()=>{ renderTable(); refreshTimeline(); }; 
-$('#fPrio').onchange=()=>{ PRIO=$('#fPrio').value; syncPrioLegend(); renderTable(); refreshTimeline(); };
+/* Detect simple dependency conflicts */
+function conflicts(list){
+  const byId=new Map(list.map(g=>[g.id,g]));
+  return list.filter(g=>{
+    if(!g.dependsOnId) return false;
+    const prev=byId.get(g.dependsOnId);
+    return prev && new Date(prev.due_date) > new Date(g.start_date);
+  });
+}
+
+/* ===================== Table (grouped + inline edit + bulk) ===================== */
+$('#search').oninput=renderTable; $('#fStatus').onchange=()=>{ renderTable(); refreshTimeline(true); }; 
+$('#fPrio').onchange=()=>{ PRIO=$('#fPrio').value; syncPrioLegend(); renderTable(); refreshTimeline(true); };
 $('#tableGroup').onchange=e=>{ TBL_GROUP=e.target.value; renderTable(); };
 $('#chkAll').onchange=()=>{ $$('#rows input[type=checkbox]').forEach(cb=>{ cb.checked=$('#chkAll').checked; }); updateBulk(); };
-$('#bulkApply').onclick=applyBulk; $('#bulkAction').onchange=updateBulk;
+$('#bulkApply').onclick=applyBulk;
+$('#bulkAction').onchange=updateBulk;
 
 function updateBulk(){ const ids=selectedIds(); $('#bulkCount').textContent=`${ids.length} selected`; $('#bulkBar').style.display= ids.length? 'flex':'none'; }
 function selectedIds(){ return $$('#rows input[type=checkbox]:checked').map(cb=>cb.dataset.id); }
@@ -710,7 +763,7 @@ function applyBulk(){
   if(action==='delete'){ if(!confirm('Delete selected goals?')) return; list=list.filter(g=>!ids.includes(g.id)); }
   else if(action.startsWith('status:')){ const val=action.split(':')[1]; list=list.map(g=> ids.includes(g.id)? {...g,status:val}:g); }
   else if(action.startsWith('priority:')){ const val=action.split(':')[1]; list=list.map(g=> ids.includes(g.id)? {...g,priority:val}:g); }
-  setGoals(list); renderTable(); refreshTimeline(); showToast('Bulk action applied ✓');
+  setGoals(list); renderTable(); refreshTimeline(true); renderStatus(); showToast('Bulk action applied ✓');
 }
 
 function renderTable(){
@@ -730,7 +783,7 @@ function renderTable(){
     if(RANGE){ if(!(new Date(g.due_date)>=RANGE.start && new Date(g.start_date)<=RANGE.end)) return false; }
     return true;
   });
-  const cats=loadCats(), ids=idMap(), tb=$('#rows');
+  const cats=loadCats(), sts=loadStatuses(), ids=idMap(), tb=$('#rows');
   if(list.length===0){ tb.innerHTML='<tr><td colspan="11" class="no-data">No goals match your filters.</td></tr>'; return; }
   const key=g=> TBL_GROUP==='category' ? (cats.find(c=>c.id===g.categoryId)?.name||'Uncategorized')
                : TBL_GROUP==='status'   ? g.status
@@ -741,20 +794,20 @@ function renderTable(){
   const row=g=>{
     const cat=cats.find(c=>c.id===g.categoryId)||{name:'Other',color:'#6b7280'};
     const dep=g.dependsOnId? ids.get(g.dependsOnId):'';
-    const tagHtml=(g.tags||[]).map(t=>`<span class="chip">${esc(t)}</span>`).join(' ');
+    const tagHtml=(g.tags||[]).map(t=>`<span class="chip">${t}</span>`).join(' ');
     return `<tr data-id="${g.id}">
       <td><input type="checkbox" data-id="${g.id}"></td>
       <td><span class="pill id-pill">${ids.get(g.id)}</span></td>
       <td data-field="title" title="Click to edit">${esc(g.title)} ${dep?`<span class="chip">↳ ${dep}</span>`:''}</td>
-      <td>${dep?`<span class="chip">${dep}</span>`:''}</td>
+      <td data-field="dependsOnId">${dep?`<span class="chip">${dep}</span>`:'—'}</td>
       <td data-field="categoryId"><span class="category-pill" style="background:${cat.color}">${esc(cat.name)}</span></td>
       <td data-field="start_date">${g.start_date||''}</td>
       <td data-field="due_date">${g.due_date||''}</td>
       <td data-field="priority"><span class="pill prio-${g.priority}">${g.priority}</span></td>
-      <td data-field="status"><span class="pill status-${g.status}">${esc(g.status.replace('_',' '))}</span></td>
+      <td data-field="status"><span class="pill status-${g.status}">${g.status.replace('_',' ')}</span></td>
       <td data-field="tags">${tagHtml}</td>
       <td class="toolbar" style="gap:6px;">
-        <button class="btn secondary" data-edit="${g.id}">Edit</button>
+        <button class="btn" data-edit="${g.id}">Edit</button>
         <button class="btn warn" data-del="${g.id}">Delete</button>
       </td>
     </tr>`;
@@ -771,21 +824,35 @@ function renderTable(){
   tb.querySelectorAll('input[type=checkbox]').forEach(cb=> cb.onchange=updateBulk);
 }
 
-/* Inline edit */
+/* Inline edit (now includes dependsOnId) */
 function inlineEdit(td){
   const tr=td.closest('tr'); const id=tr.dataset.id; const list=loadGoals(); const g=list.find(x=>x.id===id); if(!g) return;
-  const field=td.dataset.field; const commit=v=>{ const u={...g,[field]:v}; if(u.start_date && u.due_date && u.start_date>u.due_date){ alert('Start after Due'); renderTable(); return; } setGoals(list.map(x=>x.id===id?u:x)); refreshTimeline(); renderTable(); };
+  tr.classList.add('editing');
+  const field=td.dataset.field;
+  const commit=v=>{
+    const u={...g,[field]:v};
+    if(u.start_date && u.due_date && u.start_date>u.due_date){ alert('Start after Due'); renderTable(); return; }
+    setGoals(list.map(x=>x.id===id?u:x));
+    tr.classList.remove('editing');
+    refreshTimeline(true); renderTable(); renderStatus();
+  };
   let ed;
   if(field==='title'){ ed=document.createElement('input'); ed.value=g.title; ed.onkeydown=e=>{if(e.key==='Enter')commit(ed.value.trim()); if(e.key==='Escape')renderTable()}; ed.onblur=()=>commit(ed.value.trim()); }
   else if(field==='start_date'||field==='due_date'){ ed=document.createElement('input'); ed.type='text'; ed.value=g[field]||''; flatpickr(ed,{...fpOpts(), defaultDate:g[field]||null, onClose:()=>commit(ed.value)}); }
   else if(field==='priority'){ ed=document.createElement('select'); ['low','medium','high','critical'].forEach(p=>ed.appendChild(new Option(p,p,p===g.priority,p===g.priority))); ed.onchange=()=>commit(ed.value); }
   else if(field==='status'){ ed=document.createElement('select'); loadStatuses().forEach(s=>ed.appendChild(new Option(s.name,s.id,s.id===g.status,s.id===g.status))); ed.onchange=()=>commit(ed.value); }
   else if(field==='categoryId'){ ed=document.createElement('select'); loadCats().forEach(c=>ed.appendChild(new Option(c.name,c.id,c.id===g.categoryId,c.id===g.categoryId))); ed.onchange=()=>commit(ed.value); }
+  else if(field==='dependsOnId'){
+    ed=document.createElement('select');
+    ed.appendChild(new Option('None','',!g.dependsOnId,!g.dependsOnId));
+    loadGoals().filter(x=>x.id!==g.id).forEach(x=> ed.appendChild(new Option(x.title,x.id,x.id===g.dependsOnId,x.id===g.dependsOnId)));
+    ed.onchange=()=>commit(ed.value||null);
+  }
   else if(field==='tags'){ ed=document.createElement('input'); ed.value=(g.tags||[]).join(', '); ed.onkeydown=e=>{if(e.key==='Enter')commit(ed.value.split(',').map(s=>s.trim()).filter(Boolean)); if(e.key==='Escape')renderTable()}; ed.onblur=()=>commit(ed.value.split(',').map(s=>s.trim()).filter(Boolean)); }
   td.innerHTML=''; td.appendChild(ed); ed.focus(); if(ed.select) ed.select();
 }
 
-/* ===== Timeline ===== */
+/* ===================== Timeline (vis) ===================== */
 let depTimer;
 function rangeFor(view){
   const t=new Date(), y=t.getFullYear();
@@ -793,34 +860,24 @@ function rangeFor(view){
     case 'Week': return {start:t, end:new Date(t.getFullYear(), t.getMonth(), t.getDate()+7)};
     case '1M':   return {start:t, end:new Date(t.getFullYear(), t.getMonth()+1, t.getDate())};
     case '6M':   return {start:t, end:new Date(t.getFullYear(), t.getMonth()+6, t.getDate())};
-    case 'YTD':  return {start:t, end:new Date(y,11,31)};
+    case 'YTD':  return {start:new Date(y,0,1), end:new Date(y,11,31)};
     case '5Y':   return {start:t, end:new Date(y+5, t.getMonth(), t.getDate())};
     default:     return null;
   }
 }
-function setView(v){ VIEW=v; $$('#timelineCard [data-view]').forEach(b=>b.classList.toggle('active', b.dataset.view===v)); RANGE=null; const ui=loadUI(); ui.customRange=null; setUI(ui); refreshTimeline(); }
+function setView(v){ VIEW=v; $$('#timelineCard [data-view]').forEach(b=>b.classList.toggle('active', b.dataset.view===v)); refreshTimeline(true); }
 $$('#timelineCard [data-view]').forEach(b=>b.onclick=()=>setView(b.dataset.view));
-$('#fitBtn').onclick=()=>{ VIEW='All'; RANGE=null; refreshTimeline(true); };
-$('#groupMode').onchange=e=>{ GROUP=e.target.value; COLLAPSED.clear(); refreshTimeline(); };
-$('#hideDone').onchange=()=>{ HIDE_DONE=$('#hideDone').checked; const ui=loadUI(); ui.hideDone=HIDE_DONE; setUI(ui); renderTable(); refreshTimeline(); };
-$('#cbPatterns').onchange=()=>{ PATTERNED=$('#cbPatterns').checked; const ui=loadUI(); ui.patterned=PATTERNED; setUI(ui); $('#timeline').classList.toggle('patterned', PATTERNED); };
+$('#fitBtn').onclick=()=>{ VIEW='All'; refreshTimeline(true,true); };
+$('#groupMode').onchange=e=>{ GROUP=e.target.value; COLLAPSED.clear(); refreshTimeline(true); };
+$('#hideDone').onchange=()=>{ HIDE_DONE=$('#hideDone').checked; renderTable(); refreshTimeline(true); };
+$('#cbPatterns').onchange=()=>{ PATTERNED=$('#cbPatterns').checked; $('#timeline').classList.toggle('patterned', PATTERNED); };
 $('#rangeSet').onclick=()=>{
-  const s=rStart.selectedDates?.[0], e=rEnd.selectedDates?.[0];
-  if(!s||!e){ alert('Pick both start and end'); return; }
-  if(s>e){ alert('Start must be before end'); return; }
-  RANGE={start:s, end:e}; VIEW='Custom';
-  const ui=loadUI(); ui.customRange={start:iso(s), end:iso(e)}; setUI(ui);
-  refreshTimeline(true);
+  if(rStart.selectedDates[0]&&rEnd.selectedDates[0]){
+    RANGE={start:rStart.selectedDates[0], end:rEnd.selectedDates[0]};
+    VIEW='All'; refreshTimeline(true,true); renderTable();
+  }
 };
-$('#rangeClear').onclick=()=>{ RANGE=null; const ui=loadUI(); ui.customRange=null; setUI(ui); setView('6M'); };
-
-$('#heightSlider').addEventListener('input',()=>{
-  const h=Number($('#heightSlider').value);
-  const opts={maxHeight:h+'px', minHeight:h+'px'};
-  timeline && timeline.setOptions(opts);
-  $('#timeline').style.height=h+'px';
-  const ui=loadUI(); ui.height=h; setUI(ui);
-});
+$('#rangeClear').onclick=()=>{ RANGE=null; $('#rangeStart').value=''; $('#rangeEnd').value=''; refreshTimeline(true,true); renderTable(); };
 
 function viewWindow(){ if(!timeline){ const r=rangeFor(VIEW)||{start:new Date(), end:new Date(new Date().getFullYear(), new Date().getMonth()+1, 1)}; return r; } const w=timeline.getWindow(); return {start:w.start,end:w.end}; }
 function ensureDepSvg(){
@@ -850,11 +907,8 @@ function focusChain(id){
 }
 function dimItems(){ $$('#timeline .vis-item').forEach(n=>{ const id=n.getAttribute('data-id'); if(FOCUS.size && !FOCUS.has(id)) n.classList.add('dim'); else n.classList.remove('dim'); }); }
 
-function luminance(hex){ const c=hex.replace('#',''); const r=parseInt(c.slice(0,2),16)/255, g=parseInt(c.slice(2,4),16)/255, b=parseInt(c.slice(4,6),16)/255;
-  const a=[r,g,b].map(v=> v<=0.03928? v/12.92 : Math.pow((v+0.055)/1.055,2.4)); return 0.2126*a[0]+0.7152*a[1]+0.0722*a[2]; }
-const prioColor=p=>({low:'#cbd5e1',medium:'#60a5fa',high:'#f59e0b',critical:'#ef4444'}[p]||'#3b82f6');
-
-function refreshTimeline(forceFit=false){
+/* Build timeline */
+function refreshTimeline(force=false, forceFit=false){
   const raw=loadGoals(); const ids=idMap(); const cats=loadCats(), sts=loadStatuses();
   const statusesById=new Map(sts.map(s=>[s.id,s]));
   const today=iso(new Date()), yStart=iso(new Date(new Date().getFullYear(),0,1));
@@ -867,6 +921,7 @@ function refreshTimeline(forceFit=false){
     return true;
   });
 
+  // grouping meta
   const key=g=> GROUP==='category' ? (g.categoryId||'uncat')
               : GROUP==='status'   ? (g.status||'nostatus')
               : GROUP==='priority' ? (g.priority||'priority')
@@ -879,31 +934,32 @@ function refreshTimeline(forceFit=false){
                : GROUP==='tag'      ? k
                : GROUP==='year'     ? k
                : 'All goals';
-  const laneColor=k=> GROUP==='category' ? (cats.find(c=>c.id===k)?.color||'#6b7280')
-               : GROUP==='status'   ? (statusesById.get(k)?.color||'#6b7280')
-               : GROUP==='priority' ? prioColor(k)
-               : GROUP==='tag'      ? '#3b82f6'
-               : GROUP==='year'     ? '#0ea5e9'
-               : '#3b82f6';
+  const catColor=k=> (cats.find(c=>c.id===k)?.color||'#6b7280');
 
+  // lanes
   const lanes={}; list.forEach(g=>{ const k=key(g); (lanes[k]||(lanes[k]=[])).push(g); });
   const rng=viewWindow();
   const activeScore=k=> (lanes[k]||[]).reduce((a,g)=> a + (new Date(g.due_date)>=rng.start && new Date(g.start_date)<=rng.end ? 1 : 0), 0);
   const order=Object.keys(lanes).sort((a,b)=> activeScore(b)-activeScore(a) || label(a).localeCompare(label(b)));
-  const groups = order.map(k=>({ id:k, content:`<span class="lane-dot" style="background:${laneColor(k)}"></span>${esc(label(k))} <span class="muted">(${lanes[k].length})</span>`, order:activeScore(k), visible:!COLLAPSED.has(k) }));
+  const groups = order.map(k=>({ id:k, content:`<span class="lane-dot" style="background:${catColor(k)}"></span>${label(k)} <span class="muted">(${lanes[k].length})</span>`, order:activeScore(k), visible:!COLLAPSED.has(k) }));
 
+  // items (priority color + category accent)
+  const prioColor=p=> ({low:'var(--prio-low)',medium:'var(--prio-medium)',high:'var(--prio-high)',critical:'var(--prio-critical)'}[p]||'#3b82f6');
   const items=[];
+  function labelHtml(g){
+    const short = g.title.length>36? g.title.slice(0,34)+'…' : g.title;
+    const idTxt = ids.get(g.id);
+    return `<span class="bar-accent" style="background:${catColor(key(g))}"></span>${idTxt} · ${esc(short)}`;
+  }
   function pushBar(g,start,end){
     const k=key(g); if(COLLAPSED.has(k)) return;
-    const pcol = prioColor(g.priority), lcol=laneColor(k);
-    const textCol = (luminance(pcol)>0.6)? '#0f172a' : '#fff';
     items.push({
       id:g.id + (start!==g.start_date? '_r'+start : ''),
       group:k, subgroup:(g.dependsOnId||g.id),
       start, end: addDays(end,1),
-      content:`${ids.get(g.id)} · ${esc(g.title.length>28?g.title.slice(0,26)+'…':g.title)}`,
+      content:labelHtml(g),
       title:`${g.title}\n${g.start_date} → ${g.due_date}\n${g.priority} • ${g.status}`,
-      style:`background:${pcol}; color:${textCol}; border-color:rgba(0,0,0,.15); border-left:4px solid ${lcol}`,
+      style:`background:${prioColor(g.priority)};`,
       className:(FOCUS.size && !FOCUS.has(g.id)) ? 'dim' : '',
       dependsOnId:g.dependsOnId||null,
       _root:g.id
@@ -924,24 +980,26 @@ function refreshTimeline(forceFit=false){
     }
   });
 
-  const backs = quarterMonthBands();
+  // background bands
+  const backs = quarterMonthBands().concat(yearLines());
 
   const container=$('#timeline');
-  const H=loadUI().height||520;
   const opts={
     orientation:'top', multiselect:false,
     editable:{updateTime:true, updateGroup:false, add:false, remove:false},
     margin:{item:10, axis:28},
     stack:true, stackSubgroups:true, subgroupStack:true,
     groupOrder:(a,b)=> (b.order||0)-(a.order||0),
-    verticalScroll:true, maxHeight:H+'px', minHeight:H+'px',
+    verticalScroll:true, maxHeight:'540px', minHeight:'540px',
     zoomKey:'ctrlKey', zoomMin: 1000*60*60*24*3,
     tooltip:{followMouse:true}
   };
 
   if(!timeline){
-    itemsDS=new vis.DataSet(items.concat(backs)); groupsDS=new vis.DataSet(groups);
+    itemsDS=new vis.DataSet(items.concat(backs));
+    groupsDS=new vis.DataSet(groups);
     timeline=new vis.Timeline(container, itemsDS, groupsDS, opts);
+
     itemsDS.on('update', (evt,props)=>{
       if(!props||!props.items) return; const all=loadGoals(); let changed=false;
       props.items.forEach(id=>{
@@ -953,8 +1011,8 @@ function refreshTimeline(forceFit=false){
           const affected=all.filter(g=>g.dependsOnId===root.id);
           affected.forEach(dep=>{
             if(new Date(root.due_date) > new Date(dep.start_date)){
-              if(confirm(`"${root.title}" now ends after "${dep.title}" starts. Shift dependent?`)){
-                const shift = Math.ceil((new Date(root.due_date) - new Date(dep.start_date))/86400000) + 1;
+              if(confirm(`"${root.title}" now ends after "${dep.title}" starts. Shift dependent to maintain gap?`)){
+                const shift = (new Date(root.due_date) - new Date(dep.start_date))/86400000 + 1;
                 const ns=new Date(dep.start_date); ns.setDate(ns.getDate()+shift);
                 const ne=new Date(dep.due_date); ne.setDate(ne.getDate()+shift);
                 dep.start_date=iso(ns); dep.due_date=iso(ne);
@@ -963,10 +1021,12 @@ function refreshTimeline(forceFit=false){
           });
         }
       });
-      if(changed){ setGoals(all); renderTable(); renderStatus(); refreshTimeline(); }
+      if(changed){ setGoals(all); renderTable(); renderStatus(); refreshTimeline(true); }
     });
     timeline.on('select',p=>{ if(p.items.length){ const node=itemsDS.get(p.items[0]); focusChain(node._root); } else {FOCUS.clear(); dimItems(); drawDepsSoon();} });
-    timeline.on('click',p=>{ if(p.what==='group-label' && p.group){ if(COLLAPSED.has(p.group)) COLLAPSED.delete(p.group); else COLLAPSED.add(p.group); refreshTimeline(); } });
+    timeline.on('click',p=>{
+      if(p.what==='group-label' && p.group){ if(COLLAPSED.has(p.group)) COLLAPSED.delete(p.group); else COLLAPSED.add(p.group); refreshTimeline(true); }
+    });
     const upd=()=>drawDepsSoon(); timeline.on('changed',upd); timeline.on('rangechanged',upd); window.addEventListener('resize',upd);
   } else {
     itemsDS.clear(); itemsDS.add(items.concat(backs));
@@ -974,29 +1034,34 @@ function refreshTimeline(forceFit=false){
     timeline.setOptions(opts);
   }
 
-  // viewport / fit logic
-  let r=null;
-  if(RANGE) r={start:RANGE.start, end:RANGE.end};
-  else if(VIEW==='All' && !forceFit) r=null;
-  else r=rangeFor(VIEW);
-  if(r){ timeline.setWindow(r.start, r.end, {animation:true}); }
-  else if(forceFit || VIEW==='All'){
-    const listItems=items.filter(x=>!x.type);
-    if(listItems.length){
-      const range=listItems.reduce((acc,it)=>{ const s=new Date(it.start), e=new Date(it.end); if(s<acc.s)acc.s=s; if(e>acc.e)acc.e=e; return acc; },{s:new Date(8640000000000000), e:new Date(-8640000000000000)});
-      const span = range.e - range.s; const pad = span*0.08; timeline.setWindow(new Date(range.s-pad), new Date(range.e+pad), {animation:true});
-    }
+  // viewport: range → window; else fit or preset view
+  if(RANGE){
+    timeline.setWindow(RANGE.start, new Date(RANGE.end.getTime()+86400000), {animation:true});
+  } else if(VIEW!=='All'){
+    const r=rangeFor(VIEW); if(r) timeline.setWindow(r.start, r.end, {animation:true});
+  } else if(forceFit || $('#autoFit').checked){
+    fitAll();
   }
 
   $('#timeline').classList.toggle('patterned', PATTERNED);
-  $('#timeline').style.height=(H+'px');
   ensureDepSvg(); drawDepsSoon();
   $('#itemCount').textContent=`Items: ${items.filter(x=>!x.type).length}`;
 }
 
+function fitAll(){
+  const items=itemsDS.get().filter(x=>!x.type);
+  if(!items.length) return;
+  const range = items.reduce((acc,it)=>{
+    const s=new Date(it.start), e=new Date(it.end); if(s<acc.s)acc.s=s; if(e>acc.e)acc.e=e; return acc;
+  },{s:new Date(8640000000000000), e:new Date(-8640000000000000)});
+  const span = range.e - range.s; const pad = span*0.08;
+  timeline.setWindow(new Date(range.s-pad), new Date(range.e+pad), {animation:true});
+}
+
 function quarterMonthBands(){
   const w=viewWindow(); const s=new Date(w.start), e=new Date(w.end);
-  const arr=[]; const qs=new Date(s.getFullYear(), Math.floor(s.getMonth()/3)*3,1);
+  const arr=[];
+  const qs=new Date(s.getFullYear(), Math.floor(s.getMonth()/3)*3,1);
   for(let d=new Date(qs); d<=e; d=new Date(d.getFullYear(), d.getMonth()+3,1)){
     arr.push({id:'q_'+d.getTime(), start:iso(d), end:iso(new Date(d.getFullYear(), d.getMonth()+3,1)), type:'background', className:'qbg', content:`Q${Math.floor(d.getMonth()/3)+1} ${d.getFullYear()}`});
   }
@@ -1007,6 +1072,11 @@ function quarterMonthBands(){
   }
   return arr;
 }
+function yearLines(){
+  const w=viewWindow(); const sY=viewWindow().start.getFullYear(), eY=viewWindow().end.getFullYear();
+  const arr=[]; for(let y=sY; y<=eY; y++){ const d=new Date(y,0,1); arr.push({id:'y_'+y, start:iso(d), end:iso(new Date(y,0,2)), type:'background', className:'yearline', content:''}); }
+  return arr;
+}
 
 /* Zoom slider */
 $('#zoomSlider').addEventListener('input',()=>{
@@ -1015,11 +1085,11 @@ $('#zoomSlider').addEventListener('input',()=>{
   const ms=spanDays*86400000/2; timeline.setWindow(new Date(center-ms), new Date(center+ms));
 });
 
-/* Priority legend */
+/* Priority legend sync */
 const prioLegend=document.getElementById('prioLegend');
 prioLegend.addEventListener('click', e=>{
   const p=e.target.closest('.clickable'); if(!p) return;
-  const val=p.dataset.prio; PRIO=(PRIO===val)? '' : val; $('#fPrio').value=PRIO; syncPrioLegend(); renderTable(); refreshTimeline();
+  const val=p.dataset.prio; PRIO=(PRIO===val)? '' : val; $('#fPrio').value=PRIO; syncPrioLegend(); renderTable(); refreshTimeline(true);
 });
 function syncPrioLegend(){ prioLegend.querySelectorAll('.clickable').forEach(x=>x.classList.toggle('active', x.dataset.prio===PRIO && PRIO)); }
 
@@ -1043,7 +1113,7 @@ $('#qaAdd').onclick=()=>{
   setGoals([...loadGoals(),g]); $('#qaTitle').value=''; refresh();
 };
 
-/* Shortcuts */
+/* Keyboard shortcuts */
 document.addEventListener('keydown',e=>{
   const open=modal.style.display==='flex' || $('#settingsModal').style.display==='flex';
   if(e.key==='Escape' && !open){ FOCUS.clear(); dimItems(); drawDepsSoon(); }
@@ -1052,33 +1122,25 @@ document.addEventListener('keydown',e=>{
     if(e.key==='n'||e.key==='N'){ openModal(); }
   }
 });
-function trapFocus(scopeEl){
-  const focusable=scopeEl.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])');
-  const first=focusable[0], last=focusable[focusable.length-1];
-  scopeEl.addEventListener('keydown',function(e){
-    if(e.key!=='Tab') return;
-    if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); }
-    else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
-  },{once:true});
-}
 
 /* Boot */
 function refresh(){
-  $('#qaCat').innerHTML=loadCats().map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  $('#qaCat').innerHTML=loadCats().map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
   buildPickers();
-  if(!quill){ quill=new Quill('#mNotes',{theme:'snow'}); }
-  const ui=loadUI(); HIDE_DONE=ui.hideDone||false; PATTERNED=ui.patterned||false;
-  $('#hideDone').checked=HIDE_DONE; $('#cbPatterns').checked=PATTERNED;
-  $('#heightSlider').value=ui.height||520; $('#timeline').style.height=(ui.height||520)+'px';
-  if(ui.customRange){ RANGE={start:new Date(ui.customRange.start), end:new Date(ui.customRange.end)}; VIEW='Custom'; }
-  buildYears(); renderTable(); renderStatus(); refreshTimeline(); applyTheme();
-  const f=ui.filters||{}; if(f.status) $('#fStatus').value=f.status; if(f.priority){ $('#fPrio').value=f.priority; PRIO=f.priority; syncPrioLegend(); }
-  if(f.group){ GROUP=f.group; $('#groupMode').value=GROUP; }
-  if(f.view && !ui.customRange) setView(f.view);
+  if(!quill){ quill = new Quill('#mNotes',{theme:'snow'}); }
+  buildYears(); renderTable(); renderStatus(); refreshTimeline(true,true); applyTheme();
+  const ui=loadUI(); const f=ui.filters||{};
+  if(f.status) $('#fStatus').value=f.status; if(f.priority) { $('#fPrio').value=f.priority; PRIO=f.priority; syncPrioLegend(); }
+  if(f.group) { GROUP=f.group; $('#groupMode').value=GROUP; }
+  if(f.view) setView(f.view);
 }
 window.addEventListener('beforeunload',()=>{
-  const ui=loadUI(); ui.filters={status:$('#fStatus').value, priority:PRIO||$('#fPrio').value, group:$('#groupMode').value, view:VIEW}; ui.hideDone=HIDE_DONE; ui.patterned=PATTERNED; ui.height=Number($('#heightSlider').value); setUI(ui);
+  const ui=loadUI(); ui.filters={status:$('#fStatus').value, priority:PRIO||$('#fPrio').value, group:$('#groupMode').value, view:VIEW}; setUI(ui);
 });
+
+/* Helpers */
+function addDays(d, n){ const dt=new Date(d); dt.setDate(new Date(d).getDate()+n); return dt; }
+
 driver.init().then(refresh);
 </script>
 </body>
