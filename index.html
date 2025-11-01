@@ -202,12 +202,11 @@
 
       function daysBetween(a,b){ const ms = (new Date(b)) - (new Date(a)); return Math.max(0, Math.ceil(ms/86400000)); }
       function addDays(d, n){ const x = new Date(d); x.setDate(x.getDate()+n); return x; }
-      function ymd(x){ const m = String(x.getMonth()+1).padStart(2,'0'); const d = String(x.getDate()).padStart(2,'0'); return x.getFullYear()+'-'+m+'-'+d; }
       function monthLabel(x){ return x.toLocaleString(undefined,{ month:'short', year:'numeric' }); }
 
       function renderGantt(view='Month'){
         // Map priority -> exact bar color
-const prioColor = { low:'#cbd5e1', medium:'#60a5fa', high:'#f59e0b', critical:'#ef4444' };
+        const prioColor = { low:'#cbd5e1', medium:'#60a5fa', high:'#f59e0b', critical:'#ef4444' };
 
         const container = document.getElementById('gantt');
         const countEl = document.getElementById('ganttCount');
@@ -263,9 +262,7 @@ const prioColor = { low:'#cbd5e1', medium:'#60a5fa', high:'#f59e0b', critical:'#
           rect.setAttribute('x', String(barX)); rect.setAttribute('y', String(y));
           rect.setAttribute('width', String(barW)); rect.setAttribute('height','20');
           rect.setAttribute('rx','6'); rect.setAttribute('ry','6');
-          rect.setAttribute('fill', prioColor[g.priority || 'medium']); // ensure bar color matches priority
-
-          rect.setAttribute('class','prio-' + (g.priority||'medium'));
+          rect.setAttribute('fill', prioColor[g.priority || 'medium']); // bar color = priority
           rect.setAttribute('fill-opacity', g.status==='done' ? '0.7' : '1.0');
           rect.setAttribute('stroke','#0f172a22'); rect.setAttribute('stroke-width','1');
           svg.appendChild(rect);
@@ -354,12 +351,12 @@ const prioColor = { low:'#cbd5e1', medium:'#60a5fa', high:'#f59e0b', critical:'#
       } else {
         refresh();
       }
-      // Auto-close native date pickers on selection (Safari/Chrome)
-['start','due','qStart','qEnd'].forEach(id => {
-  const el = document.getElementById(id);
-  if(el) el.addEventListener('change', () => el.blur());
-});
 
+      // Auto-close native date pickers on selection (Safari/Chrome)
+      ['start','due','qStart','qEnd'].forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.addEventListener('change', () => el.blur());
+      });
     </script>
   </body>
 </html>
