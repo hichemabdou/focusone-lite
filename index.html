@@ -5,30 +5,43 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Focus.One Lite — No-CDN</title>
     <style>
-      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background:#f7f9fc; color:#0f172a; }
-      header { padding: 18px 20px; background:white; box-shadow: 0 1px 8px rgba(0,0,0,.06); position: sticky; top:0; z-index: 10; }
-      .brand { font-weight: 700; letter-spacing: .2px; }
+      :root {
+        --bg:#f7f9fc; --fg:#0f172a; --muted:#64748b; --line:#e2e8f0; --card:#ffffff;
+        --pill:#f1f5f9; --blue:#60a5fa; --amber:#f59e0b; --red:#ef4444; --slate:#cbd5e1; --green:#22c55e; --violet:#8b5cf6;
+      }
+      *{box-sizing:border-box}
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background:var(--bg); color:var(--fg); }
+      header { padding: 14px 20px; background:var(--card); border-bottom:1px solid var(--line); position: sticky; top:0; z-index: 10; }
+      .brand { font-weight: 800; letter-spacing: .2px; }
       .wrap { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
-      .card { background:white; border-radius:16px; padding:16px; box-shadow: 0 2px 12px rgba(15,23,42,.06); margin-bottom:16px; }
-      .grid { display:grid; gap:16px; grid-template-columns: repeat(12, 1fr); }
-      .g6 { grid-column: span 6; } .g12 { grid-column: span 12; } .g3 { grid-column: span 3; }
+      .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; margin-bottom:16px; }
+      .grid { display:grid; gap:12px; grid-template-columns: repeat(12, 1fr); align-items:end; }
+      .g12 { grid-column: span 12; } .g6 { grid-column: span 6; } .g4{grid-column:span 4} .g3 { grid-column: span 3; }
       label { font-size: 12px; color:#334155; display:block; margin-bottom:6px; }
       input, select, textarea { width:100%; padding:10px 12px; border:1px solid #e5e7eb; border-radius:10px; background:#f9fafb; }
       button { padding:10px 14px; border-radius:12px; border:0; background:#0ea5e9; color:white; font-weight:600; cursor:pointer; }
       button.secondary { background:#e2e8f0; color:#0f172a; }
-      button.warn { background:#ef4444; }
+      button.warn { background:var(--red); }
       h2 { margin: 0 0 10px; }
       table { width: 100%; border-collapse: collapse; }
       th, td { padding: 10px; border-bottom: 1px solid #f1f5f9; text-align: left; font-size: 14px;}
-      .badge { font-size:12px; padding:4px 8px; border-radius:9999px; background:#f1f5f9; }
       .row { display:flex; gap:8px; align-items:center; flex-wrap: wrap;}
-      #gantt { overflow: auto; min-height: 260px; border:1px solid #e2e8f0; border-radius:12px; }
       .toolbar { display:flex; gap:8px; flex-wrap: wrap; }
-      .muted { color:#64748b; font-size: 13px; }
-      .kpi { display:flex; gap:16px; }
-      .kpi .item { background:#f8fafc; border:1px solid #e2e8f0; padding:12px; border-radius:12px; }
+      .muted { color:var(--muted); font-size: 13px; }
+      #gantt { overflow:auto; min-height: 280px; border:1px solid var(--line); border-radius:12px; background:white; }
+      .pill { display:inline-block; padding:3px 8px; border-radius:9999px; font-size:12px; font-weight:600; }
+      .prio-low{ background:var(--slate); color:#0f172a; }
+      .prio-medium{ background:var(--blue); color:white; }
+      .prio-high{ background:var(--amber); color:white; }
+      .prio-critical{ background:var(--red); color:white; }
+      .status-not_started{ background:#e2e8f0; color:#0f172a;}
+      .status-in_progress{ background:var(--violet); color:white;}
+      .status-blocked{ background:#111827; color:white;}
+      .status-done{ background:var(--green); color:white;}
       .footer { text-align:center; padding:20px; color:#94a3b8; }
-      .prio-low { fill:#cbd5e1; } .prio-medium { fill:#60a5fa; } .prio-high { fill:#f59e0b; } .prio-critical { fill:#ef4444; }
+      .axis { font-size:11px; fill:#475569; }
+      .label { font-size:12px; }
+      @media (max-width: 820px){ .g6{grid-column:span 12} .g4{grid-column:span 12} .g3{grid-column:span 6} }
     </style>
   </head>
   <body>
@@ -42,103 +55,101 @@
     </header>
 
     <div class="wrap">
-      <div class="grid">
-        <div class="g12 card">
-          <h2>Quick Add Goal</h2>
-          <div class="grid">
-            <div class="g6">
-              <label>Title</</label>
-              <input id="title" placeholder="e.g., Finish German A2 by March" />
-            </div>
-            <div class="g3">
-              <label>Start date</label>
-              <input id="start" type="date" />
-            </div>
-            <div class="g3">
-              <label>Due date</label>
-              <input id="due" type="date" />
-            </div>
-            <div class="g3">
-              <label>Priority</label>
-              <select id="priority">
-                <option>low</option><option selected>medium</option><option>high</option><option>critical</option>
-              </select>
-            </div>
-            <div class="g3">
-              <label>Status</label>
-              <select id="status">
-                <option selected>not_started</option><option>in_progress</option><option>blocked</option><option>done</option>
-              </select>
-            </div>
-            <div class="g6" style="display:flex; align-items:flex-end; gap:8px;">
-              <button id="addBtn">Add Goal</button>
-              <button id="clearBtn" class="secondary">Clear Form</button>
-            </div>
+      <div class="card">
+        <h2>Quick Add Goal</h2>
+        <div class="grid">
+          <div class="g6">
+            <label>Title</label>
+            <input id="title" placeholder="e.g., Finish German A2 by March" />
+          </div>
+          <div class="g3">
+            <label>Start date</label>
+            <input id="start" type="date" />
+          </div>
+          <div class="g3">
+            <label>Due date</label>
+            <input id="due" type="date" />
+          </div>
+          <div class="g3">
+            <label>Priority</label>
+            <select id="priority">
+              <option>low</option><option selected>medium</option><option>high</option><option>critical</option>
+            </select>
+          </div>
+          <div class="g3">
+            <label>Status</label>
+            <select id="status">
+              <option selected>not_started</option><option>in_progress</option><option>blocked</option><option>done</option>
+            </select>
+          </div>
+          <div class="g6 row">
+            <button id="addBtn">Add Goal</button>
+            <button id="clearBtn" class="secondary">Clear Form</button>
           </div>
         </div>
+      </div>
 
-        <div class="g12 card">
-          <div class="row" style="justify-content:space-between;">
-            <h2>Timeline</h2>
-            <div class="toolbar">
-              <button data-view="Month" class="secondary">Month</button>
-              <button data-view="Quarter" class="secondary">Quarter</button>
-              <button data-view="Year" class="secondary">Year</button>
-            </div>
+      <div class="card">
+        <div class="row" style="justify-content:space-between;">
+          <h2>Timeline</h2>
+          <div class="toolbar">
+            <button data-view="Month" class="secondary">Month</button>
+            <button data-view="Quarter" class="secondary">Quarter</button>
+            <button data-view="Year" class="secondary">Year</button>
           </div>
-          <div id="gantt"></div>
-          <div id="ganttCount" class="muted" style="margin-top:6px;"></div>
         </div>
+        <div id="gantt"></div>
+        <div id="ganttCount" class="muted" style="margin-top:6px;"></div>
+      </div>
 
-        <div class="g12 card">
-          <div class="row" style="justify-content:space-between;">
-            <h2>Goals</h2>
-            <div class="toolbar">
-              <select id="filterStatus">
-                <option value="">All statuses</option>
-                <option>not_started</option><option>in_progress</option><option>blocked</option><option>done</option>
-              </select>
-              <select id="filterPriority">
-                <option value="">All priorities</option>
-                <option>low</option><option>medium</option><option>high</option><option>critical</option>
-              </select>
-            </div>
+      <div class="card">
+        <div class="row" style="justify-content:space-between;">
+          <h2>Goals</h2>
+          <div class="toolbar">
+            <select id="filterStatus">
+              <option value="">All statuses</option>
+              <option>not_started</option><option>in_progress</option><option>blocked</option><option>done</option>
+            </select>
+            <select id="filterPriority">
+              <option value="">All priorities</option>
+              <option>low</option><option>medium</option><option>high</option><option>critical</option>
+            </select>
           </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Title</th><th>Start</th><th>Due</th><th>Priority</th><th>Status</th><th></th>
-              </tr>
-            </thead>
-            <tbody id="goalRows"></tbody>
-          </table>
         </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Title</th><th>Start</th><th>Due</th><th>Priority</th><th>Status</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="goalRows"></tbody>
+        </table>
+      </div>
 
-        <div class="g12 card">
-          <h2>Quarterly Review</h2>
-          <div class="grid">
-            <div class="g3">
-              <label>Quarter start</label>
-              <input id="qStart" type="date" />
-            </div>
-            <div class="g3">
-              <label>Quarter end</label>
-              <input id="qEnd" type="date" />
-            </div>
-            <div class="g6" style="display:flex; align-items:flex-end; gap:8px;">
-              <button id="computeBtn">Compute Score</button>
-              <button id="icsBtn" class="secondary">Download Review .ics</button>
-            </div>
-            <div class="g12">
-              <label>Notes</label>
-              <textarea id="notes" rows="4" placeholder="What moved the needle? What slipped? Focus for next quarter?"></textarea>
-            </div>
-            <div class="g12 kpi">
-              <div class="item"><div class="muted">Completion %</div><div id="kpiCompletion" style="font-weight:700;font-size:20px;">–</div></div>
-              <div class="item"><div class="muted">On-time %</div><div id="kpiOnTime" style="font-weight:700;font-size:20px;">–</div></div>
-              <div class="item"><div class="muted">Priority-weighted %</div><div id="kpiPwc" style="font-weight:700;font-size:20px;">–</div></div>
-              <div class="item"><div class="muted">Score</div><div id="kpiScore" style="font-weight:700;font-size:20px;">–</div></div>
-            </div>
+      <div class="card">
+        <h2>Quarterly Review</h2>
+        <div class="grid">
+          <div class="g3">
+            <label>Quarter start</label>
+            <input id="qStart" type="date" />
+          </div>
+          <div class="g3">
+            <label>Quarter end</label>
+            <input id="qEnd" type="date" />
+          </div>
+          <div class="g6 row">
+            <button id="computeBtn">Compute Score</button>
+            <button id="icsBtn" class="secondary">Download Review .ics</button>
+          </div>
+          <div class="g12">
+            <label>Notes</label>
+            <textarea id="notes" rows="4" placeholder="What moved the needle? What slipped? Focus for next quarter?"></textarea>
+          </div>
+          <div class="g12 row" style="gap:12px;">
+            <div class="pill status-not_started">Completion: <span id="kpiCompletion">–</span>%</div>
+            <div class="pill status-in_progress">On-time: <span id="kpiOnTime">–</span>%</div>
+            <div class="pill prio-high">Priority-weighted: <span id="kpiPwc">–</span>%</div>
+            <div class="pill status-done">Score: <span id="kpiScore">–</span></div>
           </div>
         </div>
       </div>
@@ -165,12 +176,8 @@
         tbody.innerHTML = list.map(g => `
           <tr>
             <td>${g.title}</td><td>${g.start_date||''}</td><td>${g.due_date||''}</td>
-            <td><span class="badge">${g.priority}</span></td>
-            <td>
-              <select data-id="${g.id}" class="statusSel">
-                ${['not_started','in_progress','blocked','done'].map(s => `<option ${g.status===s?'selected':''}>${s}</option>`).join('')}
-              </select>
-            </td>
+            <td><span class="pill prio-${g.priority}">${g.priority}</span></td>
+            <td><span class="pill status-${g.status}">${g.status.replace('_',' ')}</span></td>
             <td class="row">
               <button data-id="${g.id}" class="editBtn secondary">Edit</button>
               <button data-id="${g.id}" class="delBtn warn">Delete</button>
@@ -178,11 +185,6 @@
           </tr>
         `).join('');
 
-        tbody.querySelectorAll('.statusSel').forEach(sel=>{
-          sel.addEventListener('change', e => {
-            const id = sel.getAttribute('data-id'); updateGoal(id, { status: sel.value }); refresh();
-          });
-        });
         tbody.querySelectorAll('.delBtn').forEach(btn=>{
           btn.addEventListener('click', e => {
             const id = btn.getAttribute('data-id'); if(confirm('Delete this goal?')) deleteGoal(id);
@@ -199,55 +201,68 @@
       }
 
       function daysBetween(a,b){ const ms = (new Date(b)) - (new Date(a)); return Math.max(0, Math.ceil(ms/86400000)); }
-      function formatYMD(d){ const x = new Date(d); const m = String(x.getMonth()+1).padStart(2,'0'); const day = String(x.getDate()).padStart(2,'0'); return x.getFullYear()+'-'+m+'-'+day; }
+      function addDays(d, n){ const x = new Date(d); x.setDate(x.getDate()+n); return x; }
+      function ymd(x){ const m = String(x.getMonth()+1).padStart(2,'0'); const d = String(x.getDate()).padStart(2,'0'); return x.getFullYear()+'-'+m+'-'+d; }
+      function monthLabel(x){ return x.toLocaleString(undefined,{ month:'short', year:'numeric' }); }
 
       function renderGantt(view='Month'){
         const container = document.getElementById('gantt');
         const countEl = document.getElementById('ganttCount');
         const items = loadGoals().filter(g=>g.start_date && g.due_date);
         container.innerHTML = '';
-        if(items.length===0){ container.innerHTML = '<div class="muted">No items to plot. Add a goal with both <b>Start date</b> and <b>Due date</b>.</div>'; countEl.textContent='Items on timeline: 0'; return; }
+        if(items.length===0){ container.innerHTML = '<div class="muted" style="padding:12px;">No items to plot. Add a goal with both <b>Start</b> and <b>Due</b> dates.</div>'; countEl.textContent='Items on timeline: 0'; return; }
         countEl.textContent = 'Items on timeline: ' + items.length;
 
         let min = items.reduce((m,g)=> g.start_date < m ? g.start_date : m, items[0].start_date);
         let max = items.reduce((m,g)=> g.due_date > m ? g.due_date : m, items[0].due_date);
+
         const padDays = view==='Year' ? 30 : view==='Quarter' ? 14 : 7;
-        const minPad = formatYMD(new Date(new Date(min).getTime() - padDays*86400000));
-        const maxPad = formatYMD(new Date(new Date(max).getTime() + padDays*86400000));
+        const minPad = addDays(new Date(min), -padDays);
+        const maxPad = addDays(new Date(max), padDays);
         const totalDays = Math.max(1, daysBetween(minPad, maxPad));
         const pxPerDay = view==='Year' ? 4 : view==='Quarter' ? 8 : 16;
-        const height = 40 + items.length*32;
-        const width = 100 + totalDays*pxPerDay;
+        const height = 60 + items.length*32;
+        const width = 120 + totalDays*pxPerDay;
 
         const svgNS = 'http://www.w3.org/2000/svg';
         const svg = document.createElementNS(svgNS,'svg');
         svg.setAttribute('width', width); svg.setAttribute('height', height);
 
-        for(let i=0; i<=totalDays; i+= (view==='Month'?7 : view==='Quarter'?14 : 30)){
-          const x = 80 + i*pxPerDay;
+        // Axis labels (top)
+        const step = view==='Month' ? 7 : view==='Quarter' ? 14 : 30;
+        for(let i=0; i<=totalDays; i+= step){
+          const date = addDays(minPad, i);
+          const x = 100 + i*pxPerDay;
           const line = document.createElementNS(svgNS,'line');
-          line.setAttribute('x1', x); line.setAttribute('y1', 0);
+          line.setAttribute('x1', x); line.setAttribute('y1', 24);
           line.setAttribute('x2', x); line.setAttribute('y2', height);
           line.setAttribute('stroke', '#e2e8f0'); line.setAttribute('stroke-width','1');
           svg.appendChild(line);
+
+          const text = document.createElementNS(svgNS,'text');
+          text.setAttribute('x', x + 4); text.setAttribute('y', 16); text.setAttribute('class','axis');
+          text.textContent = (view==='Month') ? date.toLocaleDateString(undefined,{ month:'short', day:'numeric'}) : monthLabel(date);
+          svg.appendChild(text);
         }
 
+        // Y labels + bars
         items.forEach((g, idx) => {
-          const y = 20 + idx*32;
+          const y = 36 + idx*32;
           const text = document.createElementNS(svgNS,'text');
           text.setAttribute('x','8'); text.setAttribute('y', String(y+12));
-          text.setAttribute('font-size','12'); text.textContent = g.title;
+          text.setAttribute('class','label'); text.textContent = g.title;
           svg.appendChild(text);
 
-          const startOffset = daysBetween(minPad, g.start_date);
-          const barX = 80 + startOffset*pxPerDay;
-          const barW = Math.max(6, daysBetween(g.start_date, g.due_date)*pxPerDay);
+          const startOffset = daysBetween(minPad, new Date(g.start_date));
+          const barX = 100 + startOffset*pxPerDay;
+          const barW = Math.max(6, daysBetween(new Date(g.start_date), new Date(g.due_date))*pxPerDay);
           const rect = document.createElementNS(svgNS,'rect');
           rect.setAttribute('x', String(barX)); rect.setAttribute('y', String(y));
           rect.setAttribute('width', String(barW)); rect.setAttribute('height','20');
           rect.setAttribute('rx','6'); rect.setAttribute('ry','6');
           rect.setAttribute('class','prio-' + (g.priority||'medium'));
           rect.setAttribute('fill-opacity', g.status==='done' ? '0.7' : '1.0');
+          rect.setAttribute('stroke','#0f172a22'); rect.setAttribute('stroke-width','1');
           svg.appendChild(rect);
         });
 
@@ -262,8 +277,7 @@
         if(!title){ alert('Title required'); return; }
         if(!start || !due){ alert('Set both start & due to appear on timeline.'); return; }
         if(start > due){ alert('Start must be on/before Due.'); return; }
-        const ab = document.getElementById('addBtn');
-        const editing = ab.dataset.editing;
+        const ab = $('#addBtn'); const editing = ab.dataset.editing;
         if(editing){ updateGoal(editing, { title, start_date:start, due_date:due, priority, status }); ab.textContent='Add Goal'; delete ab.dataset.editing; }
         else { addGoal({ title, start_date:start, due_date:due, priority, status }); }
         ['#title','#start','#due'].forEach(s => $(s).value=''); alert('Saved ✔');
@@ -271,7 +285,7 @@
 
       document.getElementById('clearBtn').addEventListener('click', () => {
         ['#title','#start','#due'].forEach(s => $(s).value='');
-        const ab = document.getElementById('addBtn'); ab.textContent='Add Goal'; delete ab.dataset.editing;
+        const ab = $('#addBtn'); ab.textContent='Add Goal'; delete ab.dataset.editing;
       });
 
       document.getElementById('filterStatus').addEventListener('change', refresh);
@@ -293,10 +307,10 @@
         const num = list.reduce((acc,g)=>acc+(g.status==='done'?weight(g.priority):0),0);
         const pwc = Math.round(denom? num/denom*100 : 0);
         const score = Math.round(0.5*completion + 0.3*onTime + 0.2*pwc);
-        document.getElementById('kpiCompletion').textContent = completion + '%';
-        document.getElementById('kpiOnTime').textContent = onTime + '%';
-        document.getElementById('kpiPwc').textContent = pwc + '%';
-        document.getElementById('kpiScore').textContent = score;
+        $('#kpiCompletion').textContent = completion;
+        $('#kpiOnTime').textContent = onTime;
+        $('#kpiPwc').textContent = pwc;
+        $('#kpiScore').textContent = score;
       });
 
       function download(filename, content, type='text/plain'){
@@ -323,10 +337,14 @@
         }; fr.readAsText(f); }; inp.click();
       });
 
+      // Seed demo goals if empty
       if(loadGoals().length===0){
+        const today = new Date();
+        const inDays = d => { const x = new Date(today); x.setDate(x.getDate()+d); return x.toISOString().slice(0,10); }
         saveGoals([
-          {id: uid(), title:'German A2 course', start_date: new Date().toISOString().slice(0,10), due_date: new Date(Date.now()+60*86400000).toISOString().slice(0,10), priority:'high', status:'in_progress'},
-          {id: uid(), title:'Write 2 chapters of SQM book', start_date: new Date(Date.now()+7*86400000).toISOString().slice(0,10), due_date: new Date(Date.now()+120*86400000).toISOString().slice(0,10), priority:'medium', status:'not_started'}
+          {id: uid(), title:'German A2 course', start_date: inDays(0),   due_date: inDays(60),  priority:'high',    status:'in_progress'},
+          {id: uid(), title:'SQM book — 2 chapters', start_date: inDays(7),   due_date: inDays(120), priority:'medium', status:'not_started'},
+          {id: uid(), title:'Gym — 52 sessions', start_date: inDays(-14), due_date: inDays(168), priority:'critical', status:'not_started'}
         ]);
       } else {
         refresh();
