@@ -1,362 +1,371 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Focus.One Lite — No-CDN</title>
-    <style>
-      :root {
-        --bg:#f7f9fc; --fg:#0f172a; --muted:#64748b; --line:#e2e8f0; --card:#ffffff;
-        --pill:#f1f5f9; --blue:#60a5fa; --amber:#f59e0b; --red:#ef4444; --slate:#cbd5e1; --green:#22c55e; --violet:#8b5cf6;
-      }
-      *{box-sizing:border-box}
-      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background:var(--bg); color:var(--fg); }
-      header { padding: 14px 20px; background:var(--card); border-bottom:1px solid var(--line); position: sticky; top:0; z-index: 10; }
-      .brand { font-weight: 800; letter-spacing: .2px; }
-      .wrap { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
-      .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; margin-bottom:16px; }
-      .grid { display:grid; gap:12px; grid-template-columns: repeat(12, 1fr); align-items:end; }
-      .g12 { grid-column: span 12; } .g6 { grid-column: span 6; } .g4{grid-column:span 4} .g3 { grid-column: span 3; }
-      label { font-size: 12px; color:#334155; display:block; margin-bottom:6px; }
-      input, select, textarea { width:100%; padding:10px 12px; border:1px solid #e5e7eb; border-radius:10px; background:#f9fafb; }
-      button { padding:10px 14px; border-radius:12px; border:0; background:#0ea5e9; color:white; font-weight:600; cursor:pointer; }
-      button.secondary { background:#e2e8f0; color:#0f172a; }
-      button.warn { background:var(--red); }
-      h2 { margin: 0 0 10px; }
-      table { width: 100%; border-collapse: collapse; }
-      th, td { padding: 10px; border-bottom: 1px solid #f1f5f9; text-align: left; font-size: 14px;}
-      .row { display:flex; gap:8px; align-items:center; flex-wrap: wrap;}
-      .toolbar { display:flex; gap:8px; flex-wrap: wrap; }
-      .muted { color:var(--muted); font-size: 13px; }
-      #gantt { overflow:auto; min-height: 280px; border:1px solid var(--line); border-radius:12px; background:white; }
-      .pill { display:inline-block; padding:3px 8px; border-radius:9999px; font-size:12px; font-weight:600; }
-      .prio-low{ background:var(--slate); color:#0f172a; }
-      .prio-medium{ background:var(--blue); color:white; }
-      .prio-high{ background:var(--amber); color:white; }
-      .prio-critical{ background:var(--red); color:white; }
-      .status-not_started{ background:#e2e8f0; color:#0f172a;}
-      .status-in_progress{ background:var(--violet); color:white;}
-      .status-blocked{ background:#111827; color:white;}
-      .status-done{ background:var(--green); color:white;}
-      .footer { text-align:center; padding:20px; color:#94a3b8; }
-      .axis { font-size:11px; fill:#475569; }
-      .label { font-size:12px; }
-      @media (max-width: 820px){ .g6{grid-column:span 12} .g4{grid-column:span 12} .g3{grid-column:span 6} }
-    </style>
-  </head>
-  <body>
-    <header>
-      <div class="wrap row">
-        <div class="brand">Focus.One <span class="muted">Lite</span></div>
-        <div style="flex:1"></div>
-        <button id="exportJsonBtn" class="secondary">Export JSON</button>
-        <button id="importJsonBtn" class="secondary">Import JSON</button>
-      </div>
-    </header>
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Focus.One Lite</title>
+<style>
+  :root {
+    --bg:#f7f9fc; --fg:#0f172a; --muted:#64748b; --line:#e2e8f0; --card:#ffffff;
+    --blue:#60a5fa; --amber:#f59e0b; --red:#ef4444; --slate:#cbd5e1; --green:#22c55e; --violet:#8b5cf6;
+  }
+  *{box-sizing:border-box}
+  body { font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif; margin:0; background:var(--bg); color:var(--fg); transition: filter .2s ease; }
+  body.blurred { filter: blur(4px); }
+  header { padding:14px 20px; background:#fff; border-bottom:1px solid var(--line); position:sticky; top:0; z-index:5; }
+  .wrap { max-width:1100px; margin:24px auto; padding:0 16px; }
+  .brand { font-weight:800; letter-spacing:.2px; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .spacer { flex:1 }
+  .btn { padding:10px 14px; border-radius:12px; border:0; background:#0ea5e9; color:#fff; font-weight:600; cursor:pointer; }
+  .btn.secondary { background:#e2e8f0; color:#0f172a; }
+  .btn.warn { background:var(--red); }
+  .card { background:#fff; border:1px solid var(--line); border-radius:16px; padding:16px; margin-bottom:16px; }
+  .toolbar { display:flex; gap:8px; flex-wrap:wrap; }
+  .muted { color:var(--muted); font-size:13px; }
+  .grid { display:grid; gap:12px; grid-template-columns:repeat(12,1fr); align-items:end; }
+  .g12{grid-column:span 12} .g6{grid-column:span 6} .g3{grid-column:span 3}
+  label{font-size:12px;color:#334155;margin-bottom:6px;display:block}
+  input,select,textarea{width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px;background:#f9fafb}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:10px;border-bottom:1px solid #f1f5f9;text-align:left;font-size:14px}
+  #gantt{overflow:auto;min-height:280px;border:1px solid #e2e8f0;border-radius:12px;background:#fff}
+  .pill{display:inline-block;padding:3px 8px;border-radius:9999px;font-size:12px;font-weight:600}
+  .prio-low{background:#cbd5e1;color:#0f172a}
+  .prio-medium{background:#60a5fa;color:#fff}
+  .prio-high{background:#f59e0b;color:#fff}
+  .prio-critical{background:#ef4444;color:#fff}
+  .status-not_started{background:#e2e8f0;color:#0f172a}
+  .status-in_progress{background:#8b5cf6;color:#fff}
+  .status-blocked{background:#111827;color:#fff}
+  .status-done{background:#22c55e;color:#fff}
+  .axis{font-size:11px;fill:#475569}
+  .label{font-size:12px}
+  @media(max-width:820px){.g6{grid-column:span 12}.g3{grid-column:span 6}}
 
-    <div class="wrap">
-      <div class="card">
-        <h2>Quick Add Goal</h2>
-        <div class="grid">
-          <div class="g6">
-            <label>Title</label>
-            <input id="title" placeholder="e.g., Finish German A2 by March" />
-          </div>
-          <div class="g3">
-            <label>Start date</label>
-            <input id="start" type="date" />
-          </div>
-          <div class="g3">
-            <label>Due date</label>
-            <input id="due" type="date" />
-          </div>
-          <div class="g3">
-            <label>Priority</label>
-            <select id="priority">
-              <option>low</option><option selected>medium</option><option>high</option><option>critical</option>
-            </select>
-          </div>
-          <div class="g3">
-            <label>Status</label>
-            <select id="status">
-              <option selected>not_started</option><option>in_progress</option><option>blocked</option><option>done</option>
-            </select>
-          </div>
-          <div class="g6 row">
-            <button id="addBtn">Add Goal</button>
-            <button id="clearBtn" class="secondary">Clear Form</button>
-          </div>
+  /* --- MODAL --- */
+  .backdrop {
+    position:fixed; inset:0; background:rgba(15,23,42,.35);
+    display:none; align-items:center; justify-content:center; z-index:15;
+    backdrop-filter: blur(2px);
+  }
+  .backdrop.show{display:flex;}
+  .modal {
+    width:min(680px, calc(100vw - 24px));
+    background:#fff; border:1px solid var(--line); border-radius:16px;
+    box-shadow:0 10px 40px rgba(0,0,0,.18); padding:16px; animation:pop .15s ease;
+  }
+  @keyframes pop{from{transform:scale(.98);opacity:.6} to{transform:scale(1);opacity:1}}
+  .modal header{position:static;border:0;padding:0 0 8px 0}
+  .modal .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+  .legend{display:flex; gap:8px; flex-wrap:wrap; margin-top:8px}
+  .legend .pill{opacity:.85}
+  .summary{display:flex; gap:8px; flex-wrap:wrap; margin:10px 0}
+  .fadeIn{animation:fade .25s ease}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+</style>
+</head>
+<body>
+  <!-- Header -->
+  <header>
+    <div class="wrap row">
+      <div class="brand">Focus.One <span class="muted">Lite</span></div>
+      <div class="spacer"></div>
+      <a class="btn secondary" href="review.html">Quarterly Review</a>
+      <button id="exportJsonBtn" class="btn secondary">Export JSON</button>
+      <button id="importJsonBtn" class="btn secondary">Import JSON</button>
+      <button id="openAddBtn" class="btn">Add Goal</button>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <!-- Timeline -->
+    <div class="card">
+      <div class="row" style="justify-content:space-between;">
+        <h2>Timeline</h2>
+        <div class="toolbar">
+          <button data-view="Month" class="btn secondary">Month</button>
+          <button data-view="Quarter" class="btn secondary">Quarter</button>
+          <button data-view="Year" class="btn secondary">Year</button>
         </div>
       </div>
-
-      <div class="card">
-        <div class="row" style="justify-content:space-between;">
-          <h2>Timeline</h2>
-          <div class="toolbar">
-            <button data-view="Month" class="secondary">Month</button>
-            <button data-view="Quarter" class="secondary">Quarter</button>
-            <button data-view="Year" class="secondary">Year</button>
-          </div>
-        </div>
-        <div id="gantt"></div>
-        <div id="ganttCount" class="muted" style="margin-top:6px;"></div>
+      <div id="gantt" class="fadeIn"></div>
+      <div class="legend">
+        <span class="pill prio-low">low</span>
+        <span class="pill prio-medium">medium</span>
+        <span class="pill prio-high">high</span>
+        <span class="pill prio-critical">critical</span>
+        <span class="muted" id="ganttCount"></span>
       </div>
-
-      <div class="card">
-        <div class="row" style="justify-content:space-between;">
-          <h2>Goals</h2>
-          <div class="toolbar">
-            <select id="filterStatus">
-              <option value="">All statuses</option>
-              <option>not_started</option><option>in_progress</option><option>blocked</option><option>done</option>
-            </select>
-            <select id="filterPriority">
-              <option value="">All priorities</option>
-              <option>low</option><option>medium</option><option>high</option><option>critical</option>
-            </select>
-          </div>
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Title</th><th>Start</th><th>Due</th><th>Priority</th><th>Status</th><th></th>
-            </tr>
-          </thead>
-          <tbody id="goalRows"></tbody>
-        </table>
-      </div>
-
-      <div class="card">
-        <h2>Quarterly Review</h2>
-        <div class="grid">
-          <div class="g3">
-            <label>Quarter start</label>
-            <input id="qStart" type="date" />
-          </div>
-          <div class="g3">
-            <label>Quarter end</label>
-            <input id="qEnd" type="date" />
-          </div>
-          <div class="g6 row">
-            <button id="computeBtn">Compute Score</button>
-            <button id="icsBtn" class="secondary">Download Review .ics</button>
-          </div>
-          <div class="g12">
-            <label>Notes</label>
-            <textarea id="notes" rows="4" placeholder="What moved the needle? What slipped? Focus for next quarter?"></textarea>
-          </div>
-          <div class="g12 row" style="gap:12px;">
-            <div class="pill status-not_started">Completion: <span id="kpiCompletion">–</span>%</div>
-            <div class="pill status-in_progress">On-time: <span id="kpiOnTime">–</span>%</div>
-            <div class="pill prio-high">Priority-weighted: <span id="kpiPwc">–</span>%</div>
-            <div class="pill status-done">Score: <span id="kpiScore">–</span></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="footer">Focus.One Lite — no external libraries (works anywhere). Data stored locally in your browser.</div>
     </div>
 
-    <script>
-      const $ = sel => document.querySelector(sel);
-      const goalsKey = 'focusone_goals';
+    <!-- Status summary (always visible) -->
+    <div class="card">
+      <h2>Status</h2>
+      <div id="statusSummary" class="summary"></div>
+    </div>
 
-      function loadGoals(){ try { return JSON.parse(localStorage.getItem(goalsKey)) || []; } catch(e){ return []; } }
-      function saveGoals(list){ localStorage.setItem(goalsKey, JSON.stringify(list)); refresh(); }
-      function uid(){ return 'g_' + Math.random().toString(36).slice(2,9); }
+    <!-- Goals table -->
+    <div class="card">
+      <div class="row" style="justify-content:space-between;">
+        <h2>Goals</h2>
+        <div class="toolbar">
+          <select id="filterStatus">
+            <option value="">All statuses</option>
+            <option>not_started</option><option>in_progress</option><option>blocked</option><option>done</option>
+          </select>
+          <select id="filterPriority">
+            <option value="">All priorities</option>
+            <option>low</option><option>medium</option><option>high</option><option>critical</option>
+          </select>
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>Title</th><th>Start</th><th>Due</th><th>Priority</th><th>Status</th><th></th></tr></thead>
+        <tbody id="goalRows"></tbody>
+      </table>
+    </div>
 
-      function addGoal(g){ const list = loadGoals(); list.push({ id: uid(), ...g }); saveGoals(list); }
-      function updateGoal(id, patch){ const list = loadGoals().map(g => g.id===id ? {...g, ...patch} : g); saveGoals(list); }
-      function deleteGoal(id){ saveGoals(loadGoals().filter(g => g.id!==id)); }
+    <div class="muted" style="text-align:center;padding:18px;">Data stored locally in your browser.</div>
+  </div>
 
-      function renderTable(){
-        const tbody = $('#goalRows');
-        const status = $('#filterStatus').value; const prio = $('#filterPriority').value;
-        const list = loadGoals().filter(g => (!status || g.status===status) && (!prio || g.priority===prio));
-        tbody.innerHTML = list.map(g => `
-          <tr>
-            <td>${g.title}</td><td>${g.start_date||''}</td><td>${g.due_date||''}</td>
-            <td><span class="pill prio-${g.priority}">${g.priority}</span></td>
-            <td><span class="pill status-${g.status}">${g.status.replace('_',' ')}</span></td>
-            <td class="row">
-              <button data-id="${g.id}" class="editBtn secondary">Edit</button>
-              <button data-id="${g.id}" class="delBtn warn">Delete</button>
-            </td>
-          </tr>
-        `).join('');
+  <!-- Modal (Add / Edit) -->
+  <div id="backdrop" class="backdrop" aria-modal="true" role="dialog">
+    <div class="modal">
+      <header class="row" style="justify-content:space-between;">
+        <h2 id="modalTitle">Add Goal</h2>
+        <button id="closeModalBtn" class="btn secondary">Close</button>
+      </header>
+      <div class="grid">
+        <div class="g12">
+          <label>Title</label>
+          <input id="m_title" placeholder="e.g., Finish German A2 by March" />
+        </div>
+        <div class="g6">
+          <label>Start date</label>
+          <input id="m_start" type="date" />
+        </div>
+        <div class="g6">
+          <label>Due date</label>
+          <input id="m_due" type="date" />
+        </div>
+        <div class="g6">
+          <label>Priority</label>
+          <select id="m_priority">
+            <option>low</option><option selected>medium</option><option>high</option><option>critical</option>
+          </select>
+        </div>
+        <div class="g6">
+          <label>Status</label>
+          <select id="m_status">
+            <option selected>not_started</option><option>in_progress</option><option>blocked</option><option>done</option>
+          </select>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="saveBtn" class="btn">Save</button>
+      </div>
+    </div>
+  </div>
 
-        tbody.querySelectorAll('.delBtn').forEach(btn=>{
-          btn.addEventListener('click', e => {
-            const id = btn.getAttribute('data-id'); if(confirm('Delete this goal?')) deleteGoal(id);
-          });
-        });
-        tbody.querySelectorAll('.editBtn').forEach(btn=>{
-          btn.addEventListener('click', e => {
-            const id = btn.getAttribute('data-id'); const g = loadGoals().find(x=>x.id===id); if(!g) return;
-            $('#title').value = g.title; $('#start').value = g.start_date || ''; $('#due').value = g.due_date || '';
-            $('#priority').value = g.priority; $('#status').value = g.status;
-            const ab = $('#addBtn'); ab.textContent = 'Save Changes'; ab.dataset.editing = id;
-          });
-        });
-      }
+<script>
+const $  = s => document.querySelector(s);
+const goalsKey = 'focusone_goals';
+const prioColor = { low:'#cbd5e1', medium:'#60a5fa', high:'#f59e0b', critical:'#ef4444' };
 
-      function daysBetween(a,b){ const ms = (new Date(b)) - (new Date(a)); return Math.max(0, Math.ceil(ms/86400000)); }
-      function addDays(d, n){ const x = new Date(d); x.setDate(x.getDate()+n); return x; }
-      function monthLabel(x){ return x.toLocaleString(undefined,{ month:'short', year:'numeric' }); }
+function load(){ try { return JSON.parse(localStorage.getItem(goalsKey)) || []; } catch(e){ return []; } }
+function store(list){ localStorage.setItem(goalsKey, JSON.stringify(list)); refresh(); }
+function uid(){ return 'g_' + Math.random().toString(36).slice(2,9); }
 
-      function renderGantt(view='Month'){
-        // Map priority -> exact bar color
-        const prioColor = { low:'#cbd5e1', medium:'#60a5fa', high:'#f59e0b', critical:'#ef4444' };
+function addGoal(g){ const list = load(); list.push({ id: uid(), ...g }); store(list); }
+function patchGoal(id, p){ store(load().map(g => g.id===id ? {...g, ...p} : g)); }
+function removeGoal(id){ store(load().filter(g => g.id!==id)); }
 
-        const container = document.getElementById('gantt');
-        const countEl = document.getElementById('ganttCount');
-        const items = loadGoals().filter(g=>g.start_date && g.due_date);
-        container.innerHTML = '';
-        if(items.length===0){ container.innerHTML = '<div class="muted" style="padding:12px;">No items to plot. Add a goal with both <b>Start</b> and <b>Due</b> dates.</div>'; countEl.textContent='Items on timeline: 0'; return; }
-        countEl.textContent = 'Items on timeline: ' + items.length;
+// -------- Modal handling
+let editingId = null;
+function openModal(goal){
+  editingId = goal?.id || null;
+  $('#modalTitle').textContent = editingId ? 'Edit Goal' : 'Add Goal';
+  $('#m_title').value    = goal?.title || '';
+  $('#m_start').value    = goal?.start_date || '';
+  $('#m_due').value      = goal?.due_date || '';
+  $('#m_priority').value = goal?.priority || 'medium';
+  $('#m_status').value   = goal?.status || 'not_started';
+  $('#backdrop').classList.add('show');
+  // blur background (except modal)
+  document.documentElement.classList.add('modal-open');
+  // hack: add a class on body via small timeout for smoother transition
+  requestAnimationFrame(()=>{ document.body.classList.add('blurred'); });
+  $('#m_title').focus();
+}
+function closeModal(){
+  $('#backdrop').classList.remove('show');
+  document.body.classList.remove('blurred');
+  editingId = null;
+}
+$('#openAddBtn').addEventListener('click', ()=> openModal(null));
+$('#closeModalBtn').addEventListener('click', closeModal);
+window.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && $('#backdrop').classList.contains('show')) closeModal(); });
 
-        let min = items.reduce((m,g)=> g.start_date < m ? g.start_date : m, items[0].start_date);
-        let max = items.reduce((m,g)=> g.due_date > m ? g.due_date : m, items[0].due_date);
+// Save (Add / Edit)
+$('#saveBtn').addEventListener('click', () => {
+  const title=$('#m_title').value.trim();
+  const start=$('#m_start').value||null;
+  const due=$('#m_due').value||null;
+  const pr=$('#m_priority').value;
+  const st=$('#m_status').value;
+  if(!title) return alert('Title required');
+  if(!start || !due) return alert('Set both start & due for timeline');
+  if(start>due) return alert('Start must be before or equal Due');
+  if(editingId){ patchGoal(editingId,{title,start_date:start,due_date:due,priority:pr,status:st}); }
+  else { addGoal({title,start_date:start,due_date:due,priority:pr,status:st}); }
+  closeModal();
+});
 
-        const padDays = view==='Year' ? 30 : view==='Quarter' ? 14 : 7;
-        const minPad = addDays(new Date(min), -padDays);
-        const maxPad = addDays(new Date(max), padDays);
-        const totalDays = Math.max(1, daysBetween(minPad, maxPad));
-        const pxPerDay = view==='Year' ? 4 : view==='Quarter' ? 8 : 16;
-        const height = 60 + items.length*32;
-        const width = 120 + totalDays*pxPerDay;
+// -------- Table render
+function renderTable(){
+  const tbody = $('#goalRows');
+  const fs = $('#filterStatus').value, fp = $('#filterPriority').value;
+  const list = load().filter(g => (!fs || g.status===fs) && (!fp || g.priority===fp));
+  tbody.innerHTML = list.map(g => `
+    <tr>
+      <td>${g.title}</td><td>${g.start_date||''}</td><td>${g.due_date||''}</td>
+      <td><span class="pill prio-${g.priority}">${g.priority}</span></td>
+      <td><span class="pill status-${g.status}">${g.status.replace('_',' ')}</span></td>
+      <td class="row">
+        <button class="btn secondary" data-edit="${g.id}">Edit</button>
+        <button class="btn warn" data-del="${g.id}">Delete</button>
+      </td>
+    </tr>
+  `).join('');
+  tbody.querySelectorAll('[data-edit]').forEach(b=>{
+    b.onclick = ()=> {
+      const g = load().find(x=>x.id===b.dataset.edit);
+      if(g) openModal(g);
+    }
+  });
+  tbody.querySelectorAll('[data-del]').forEach(b=>{
+    b.onclick = ()=> { if(confirm('Delete this goal?')) removeGoal(b.dataset.del); }
+  });
+}
 
-        const svgNS = 'http://www.w3.org/2000/svg';
-        const svg = document.createElementNS(svgNS,'svg');
-        svg.setAttribute('width', width); svg.setAttribute('height', height);
+// -------- Status summary
+function renderSummary(){
+  const list = load();
+  const now = new Date().toISOString().slice(0,10);
+  const total=list.length;
+  const done=list.filter(g=>g.status==='done').length;
+  const blocked=list.filter(g=>g.status==='blocked').length;
+  const inprog=list.filter(g=>g.status==='in_progress').length;
+  const open=total - done;
+  const overdue=list.filter(g=>g.due_date && g.due_date<now && g.status!=='done').length;
+  const ontime=list.filter(g=>g.due_date && g.due_date>=now && g.status!=='done').length;
+  $('#statusSummary').innerHTML = `
+    <span class="pill status-done">Done: ${done}</span>
+    <span class="pill status-in_progress">In progress: ${inprog}</span>
+    <span class="pill status-blocked">Blocked: ${blocked}</span>
+    <span class="pill status-not_started">Open: ${open}</span>
+    <span class="pill prio-high">Overdue: ${overdue}</span>
+    <span class="pill prio-medium">On-time: ${ontime}</span>
+  `;
+}
 
-        // Axis labels (top)
-        const step = view==='Month' ? 7 : view==='Quarter' ? 14 : 30;
-        for(let i=0; i<=totalDays; i+= step){
-          const date = addDays(minPad, i);
-          const x = 100 + i*pxPerDay;
-          const line = document.createElementNS(svgNS,'line');
-          line.setAttribute('x1', x); line.setAttribute('y1', 24);
-          line.setAttribute('x2', x); line.setAttribute('y2', height);
-          line.setAttribute('stroke', '#e2e8f0'); line.setAttribute('stroke-width','1');
-          svg.appendChild(line);
+// -------- Timeline (SVG)
+let currentView='Month';
+document.querySelectorAll('[data-view]').forEach(btn=>btn.onclick=()=>{currentView=btn.dataset.view; drawGantt();});
 
-          const text = document.createElementNS(svgNS,'text');
-          text.setAttribute('x', x + 4); text.setAttribute('y', 16); text.setAttribute('class','axis');
-          text.textContent = (view==='Month') ? date.toLocaleDateString(undefined,{ month:'short', day:'numeric'}) : monthLabel(date);
-          svg.appendChild(text);
-        }
+function daysBetween(a,b){ return Math.max(0, Math.ceil((new Date(b)-new Date(a))/86400000)); }
+function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+function monthLabel(x){ return x.toLocaleString(undefined,{month:'short',year:'numeric'}); }
 
-        // Y labels + bars
-        items.forEach((g, idx) => {
-          const y = 36 + idx*32;
-          const text = document.createElementNS(svgNS,'text');
-          text.setAttribute('x','8'); text.setAttribute('y', String(y+12));
-          text.setAttribute('class','label'); text.textContent = g.title;
-          svg.appendChild(text);
+function drawGantt(){
+  const container=$('#gantt'), countEl=$('#ganttCount');
+  const items=load().filter(g=>g.start_date && g.due_date);
+  container.innerHTML='';
+  if(items.length===0){ container.innerHTML='<div class="muted" style="padding:12px;">No items to plot. Add a goal with Start & Due dates.</div>'; countEl.textContent='Items: 0'; return; }
+  countEl.textContent='Items: '+items.length;
 
-          const startOffset = daysBetween(minPad, new Date(g.start_date));
-          const barX = 100 + startOffset*pxPerDay;
-          const barW = Math.max(6, daysBetween(new Date(g.start_date), new Date(g.due_date))*pxPerDay);
-          const rect = document.createElementNS(svgNS,'rect');
-          rect.setAttribute('x', String(barX)); rect.setAttribute('y', String(y));
-          rect.setAttribute('width', String(barW)); rect.setAttribute('height','20');
-          rect.setAttribute('rx','6'); rect.setAttribute('ry','6');
-          rect.setAttribute('fill', prioColor[g.priority || 'medium']); // bar color = priority
-          rect.setAttribute('fill-opacity', g.status==='done' ? '0.7' : '1.0');
-          rect.setAttribute('stroke','#0f172a22'); rect.setAttribute('stroke-width','1');
-          svg.appendChild(rect);
-        });
+  let min=items.reduce((m,g)=> g.start_date<m?g.start_date:m, items[0].start_date);
+  let max=items.reduce((m,g)=> g.due_date>m?g.due_date:m, items[0].due_date);
+  const pad=currentView==='Year'?30: currentView==='Quarter'?14:7;
+  const minPad=addDays(new Date(min),-pad), maxPad=addDays(new Date(max),pad);
+  const total= Math.max(1, daysBetween(minPad,maxPad));
+  const pxPerDay=currentView==='Year'?4: currentView==='Quarter'?8:16;
+  const height= 60 + items.length*32;
+  const width= 120 + total*pxPerDay;
 
-        container.appendChild(svg);
-      }
+  const NS='http://www.w3.org/2000/svg';
+  const svg=document.createElementNS(NS,'svg');
+  svg.setAttribute('width',width); svg.setAttribute('height',height);
 
-      function refresh(){ renderTable(); renderGantt(currentView); }
+  const step=currentView==='Month'?7: currentView==='Quarter'?14:30;
+  for(let i=0;i<=total;i+=step){
+    const date=addDays(minPad,i), x=100+i*pxPerDay;
+    const line=document.createElementNS(NS,'line');
+    line.setAttribute('x1',x); line.setAttribute('y1',24);
+    line.setAttribute('x2',x); line.setAttribute('y2',height);
+    line.setAttribute('stroke','#e2e8f0'); line.setAttribute('stroke-width','1');
+    svg.appendChild(line);
+    const text=document.createElementNS(NS,'text');
+    text.setAttribute('x',x+4); text.setAttribute('y',16); text.setAttribute('class','axis');
+    text.textContent=(currentView==='Month')?date.toLocaleDateString(undefined,{month:'short',day:'numeric'}):monthLabel(date);
+    svg.appendChild(text);
+  }
+  items.forEach((g,i)=>{
+    const y=36+i*32;
+    const t=document.createElementNS(NS,'text');
+    t.setAttribute('x','8'); t.setAttribute('y',y+12); t.setAttribute('class','label'); t.textContent=g.title;
+    svg.appendChild(t);
+    const startOffset=daysBetween(minPad,new Date(g.start_date));
+    const barX=100+startOffset*pxPerDay;
+    const barW=Math.max(6, daysBetween(new Date(g.start_date), new Date(g.due_date))*pxPerDay);
+    const r=document.createElementNS(NS,'rect');
+    r.setAttribute('x',barX); r.setAttribute('y',y);
+    r.setAttribute('width',barW); r.setAttribute('height',20);
+    r.setAttribute('rx',6); r.setAttribute('ry',6);
+    r.setAttribute('fill', prioColor[g.priority||'medium']);
+    r.setAttribute('fill-opacity', g.status==='done' ? '0.7' : '1.0');
+    r.setAttribute('stroke','#0f172a22'); r.setAttribute('stroke-width','1');
+    svg.appendChild(r);
+  });
+  container.appendChild(svg);
+}
 
-      document.getElementById('addBtn').addEventListener('click', () => {
-        const title = $('#title').value.trim(); const start = $('#start').value || null; const due = $('#due').value || null;
-        const priority = $('#priority').value; const status = $('#status').value;
-        if(!title){ alert('Title required'); return; }
-        if(!start || !due){ alert('Set both start & due to appear on timeline.'); return; }
-        if(start > due){ alert('Start must be on/before Due.'); return; }
-        const ab = $('#addBtn'); const editing = ab.dataset.editing;
-        if(editing){ updateGoal(editing, { title, start_date:start, due_date:due, priority, status }); ab.textContent='Add Goal'; delete ab.dataset.editing; }
-        else { addGoal({ title, start_date:start, due_date:due, priority, status }); }
-        ['#title','#start','#due'].forEach(s => $(s).value=''); alert('Saved ✔');
-      });
+// -------- Export / Import
+$('#exportJsonBtn').onclick = () => {
+  const blob = new Blob([JSON.stringify({goals:load()}, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob); const a=document.createElement('a');
+  a.href=url; a.download='focusone-data.json'; a.click(); URL.revokeObjectURL(url);
+};
+$('#importJsonBtn').onclick = () => {
+  const input=document.createElement('input'); input.type='file'; input.accept='application/json';
+  input.onchange=()=>{ const f=input.files[0]; if(!f) return; const fr=new FileReader();
+    fr.onload=()=>{ try{ const d=JSON.parse(fr.result); if(Array.isArray(d.goals)){ localStorage.setItem(goalsKey, JSON.stringify(d.goals)); refresh(); } else alert('Invalid JSON'); } catch(e){ alert('Invalid JSON'); } };
+    fr.readAsText(f);
+  }; input.click();
+};
 
-      document.getElementById('clearBtn').addEventListener('click', () => {
-        ['#title','#start','#due'].forEach(s => $(s).value='');
-        const ab = $('#addBtn'); ab.textContent='Add Goal'; delete ab.dataset.editing;
-      });
+// -------- Filters
+$('#filterStatus').onchange = refresh; $('#filterPriority').onchange = refresh;
 
-      document.getElementById('filterStatus').addEventListener('change', refresh);
-      document.getElementById('filterPriority').addEventListener('change', refresh);
+// -------- Boot
+function refresh(){ renderTable(); drawGantt(); renderSummary(); }
 
-      let currentView = 'Month';
-      document.querySelectorAll('[data-view]').forEach(btn => btn.addEventListener('click', () => { currentView = btn.dataset.view; renderGantt(currentView); }));
+// Seed demo on first run
+if(load().length===0){
+  const today=new Date(); const inDays=d=>{const x=new Date(today); x.setDate(x.getDate()+d); return x.toISOString().slice(0,10); }
+  store([
+    {id:uid(), title:'German A2 course', start_date:inDays(0), due_date:inDays(60), priority:'high', status:'in_progress'},
+    {id:uid(), title:'SQM book — 2 chapters', start_date:inDays(7), due_date:inDays(120), priority:'medium', status:'not_started'},
+    {id:uid(), title:'Gym — 52 sessions', start_date:inDays(-14), due_date:inDays(168), priority:'critical', status:'not_started'}
+  ]);
+} else { refresh(); }
 
-      function weight(p){ return p==='low'?1:p==='medium'?2:p==='high'?3:5; }
-      document.getElementById('computeBtn').addEventListener('click', () => {
-        const qs = $('#qStart').value, qe = $('#qEnd').value;
-        if(!qs || !qe){ alert('Select quarter start & end dates'); return; }
-        const list = loadGoals().filter(g => g.start_date && g.due_date && new Date(g.due_date) >= new Date(qs) && new Date(g.start_date) <= new Date(qe));
-        const total = list.length;
-        const done = list.filter(g => g.status==='done');
-        const completion = Math.round(total? (done.length/total*100) : 0);
-        const onTime = done.length ? 100 : 0;
-        const denom = list.reduce((acc,g)=>acc+weight(g.priority),0);
-        const num = list.reduce((acc,g)=>acc+(g.status==='done'?weight(g.priority):0),0);
-        const pwc = Math.round(denom? num/denom*100 : 0);
-        const score = Math.round(0.5*completion + 0.3*onTime + 0.2*pwc);
-        $('#kpiCompletion').textContent = completion;
-        $('#kpiOnTime').textContent = onTime;
-        $('#kpiPwc').textContent = pwc;
-        $('#kpiScore').textContent = score;
-      });
-
-      function download(filename, content, type='text/plain'){
-        const blob = new Blob([content], {type}); const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url);
-      }
-      document.getElementById('icsBtn').addEventListener('click', () => {
-        const qs = $('#qStart').value, qe = $('#qEnd').value; if(!qs || !qe){ alert('Select period'); return; }
-        const uid = Math.random().toString(36).slice(2); const dt = new Date().toISOString().replace(/[-:]/g,'').split('.')[0] + 'Z';
-        const ics = [
-          'BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Focus.One Lite//Goals//EN','CALSCALE:GREGORIAN','METHOD:PUBLISH',
-          'BEGIN:VEVENT',`UID:review-${uid}@focusone-lite`,`DTSTAMP:${dt}`,
-          `DTSTART;VALUE=DATE:${qs.replaceAll('-','')}`,`DTEND;VALUE=DATE:${qe.replaceAll('-','')}`,
-          'SUMMARY:Quarterly Review - Focus.One','DESCRIPTION:Open Focus.One Lite and complete your review.','END:VEVENT','END:VCALENDAR'
-        ].join('\r\n');
-        download('focusone-review.ics', ics, 'text/calendar');
-      });
-
-      document.getElementById('exportJsonBtn').addEventListener('click', () => { download('focusone-data.json', JSON.stringify({ goals: loadGoals() }, null, 2), 'application/json'); });
-      document.getElementById('importJsonBtn').addEventListener('click', () => {
-        const inp = document.createElement('input'); inp.type='file'; inp.accept='application/json';
-        inp.onchange = () => { const f = inp.files[0]; if(!f) return; const fr = new FileReader(); fr.onload = () => {
-          try { const data = JSON.parse(fr.result); if(data && Array.isArray(data.goals)){ localStorage.setItem(goalsKey, JSON.stringify(data.goals)); refresh(); } else alert('Invalid JSON'); } catch(e){ alert('Invalid JSON'); }
-        }; fr.readAsText(f); }; inp.click();
-      });
-
-      // Seed demo goals if empty
-      if(loadGoals().length===0){
-        const today = new Date();
-        const inDays = d => { const x = new Date(today); x.setDate(x.getDate()+d); return x.toISOString().slice(0,10); }
-        saveGoals([
-          {id: uid(), title:'German A2 course', start_date: inDays(0),   due_date: inDays(60),  priority:'high',    status:'in_progress'},
-          {id: uid(), title:'SQM book — 2 chapters', start_date: inDays(7),   due_date: inDays(120), priority:'medium', status:'not_started'},
-          {id: uid(), title:'Gym — 52 sessions', start_date: inDays(-14), due_date: inDays(168), priority:'critical', status:'not_started'}
-        ]);
-      } else {
-        refresh();
-      }
-
-      // Auto-close native date pickers on selection (Safari/Chrome)
-      ['start','due','qStart','qEnd'].forEach(id => {
-        const el = document.getElementById(id);
-        if(el) el.addEventListener('change', () => el.blur());
-      });
-    </script>
-  </body>
+// Auto-close date pickers on selection
+['m_start','m_due'].forEach(id=>{
+  const el=document.getElementById(id);
+  if(el) el.addEventListener('change', ()=> el.blur());
+});
+</script>
+</body>
 </html>
