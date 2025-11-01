@@ -28,8 +28,9 @@
   input,select,textarea{width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px;background:#f9fafb}
   table{width:100%;border-collapse:collapse}
   th,td{padding:10px;border-bottom:1px solid #f1f5f9;text-align:left;font-size:14px}
-  #gantt{overflow:auto;min-height:280px;border:1px solid var(--line);border-radius:12px;background:#fff;position:relative}
+  #gantt{overflow:auto;min-height:320px;border:1px solid var(--line);border-radius:12px;background:#fff;position:relative}
   .pill{display:inline-block;padding:3px 8px;border-radius:9999px;font-size:12px;font-weight:600}
+  .id-pill{background:#eef2f7;color:#374151;border:1px solid #e5e7eb}
   .prio-low{background:#cbd5e1;color:#0f172a}
   .prio-medium{background:#60a5fa;color:#fff}
   .prio-high{background:#f59e0b;color:#fff}
@@ -50,7 +51,7 @@
   /* Quick add bar */
   .quick{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr auto;gap:8px}
   @media(max-width:900px){.quick{grid-template-columns:1fr 1fr 1fr 1fr 1fr auto}}
-  @media(max-width:720px){.quick{grid-template-columns:1fr 1fr;}}
+  @media(max-width:720px){.quick{grid-template-columns:1fr 1fr}}
   /* Modals */
   .backdrop{position:fixed;inset:0;background:rgba(15,23,42,.35);display:none;align-items:center;justify-content:center;z-index:15;backdrop-filter:blur(2px)}
   .backdrop.show{display:flex}
@@ -59,8 +60,22 @@
   .modal header{position:static;border:0;padding:0 0 8px 0}
   .modal .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
   .modal .toolbar .btn.secondary.active{background:var(--blue-2);color:#fff}
-  /* Status donut */
-  #statusMini{width:120px;height:120px}
+  /* Status donut + legend */
+  #statusMini{width:140px;height:140px}
+  .legend-list{display:flex;gap:12px;flex-wrap:wrap}
+  .legend-item{display:flex;align-items:center;gap:6px}
+  .dot{width:10px;height:10px;border-radius:2px;display:inline-block}
+  /* Legend filters clickable */
+  .legend .pill.clickable{cursor:pointer;opacity:.9}
+  .legend .pill.clickable.active{outline:2px solid #0ea5e9}
+  /* Dependency badge */
+  .dep-badge{font-size:11px;color:#475569;background:#eef2f7;border:1px solid #e5e7eb;border-radius:999px;padding:2px 6px}
+  /* Tooltip (SVG fallback uses <title>, but keep a CSS one for table) */
+  .tooltip{position:relative}
+  .tooltip:hover::after{
+    content:attr(data-tip); position:absolute; left:0; top:100%;
+    background:#111827;color:#fff;padding:6px 8px;border-radius:8px;font-size:12px;white-space:nowrap;transform:translateY(6px);
+  }
 </style>
 </head>
 <body>
@@ -84,19 +99,24 @@
       <div class="row" style="justify-content:space-between;">
         <h2>Timeline</h2>
         <div class="toolbar" id="viewButtons">
-          <button data-view="Month" class="btn secondary view-active" type="button">Month</button>
-          <button data-view="Quarter" class="btn secondary" type="button">Quarter</button>
-          <button data-view="Year" class="btn secondary" type="button">Year</button>
-          <div id="yearFilterTimeline" class="year-filter"></div>
+          <!-- New views -->
+          <button data-view="Week" class="btn secondary view-active" type="button">Week</button>
+          <button data-view="1M"   class="btn secondary" type="button">1M</button>
+          <button data-view="6M"   class="btn secondary" type="button">6M</button>
+          <button data-view="YTD"  class="btn secondary" type="button">YTD</button>
+          <button data-view="5Y"   class="btn secondary" type="button">5Y</button>
+          <button data-view="All"  class="btn secondary" type="button">All</button>
         </div>
       </div>
+
       <div id="gantt"></div>
-      <div class="legend">
-        <span class="pill prio-low">low</span>
-        <span class="pill prio-medium">medium</span>
-        <span class="pill prio-high">high</span>
-        <span class="pill prio-critical">critical</span>
-        <span class="muted" id="ganttCount"></span>
+      <div class="legend" id="priorityLegend">
+        <!-- Clickable priority filters -->
+        <span class="pill prio-low clickable" data-prio="low">low</span>
+        <span class="pill prio-medium clickable" data-prio="medium">medium</span>
+        <span class="pill prio-high clickable" data-prio="high">high</span>
+        <span class="pill prio-critical clickable" data-prio="critical">critical</span>
+        <span class="muted" id="ganttCount" style="margin-left:8px;"></span>
       </div>
     </div>
 
@@ -104,11 +124,11 @@
     <div class="card">
       <div class="row" style="justify-content:space-between;">
         <h2>Status</h2>
-        <div class="row" style="gap:12px;align-items:center">
-          <canvas id="statusMini" width="120" height="120" aria-label="status donut"></canvas>
+        <div class="row" style="gap:16px;align-items:center">
+          <canvas id="statusMini" width="140" height="140" aria-label="status donut"></canvas>
+          <div id="statusLegend" class="legend-list"></div>
         </div>
       </div>
-      <div id="statusSummary" class="summary" style="margin-top:10px"></div>
     </div>
 
     <!-- Goals -->
@@ -147,7 +167,7 @@
       </div>
 
       <table>
-        <thead><tr><th>ID</th><th>Title</th><th>Category</th><th>Start</th><th>Due</th><th>Priority</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>ID</th><th>Title</th><th>Depends</th><th>Category</th><th>Start</th><th>Due</th><th>Priority</th><th>Status</th><th></th></tr></thead>
         <tbody id="goalRows"></tbody>
       </table>
     </div>
@@ -266,7 +286,6 @@ const goalsKey='focusone_goals', categoriesKey='focusone_categories';
 function escapeHtml(str){ return (str||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 function uid(){ return 'g_' + Math.random().toString(36).slice(2,9); }
 function formatGoalID(i){ return 'G' + String(i).padStart(2,'0'); }
-
 function loadGoals(){ try{ return JSON.parse(localStorage.getItem(goalsKey))||[] }catch{ return [] } }
 function loadCategories(){ try{ return JSON.parse(localStorage.getItem(categoriesKey))||[] }catch{ return [] } }
 function setGoals(v){ localStorage.setItem(goalsKey, JSON.stringify(v)); }
@@ -301,9 +320,9 @@ function setCategories(v){ localStorage.setItem(categoriesKey, JSON.stringify(v)
 })();
 
 /* ===================== Global State ===================== */
-let currentView='Month';
-let filterYearTimeline='';
-let filterYearTable='';
+let currentView='Week'; // Week, 1M, 6M, YTD, 5Y, All
+let filterYearTable='';      // year or YTD or ''
+let filterPriorityGlobal=''; // clicking the legend sets this for both table & timeline
 let lastUsedCategoryId=null;
 
 /* ===================== Settings Modal ===================== */
@@ -326,7 +345,6 @@ $('#deleteAllBtn').onclick=()=>{
   if(sure==='DELETE'){
     localStorage.removeItem(goalsKey);
     localStorage.removeItem(categoriesKey);
-    // re-seed minimal
     setCategories([{id:uid(), name:'Other', color:'#6b7280'}]);
     setGoals([]);
     refreshAll();
@@ -369,11 +387,15 @@ window.addEventListener('keydown',e=>{
   if(e.key==='Escape'){ if(backdrop.classList.contains('show')) closeModal(); if(settingsBackdrop.classList.contains('show')) settingsBackdrop.classList.remove('show'); }
   if(!anInput && !backdrop.classList.contains('show') && !settingsBackdrop.classList.contains('show')){
     if(e.key==='n') openModal();
-    if(e.key==='1') setView('Month');
-    if(e.key==='2') setView('Quarter');
-    if(e.key==='3') setView('Year');
     if(e.key==='/'){ e.preventDefault(); $('#searchBox').focus(); }
     if(e.key==='s') $('#openSettingsBtn').click();
+    // view keys: 1=Week 2=1M 3=6M 4=YTD 5=5Y 6=All
+    if(e.key==='1') setView('Week');
+    if(e.key==='2') setView('1M');
+    if(e.key==='3') setView('6M');
+    if(e.key==='4') setView('YTD');
+    if(e.key==='5') setView('5Y');
+    if(e.key==='6') setView('All');
   }
 });
 
@@ -408,11 +430,10 @@ saveBtn.onclick=()=>{
   const list=loadGoals();
   if(editingId) setGoals(list.map(g=>g.id===editingId?{...g,...d}:g));
   else { setGoals([...list, {id:uid(), ...d}]); }
-  refreshAll();
-  closeModal();
+  refreshAll(); closeModal();
 };
 
-/* ===================== Manage Categories (Settings → Categories) ===================== */
+/* ===================== Manage Categories (Settings) ===================== */
 function renderCategoryList(){
   const el=$('#categoryList'), cats=loadCategories();
   el.innerHTML = cats.map(c=>`
@@ -471,26 +492,25 @@ $('#importJsonBtn').onclick=()=>{
   input.click();
 };
 
-/* ===================== Filters: Search, Status, Priority, Year ===================== */
+/* ===================== Filters: Search, Status, Priority, Year (incl. YTD) ===================== */
 const searchBox=$('#searchBox'), filterStatus=$('#filterStatus'), filterPriority=$('#filterPriority');
-const yearUI_tl=$('#yearFilterTimeline'), yearUI_tb=$('#yearFilterTable');
+const yearUI_tb=$('#yearFilterTable');
 
 function buildYearUI(container, years, current, onChange){
   container.innerHTML=''; if(years.length===0) return;
   const MAX_BTN=8;
+  // Always include YTD + All
+  const makeBtn=(label,val)=>{ const b=document.createElement('button'); b.type='button'; b.className='btn year'+(current===val?' active':''); b.textContent=label; b.onclick=()=>{ onChange(val); container.querySelectorAll('.btn.year').forEach(x=>x.classList.remove('active')); b.classList.add('active'); }; return b; };
+  container.appendChild(makeBtn('All',''));
+  container.appendChild(makeBtn('YTD','YTD'));
   if(years.length<=MAX_BTN){
-    const bAll=document.createElement('button'); bAll.type='button'; bAll.className='btn year'+(current===''?' active':''); bAll.textContent='All';
-    bAll.onclick=()=>{ onChange(''); container.querySelectorAll('.btn.year').forEach(b=>b.classList.remove('active')); bAll.classList.add('active'); };
-    container.appendChild(bAll);
-    years.forEach(y=>{
-      const b=document.createElement('button'); b.type='button'; b.className='btn year'+(current===y?' active':''); b.dataset.year=y; b.textContent=y;
-      b.onclick=()=>{ onChange(y); container.querySelectorAll('.btn.year').forEach(x=>x.classList.remove('active')); b.classList.add('active'); };
-      container.appendChild(b);
-    });
+    years.forEach(y=> container.appendChild(makeBtn(y,y)));
   } else {
     const sel=document.createElement('select'); sel.className='btn secondary';
-    sel.appendChild(new Option('All years','')); years.forEach(y=>sel.appendChild(new Option(y,y)));
-    sel.value=current; sel.onchange=()=>onChange(sel.value);
+    sel.appendChild(new Option('Pick year',''));
+    years.forEach(y=> sel.appendChild(new Option(y,y)));
+    sel.value=(current && current!=='YTD')?current:'';
+    sel.onchange=()=>onChange(sel.value);
     container.appendChild(sel);
   }
 }
@@ -498,11 +518,10 @@ function rebuildYearFilters(){
   const years = Array.from(new Set(loadGoals().flatMap(g=>{
     const ys=[]; if(g.start_date) ys.push(g.start_date.slice(0,4)); if(g.due_date) ys.push(g.due_date.slice(0,4)); return ys;
   }))).sort();
-  buildYearUI(yearUI_tl, years, filterYearTimeline, (v)=>{ filterYearTimeline=v; drawGantt(); });
-  buildYearUI(yearUI_tb, years, filterYearTable,    (v)=>{ filterYearTable=v; renderTable(); });
+  buildYearUI(yearUI_tb, years, filterYearTable, (v)=>{ filterYearTable=v; renderTable(); });
 }
-$('#clearFiltersBtn').onclick=()=>{ searchBox.value=''; filterStatus.value=''; filterPriority.value=''; filterYearTimeline=''; filterYearTable=''; rebuildYearFilters(); renderTable(); drawGantt(); renderSummary(); };
-searchBox.oninput=renderTable; filterStatus.onchange=renderTable; filterPriority.onchange=renderTable;
+$('#clearFiltersBtn').onclick=()=>{ searchBox.value=''; filterStatus.value=''; filterPriority.value=''; filterYearTable=''; filterPriorityGlobal=''; syncLegendPriority(); rebuildYearFilters(); renderTable(); drawGantt(); renderSummary(); };
+searchBox.oninput=renderTable; filterStatus.onchange=renderTable; filterPriority.onchange=()=>{ filterPriorityGlobal=filterPriority.value; syncLegendPriority(); renderTable(); drawGantt(); };
 
 /* ===================== Quick Add ===================== */
 const qa={ title:$('#qa_title'), start:$('#qa_start'), due:$('#qa_due'), prio:$('#qa_priority'), cat:$('#qa_category'), add:$('#qa_add') };
@@ -522,33 +541,46 @@ qa.add.onclick=()=>{
   setGoals([...loadGoals(), g]); lastUsedCategoryId=g.categoryId; qa.title.value=''; refreshAll();
 };
 
-/* ===================== Table (render + inline edit) ===================== */
-function formatIdMap(list){ // stable numbering by created order
-  return new Map(list.map((g,i)=>[g.id, formatGoalID(i+1)]));
-}
+/* ===================== Table (render + single-click inline edit + dependencies) ===================== */
+function formatIdMap(list){ return new Map(list.map((g,i)=>[g.id, formatGoalID(i+1)])); }
 function renderTable(){
-  const cats=loadCategories(), fs=filterStatus.value, fp=filterPriority.value, fy=filterYearTable;
+  const cats=loadCategories(), fs=filterStatus.value, fpSel=filterPriority.value, fy=filterYearTable;
   const q=(searchBox.value||'').toLowerCase();
+  const fp = filterPriorityGlobal || fpSel; // global from legend overrides select
+  const todayISO=new Date().toISOString().slice(0,10);
+  const yearStart = new Date(new Date().getFullYear(),0,1).toISOString().slice(0,10);
+
   const list = loadGoals().filter(g=>{
     if(q){
-      const cat = cats.find(c=>c.id===g.categoryId)?.name || '';
-      if(!g.title.toLowerCase().includes(q) && !cat.toLowerCase().includes(q)) return false;
+      const catName = cats.find(c=>c.id===g.categoryId)?.name || '';
+      if(!g.title.toLowerCase().includes(q) && !catName.toLowerCase().includes(q)) return false;
     }
     if(fs && g.status!==fs) return false;
     if(fp && g.priority!==fp) return false;
-    if(fy){
+    if(fy==='YTD'){
+      // Any overlap with [yearStart, today]
+      const start=g.start_date||'9999-12-31'; const end=g.due_date||'0000-01-01';
+      if(!(end>=yearStart && start<=todayISO)) return false;
+    } else if(fy){
       const sy=g.start_date?.slice(0,4), dy=g.due_date?.slice(0,4); if(sy!==fy && dy!==fy) return false;
     }
     return true;
   });
+
   const tbody=$('#goalRows');
-  if(list.length===0){ tbody.innerHTML='<tr><td colspan="8" class="no-data">No goals match your filters.</td></tr>'; return; }
+  if(list.length===0){ tbody.innerHTML='<tr><td colspan="9" class="no-data">No goals match your filters.</td></tr>'; return; }
   const idMap = formatIdMap(loadGoals());
+
   tbody.innerHTML = list.map(g=>{
     const cat=cats.find(c=>c.id===g.categoryId)||{name:'Other',color:'#6b7280'};
+    const dep = g.dependsOnId ? idMap.get(g.dependsOnId) : '';
     return `<tr data-id="${g.id}">
-      <td>${idMap.get(g.id)}</td>
-      <td data-field="title">${escapeHtml(g.title)}</td>
+      <td><span class="id-pill">${idMap.get(g.id)}</span></td>
+      <td data-field="title" class="tooltip" data-tip="${escapeHtml(g.title)}">
+        ${escapeHtml(g.title)}
+        ${dep ? `<span class="dep-badge" title="Depends on ${dep}">↳ ${dep}</span>`:''}
+      </td>
+      <td>${dep? `<span class="dep-badge" title="Depends on ${dep}">${dep}</span>`:''}</td>
       <td data-field="categoryId"><span class="category-pill" style="background:${cat.color}">${escapeHtml(cat.name)}</span></td>
       <td data-field="start_date">${g.start_date||''}</td>
       <td data-field="due_date">${g.due_date||''}</td>
@@ -561,18 +593,18 @@ function renderTable(){
     </tr>`;
   }).join('');
 
-  // Click -> Modal edit
+  // Single-click inline edit on cells
+  tbody.querySelectorAll('td[data-field]').forEach(td=>{
+    td.onclick = () => startInlineEdit(td);
+  });
+
+  // Buttons
   tbody.querySelectorAll('[data-edit]').forEach(b=>b.onclick=e=>{
     e.stopPropagation(); const id=b.dataset.edit; const g=loadGoals().find(x=>x.id===id); if(g) openModal(g);
   });
   tbody.querySelectorAll('[data-del]').forEach(b=>b.onclick=e=>{
     e.stopPropagation(); const id=b.dataset.del;
     if(confirm('Delete this goal?')){ setGoals(loadGoals().filter(g=>g.id!==id)); refreshAll(); }
-  });
-
-  // Inline edit (double click)
-  tbody.querySelectorAll('td[data-field]').forEach(td=>{
-    td.ondblclick = () => startInlineEdit(td);
   });
 }
 function startInlineEdit(td){
@@ -618,141 +650,229 @@ function startInlineEdit(td){
   }
 }
 
-/* ===================== Status (pills + mini donut) ===================== */
+/* ===================== Status (donut + numbered legend) ===================== */
 function renderSummary(){
-  const list=loadGoals(); const today=new Date().toISOString().slice(0,10);
-  const done=list.filter(g=>g.status==='done').length;
-  const blocked=list.filter(g=>g.status==='blocked').length;
-  const inprog=list.filter(g=>g.status==='in_progress').length;
-  const notStarted=list.filter(g=>g.status==='not_started').length;
-  const overdue=list.filter(g=>g.due_date && g.due_date<today && g.status!=='done').length;
-  $('#statusSummary').innerHTML = `
-    <span class="pill status-done">Done: ${done}</span>
-    <span class="pill status-in_progress">In progress: ${inprog}</span>
-    <span class="pill status-blocked">Blocked: ${blocked}</span>
-    <span class="pill status-not_started">Not started: ${notStarted}</span>
-    <span class="pill prio-high">Overdue: ${overdue}</span>`;
+  const list=loadGoals();
+  const counts={
+    not_started:list.filter(g=>g.status==='not_started').length,
+    in_progress:list.filter(g=>g.status==='in_progress').length,
+    blocked:list.filter(g=>g.status==='blocked').length,
+    done:list.filter(g=>g.status==='done').length
+  };
+  const total = Object.values(counts).reduce((a,b)=>a+b,0);
+  const pctDone = total? Math.round(counts.done/total*100) : 0;
 
-  // Mini donut
+  // Donut
   const canvas=document.getElementById('statusMini'); const ctx=canvas.getContext('2d');
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  const values=[notStarted,inprog,blocked,done]; const colors=['#e2e8f0','#8b5cf6','#111827','#22c55e'];
-  const total=values.reduce((a,b)=>a+b,0);
+  const values=[counts.not_started, counts.in_progress, counts.blocked, counts.done];
+  const colors=['#e2e8f0','#8b5cf6','#111827','#22c55e'];
+  const labels=['Not started','In progress','Blocked','Done'];
   const cx=canvas.width/2, cy=canvas.height/2, r=Math.min(cx,cy)-4, inner=r*0.6;
   let start=-Math.PI/2;
   if(total===0){ ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fillStyle='#e5e7eb'; ctx.fill(); }
   else {
     values.forEach((v,i)=>{ const a=(v/total)*2*Math.PI; ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,r,start,start+a); ctx.closePath(); ctx.fillStyle=colors[i]; ctx.fill(); start+=a; });
   }
-  // hole
   ctx.globalCompositeOperation='destination-out'; ctx.beginPath(); ctx.arc(cx,cy,inner,0,Math.PI*2); ctx.fill(); ctx.globalCompositeOperation='source-over';
-  const pct = total? Math.round((done/total)*100):0; ctx.fillStyle='#0f172a'; ctx.font='700 16px system-ui,-apple-system,Segoe UI,Roboto,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(pct+'%', cx, cy);
+  ctx.fillStyle='#0f172a'; ctx.font='700 18px system-ui,-apple-system,Segoe UI,Roboto,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(pctDone+'%', cx, cy);
+
+  // Legend with numbers & %
+  const legend=$('#statusLegend'); legend.innerHTML='';
+  labels.forEach((lab,i)=>{
+    const v=values[i]; const p= total? Math.round(v/total*100):0;
+    const div=document.createElement('div'); div.className='legend-item';
+    div.innerHTML=`<span class="dot" style="background:${colors[i]}"></span><span>${lab}: <b>${v}</b> (${p}%)</span>`;
+    legend.appendChild(div);
+  });
 }
 
-/* ===================== Timeline (SVG) ===================== */
+/* ===================== Timeline (SVG) with new views, quarter markers, labels, dependency arrows ===================== */
 function setView(v){ currentView=v; document.querySelectorAll('#viewButtons button').forEach(b=>b.classList.toggle('view-active', b.dataset.view===v)); drawGantt(); }
 document.getElementById('viewButtons').addEventListener('click', e=>{
   if(e.target.matches('button[data-view]')) setView(e.target.dataset.view);
 });
-function daysBetween(a,b){ return Math.max(0, Math.ceil((new Date(b)-new Date(a))/86400000)); }
+
 function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+function daysBetween(a,b){ return Math.max(0, Math.ceil((new Date(b)-new Date(a))/86400000)); }
+function clampDate(d){ const x=new Date(d); x.setHours(0,0,0,0); return x; }
 function monthLabel(x){ return x.toLocaleString(undefined,{month:'short',year:'numeric'}); }
+function startOfQuarter(date){ const q=Math.floor(date.getMonth()/3); return new Date(date.getFullYear(), q*3, 1); }
+function nextQuarterStart(date){ const q=Math.floor(date.getMonth()/3); return new Date(date.getFullYear(), (q+1)*3, 1); }
+
+function getRangeForView(view){
+  const today=new Date(); const y=today.getFullYear();
+  const start=today;
+  let end;
+  switch(view){
+    case 'Week': end=addDays(today,7); break;
+    case '1M': { const e=new Date(today); e.setMonth(e.getMonth()+1); end=e; break; }
+    case '6M': { const e=new Date(today); e.setMonth(e.getMonth()+6); end=e; break; }
+    case 'YTD': end=new Date(y,11,31); break;
+    case '5Y': { const e=new Date(today); e.setFullYear(e.getFullYear()+5); end=e; break; }
+    case 'All':
+    default: return null; // All = auto-fit
+  }
+  return {start:clampDate(start), end:clampDate(end)};
+}
 
 function drawGantt(){
-  const cont=$('#gantt'), countEl=$('#ganttCount');
+  const container=$('#gantt'), countEl=$('#ganttCount');
+  const cats=loadCategories();
   let items=loadGoals().filter(g=>g.start_date && g.due_date);
-  if(filterYearTimeline){
-    items = items.filter(g=>{
-      const sy=g.start_date.slice(0,4), dy=g.due_date.slice(0,4);
-      return (sy===filterYearTimeline || dy===filterYearTimeline);
-    });
+
+  // Apply priority filter (from legend or select)
+  if(filterPriorityGlobal){
+    items = items.filter(g=>g.priority===filterPriorityGlobal);
   }
-  cont.innerHTML='';
-  if(items.length===0){ cont.innerHTML='<div class="no-data">No items to plot.</div>'; countEl.textContent='Items: 0'; return; }
+
+  container.innerHTML='';
+  if(items.length===0){ container.innerHTML='<div class="no-data">No items to plot.</div>'; countEl.textContent='Items: 0'; return; }
   countEl.textContent='Items: '+items.length;
 
-  let min=items[0].start_date, max=items[0].due_date;
-  items.forEach(g=>{ if(g.start_date<min) min=g.start_date; if(g.due_date>max) max=g.due_date; });
+  // Determine range
+  let minDate, maxDate;
+  const viewRange = getRangeForView(currentView);
+  if(currentView==='All' || !viewRange){
+    minDate = items.reduce((m,g)=> g.start_date<m?g.start_date:m, items[0].start_date);
+    maxDate = items.reduce((m,g)=> g.due_date>m?g.due_date:m, items[0].due_date);
+    minDate = addDays(minDate,-7);
+    maxDate = addDays(maxDate, 7);
+  } else {
+    minDate = viewRange.start; maxDate = viewRange.end;
+  }
 
-  const pad=(currentView==='Year'?30:(currentView==='Quarter'?14:7));
-  const minPad=addDays(min,-pad), maxPad=addDays(max,pad);
-  const total=daysBetween(minPad,maxPad);
-  const pxPerDay=(currentView==='Year'?4:(currentView==='Quarter'?8:16));
-  const height=60 + items.length*32, width=120 + total*pxPerDay;
+  const total=daysBetween(minDate,maxDate);
+  // Zoom by view
+  const pxPerDay = (currentView==='Week')? 28
+                   : (currentView==='1M')? 16
+                   : (currentView==='6M')? 8
+                   : (currentView==='YTD')? 6
+                   : (currentView==='5Y')? 2.4
+                   : 8;
+  const height=60 + items.length*36, width=120 + Math.max(240, total*pxPerDay);
 
   const NS='http://www.w3.org/2000/svg';
   const svg=document.createElementNS(NS,'svg');
-  svg.setAttribute('width',Math.max(width, cont.clientWidth));
+  svg.setAttribute('width',Math.max(width, container.clientWidth));
   svg.setAttribute('height',height);
 
-  // Grid
-  const step=(currentView==='Month'?7:(currentView==='Quarter'?14:30));
-  for(let i=0;i<=total;i+=step){
-    const d=addDays(minPad,i), x=100 + i*pxPerDay;
-    const l=document.createElementNS(NS,'line'); l.setAttribute('x1',x); l.setAttribute('y1',24); l.setAttribute('x2',x); l.setAttribute('y2',height);
+  // Quarter markers (Q1..Q4)
+  const qStart = new Date(minDate.getFullYear(), Math.floor(minDate.getMonth()/3)*3, 1);
+  for(let d=new Date(qStart); d<=maxDate; d=nextQuarterStart(d)){
+    const offset=daysBetween(minDate, d)*pxPerDay;
+    const x=100+offset;
+    const l=document.createElementNS(NS,'line');
+    l.setAttribute('x1',x); l.setAttribute('y1',24); l.setAttribute('x2',x); l.setAttribute('y2',height);
     l.setAttribute('stroke','#e2e8f0'); l.setAttribute('stroke-width','1'); svg.appendChild(l);
-    const t=document.createElementNS(NS,'text'); t.setAttribute('x',x+4); t.setAttribute('y',16); t.setAttribute('class','axis');
-    t.textContent=(currentView==='Month')? d.toLocaleDateString(undefined,{month:'short',day:'numeric'}) : monthLabel(d);
+
+    const qIndex=Math.floor(d.getMonth()/3)+1;
+    const t=document.createElementNS(NS,'text');
+    t.setAttribute('x',x+4); t.setAttribute('y',16); t.setAttribute('class','axis');
+    t.textContent=`Q${qIndex} ${d.getFullYear()}`;
     svg.appendChild(t);
   }
 
   // Today marker
   const now=new Date();
-  if(now>=new Date(minPad) && now<=new Date(maxPad)){
-    const off=daysBetween(minPad,now)*pxPerDay, x=100+off;
+  if(now>=minDate && now<=maxDate){
+    const off=daysBetween(minDate,now)*pxPerDay, x=100+off;
     const l=document.createElementNS(NS,'line'); l.setAttribute('x1',x); l.setAttribute('y1',24); l.setAttribute('x2',x); l.setAttribute('y2',height);
     l.setAttribute('stroke','#ef4444'); l.setAttribute('stroke-width','2'); l.setAttribute('stroke-dasharray','4 2'); svg.appendChild(l);
     const t=document.createElementNS(NS,'text'); t.setAttribute('x',x+4); t.setAttribute('y',16); t.setAttribute('class','axis'); t.textContent='Today'; svg.appendChild(t);
   }
 
-  const cats=loadCategories();
+  // Bars with short labels, keep a map of coords for dependency arrows
+  const barMap=new Map();
+  const idMap=formatIdMap(loadGoals());
+
   items.forEach((g,i)=>{
-    const y=36 + i*32;
-    // label
-    const t=document.createElementNS(NS,'text'); t.setAttribute('x','8'); t.setAttribute('y',y+12); t.setAttribute('class','label'); t.textContent=g.title; svg.appendChild(t);
-    // bar
-    const startOff=daysBetween(minPad, new Date(g.start_date));
+    const y=36 + i*36;
+    const s = new Date(g.start_date), e = new Date(g.due_date);
+    // draw only if intersects the range
+    if(e < minDate || s > maxDate) return;
+
+    const startOff=daysBetween(minDate, (s<minDate?minDate:s));
     const barX=100 + startOff*pxPerDay;
-    const barW=Math.max(6, daysBetween(new Date(g.start_date), new Date(g.due_date)) * pxPerDay);
+    const drawStart = (s<minDate?minDate:s);
+    const drawEnd   = (e>maxDate?maxDate:e);
+    const barW=Math.max(6, daysBetween(drawStart, drawEnd)*pxPerDay);
+
     const rect=document.createElementNS(NS,'rect');
-    rect.setAttribute('x',barX); rect.setAttribute('y',y); rect.setAttribute('width',barW); rect.setAttribute('height',20); rect.setAttribute('rx',6); rect.setAttribute('ry',6);
+    rect.setAttribute('x',barX); rect.setAttribute('y',y); rect.setAttribute('width',barW); rect.setAttribute('height',22);
+    rect.setAttribute('rx',6); rect.setAttribute('ry',6);
     const cat=cats.find(c=>c.id===g.categoryId)||{color:'#6b7280'};
-    rect.setAttribute('fill',cat.color); rect.setAttribute('fill-opacity', g.status==='done'?'0.7':'1.0');
+    rect.setAttribute('fill',cat.color); rect.setAttribute('fill-opacity', g.status==='done'?'0.8':'1.0');
     rect.setAttribute('stroke','#0f172a22'); rect.setAttribute('stroke-width','1'); rect.style.cursor='pointer';
-    rect.onclick=()=>{ const g0=loadGoals().find(x=>x.id===g.id); if(g0) openModal(g0); };
+    rect.addEventListener('click',()=>{ const g0=loadGoals().find(x=>x.id===g.id); if(g0) openModal(g0); });
+    const tt=document.createElementNS(NS,'title');
+    tt.textContent = `${g.title}\n${g.start_date} → ${g.due_date}\n${g.priority.toUpperCase()} • ${g.status.replace('_',' ')}`;
+    rect.appendChild(tt);
     svg.appendChild(rect);
+
+    // Short label on bar
+    const short = (g.title.length>18)? g.title.slice(0,16)+'…' : g.title;
+    const tx=document.createElementNS(NS,'text');
+    tx.setAttribute('x',barX+6); tx.setAttribute('y',y+15); tx.setAttribute('fill','#fff'); tx.setAttribute('font-size','12'); tx.setAttribute('font-weight','600');
+    tx.textContent = short;
+    svg.appendChild(tx);
+
+    barMap.set(g.id, { x:barX, y:y, w:barW });
   });
 
-  cont.appendChild(svg);
+  // Dependency arrows
+  items.forEach(g=>{
+    if(!g.dependsOnId) return;
+    const from=barMap.get(g.dependsOnId), to=barMap.get(g.id);
+    if(!from || !to) return;
+    const x1 = from.x + from.w, y1 = from.y + 11;
+    const x2 = to.x,           y2 = to.y + 11;
+    const path=document.createElementNS(NS,'path');
+    const midX = (x1 + x2)/2;
+    const d = `M ${x1} ${y1} C ${midX} ${y1} ${midX} ${y2} ${x2} ${y2}`;
+    path.setAttribute('d', d);
+    path.setAttribute('stroke', '#475569'); path.setAttribute('stroke-width', '1.5'); path.setAttribute('fill','none'); path.setAttribute('stroke-dasharray','3 2');
+    svg.appendChild(path);
+    // arrow head
+    const tri=document.createElementNS(NS,'path');
+    tri.setAttribute('d', `M ${x2-6} ${y2-4} L ${x2} ${y2} L ${x2-6} ${y2+4} Z`);
+    tri.setAttribute('fill','#475569');
+    svg.appendChild(tri);
+  });
+
+  container.appendChild(svg);
 }
 
-/* ===================== Year filters build ===================== */
-function rebuildYearFilters(){
-  const years = Array.from(new Set(loadGoals().flatMap(g=>{
-    const ys=[]; if(g.start_date) ys.push(g.start_date.slice(0,4)); if(g.due_date) ys.push(g.due_date.slice(0,4)); return ys;
-  }))).sort();
-  buildYearUI(yearUI_tl, years, filterYearTimeline, (v)=>{ filterYearTimeline=v; drawGantt(); });
-  buildYearUI(yearUI_tb, years, filterYearTable,    (v)=>{ filterYearTable=v; renderTable(); });
+/* ===================== Priority Legend (click to filter both timeline & table) ===================== */
+const legendEl=document.getElementById('priorityLegend');
+legendEl.addEventListener('click', e=>{
+  const btn = e.target.closest('.clickable'); if(!btn) return;
+  const pr = btn.dataset.prio;
+  filterPriorityGlobal = (filterPriorityGlobal===pr)? '' : pr;
+  syncLegendPriority();
+  // also sync the table select
+  filterPriority.value = filterPriorityGlobal;
+  renderTable(); drawGantt();
+});
+function syncLegendPriority(){
+  legendEl.querySelectorAll('.clickable').forEach(x=>{
+    x.classList.toggle('active', x.dataset.prio===filterPriorityGlobal && filterPriorityGlobal!=='');
+  });
 }
 
-/* ===================== Refresh ===================== */
+/* ===================== Refresh & Boot ===================== */
 function refreshAll(){
-  // refresh quick add category list (preserve selection if possible)
-  const cats=loadCategories();
-  const sel=qa_categoryPopulate(cats);
-  if(lastUsedCategoryId) $('#qa_category').value = lastUsedCategoryId;
   rebuildYearFilters();
   renderTable();
   drawGantt();
   renderSummary();
+  syncLegendPriority();
+  // refresh quick add category list (preserve selection if possible)
+  const cats=loadCategories();
+  const qaSel=$('#qa_category'); const cur=qaSel.value;
+  qaSel.innerHTML=cats.map(c=>`<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+  if(lastUsedCategoryId) qaSel.value=lastUsedCategoryId; else if(cur) qaSel.value=cur;
 }
-function qa_categoryPopulate(cats){
-  const el=$('#qa_category'); const cur=el.value;
-  el.innerHTML = cats.map(c=>`<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
-  if(cur) el.value=cur;
-}
-
-/* ===================== Boot ===================== */
 document.addEventListener('DOMContentLoaded', refreshAll);
 </script>
 </body>
