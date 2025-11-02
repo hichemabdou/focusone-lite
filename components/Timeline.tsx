@@ -22,10 +22,23 @@ const VIEW_OPTIONS: { value: View; label: string }[] = [
   { value: "next-365", label: "365 days" },
 ];
 
-function addDays(d: Date, n: number) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
-function diffDays(a: Date, b: Date) { return Math.round((b.getTime() - a.getTime()) / 86400000); }
-function startOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth(), 1); }
-function endOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth() + 1, 0); }
+function addDays(d: Date, n: number) {
+  const x = new Date(d);
+  x.setDate(x.getDate() + n);
+  return x;
+}
+
+function diffDays(a: Date, b: Date) {
+  return Math.round((b.getTime() - a.getTime()) / 86400000);
+}
+
+function startOfMonth(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth(), 1);
+}
+
+function endOfMonth(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth() + 1, 0);
+}
 
 export default function Timeline() {
   const { visibleGoals } = useGoals();
@@ -81,6 +94,7 @@ export default function Timeline() {
   // Grid & header math
   const totalDays = Math.max(1, diffDays(from, addDays(to, 1)));
   const widthPx = totalDays * density;
+  const contentHeight = Math.max(goals.length * 40 + 24, 320);
 
   const months = useMemo(() => {
     const arr: { label: string; start: Date; end: Date; offsetDays: number; spanDays: number }[] = [];
@@ -114,7 +128,9 @@ export default function Timeline() {
     const s = scrollerRef.current;
     const t = titlesRef.current;
     if (!s || !t) return;
-    const onScroll = () => (t.scrollTop = s.scrollTop);
+    const onScroll = () => {
+      t.scrollTop = s.scrollTop;
+    };
     s.addEventListener("scroll", onScroll);
     return () => s.removeEventListener("scroll", onScroll);
   }, []);
@@ -144,7 +160,7 @@ export default function Timeline() {
   }, [view, from, to, density]);
 
   return (
-    <div className="space-y-3">
+    <div className="flex h-full flex-1 flex-col gap-4">
       {/* Controls */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex flex-wrap items-center gap-1 rounded-full border border-white/10 bg-white/10 p-1">
@@ -196,15 +212,15 @@ export default function Timeline() {
         </span>
       </div>
 
-      <div className="relative rounded-2xl bg-neutral-900/60 border border-white/10 overflow-hidden">
+      <div className="relative flex-1 overflow-hidden rounded-2xl border border-white/10 bg-neutral-900/60">
         {/* Header months */}
-        <div className="sticky top-0 z-10 bg-neutral-900/80 backdrop-blur border-b border-white/10">
+        <div className="sticky top-0 z-10 border-b border-white/10 bg-neutral-900/80 backdrop-blur">
           <div className="relative pl-56" style={{ width: "100%" }}>
             <div className="relative" style={{ width: widthPx }}>
               {months.map((m, i) => (
                 <div
                   key={i}
-                  className="absolute top-0 h-9 border-r border-white/10 flex items-center px-2 text-xs text-neutral-300"
+                  className="absolute top-0 flex h-9 items-center border-r border-white/10 px-2 text-xs text-neutral-300"
                   style={{ left: m.offsetDays * density, width: m.spanDays * density }}
                 >
                   {m.label}
@@ -215,17 +231,17 @@ export default function Timeline() {
         </div>
 
         {/* Body */}
-        <div className="flex">
+        <div className="flex h-full">
           {/* Sticky titles column */}
           <div
             ref={titlesRef}
-            className="shrink-0 w-56 border-r border-white/10 max-h-[420px] overflow-y-auto"
+            className="h-full w-56 shrink-0 overflow-y-auto border-r border-white/10"
           >
             {goals.map((g) => (
               <div
                 key={g.id}
                 title={g.title}
-                className="h-10 flex items-center px-4 text-sm text-neutral-200 truncate"
+                className="flex h-10 items-center truncate px-4 text-sm text-neutral-200"
               >
                 {g.title}
               </div>
@@ -235,26 +251,26 @@ export default function Timeline() {
           {/* Scrollable grid */}
           <div
             ref={scrollerRef}
-            className="relative overflow-auto max-h-[420px] w-full"
+            className="relative h-full w-full overflow-x-auto overflow-y-auto"
           >
-            <div className="relative" style={{ width: widthPx }}>
+            <div className="relative" style={{ width: widthPx, height: contentHeight }}>
               {/* vertical grid lines (days) */}
               {Array.from({ length: totalDays }).map((_, i) => (
                 <div
                   key={i}
-                  className={`absolute top-0 bottom-0 ${i % 7 === 0 ? "bg-white/10" : "bg-white/5"}`}
-                  style={{ left: i * density, width: 1 }}
+                  className={`absolute top-0 ${i % 7 === 0 ? "bg-white/10" : "bg-white/5"}`}
+                  style={{ left: i * density, width: 1, height: contentHeight }}
                 />
               ))}
 
               {/* Today marker */}
               {showToday && (
                 <div
-                  className="absolute top-0 bottom-0 w-0.5 bg-red-500"
-                  style={{ left: todayLeft }}
+                  className="absolute top-0 w-0.5 bg-red-500"
+                  style={{ left: todayLeft, height: contentHeight }}
                 >
-                  <div className="sticky top-2 -translate-x-1/2 -mt-1">
-                    <span className="px-2 py-0.5 rounded-full text-xs bg-red-500 text-white shadow">
+                  <div className="sticky top-2 -mt-1 -translate-x-1/2">
+                    <span className="rounded-full bg-red-500 px-2 py-0.5 text-xs text-white shadow">
                       Today
                     </span>
                   </div>
@@ -274,7 +290,7 @@ export default function Timeline() {
                     <div
                       title={title}
                       className={[
-                        "h-6 rounded-md shadow ring-1 ring-white/15 text-xs text-white truncate px-2 flex items-center",
+                        "flex h-6 items-center truncate px-2 text-xs text-white ring-1 ring-white/15 shadow",
                         cat,
                         op,
                       ].join(" ")}

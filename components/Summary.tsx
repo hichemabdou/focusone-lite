@@ -16,7 +16,11 @@ export default function Summary({ goals, className = "" }: { goals: Goal[]; clas
   );
 
   return (
-    <div className={["grid grid-cols-2 gap-3 md:grid-cols-4", className].filter(Boolean).join(" ")>
+    <div
+      className={["grid grid-cols-2 gap-3 md:grid-cols-4", className]
+        .filter(Boolean)
+        .join(" ")}
+    >
       <Cell label="Open" value={open} />
       <Cell label="In-progress" value={inprog} />
       <Cell label="Blocked" value={blocked} />
