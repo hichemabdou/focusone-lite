@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useEffect, useState } from "react";
 
 interface Goal {
   id: string;
@@ -13,18 +13,26 @@ interface Goal {
 const monthKeyFromDate = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 
-export default function Timeline({ goals = [] }: { goals?: Goal[] }) {
-  // ✅ Determine full range (safe if goals is undefined or empty)
+export default function Timeline() {
+  const [goals, setGoals] = useState<Goal[]>([]);
+
+  // ✅ Load data from localStorage (same source as GoalsList)
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("goals");
+      if (stored) setGoals(JSON.parse(stored));
+    } catch (err) {
+      console.error("Failed to load goals:", err);
+    }
+  }, []);
+
+  // ✅ Determine full range safely
   const domain = useMemo(() => {
     if (!goals || goals.length === 0) {
       const now = new Date();
       const from = new Date(now.getFullYear(), 0, 1).toISOString().slice(0, 10);
       const to = new Date(now.getFullYear(), 11, 1).toISOString().slice(0, 10);
-      return {
-        from,
-        to,
-        months: [],
-      };
+      return { from, to, months: [] };
     }
 
     const starts = goals.map((g) => new Date(g.start));
@@ -42,11 +50,7 @@ export default function Timeline({ goals = [] }: { goals?: Goal[] }) {
       iter.setMonth(iter.getMonth() + 1);
     }
 
-    return {
-      from: minDate.toISOString().slice(0, 10),
-      to: maxDate.toISOString().slice(0, 10),
-      months,
-    };
+    return { from: minDate, to: maxDate, months };
   }, [goals]);
 
   const monthWidth = 120;
@@ -88,19 +92,21 @@ export default function Timeline({ goals = [] }: { goals?: Goal[] }) {
 
       {/* Goals */}
       <div
-        className="grid"
+        className="grid mt-2"
         style={{
           gridTemplateColumns: `repeat(${domain.months.length}, ${monthWidth}px)`,
         }}
       >
-        {goals &&
-          goals.map((goal) => (
-            <div key={goal.id} className="relative flex items-center">
-              <div className="m-1 w-full rounded-md bg-blue-500/40 p-1 text-xs text-center">
-                {goal.title}
-              </div>
+        {goals.map((goal) => (
+          <div
+            key={goal.id}
+            className="relative flex items-center justify-center"
+          >
+            <div className="m-1 w-full rounded-md bg-blue-500/40 p-1 text-xs text-center">
+              {goal.title}
             </div>
-          ))}
+          </div>
+        ))}
       </div>
     </div>
   );
