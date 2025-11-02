@@ -1,30 +1,36 @@
-# Focus.One Lite (static MVP)
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-A zero-backend, single-user prototype for your goals timeline and quarterly reviews.
+## Getting Started
 
-## Features
-- Add goals with title, dates, priority, status
-- Visual Gantt timeline (frappe-gantt)
-- Quarterly review scoring (completion, on-time, priority-weighted)
-- Export/import data as JSON
-- Generate a downloadable .ics calendar file for review periods
+First, run the development server:
 
-## How to run locally
-Open `index.html` in your browser. No build step required.
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+```
 
-## How to put it online (Vercel static hosting)
-1. Create a new GitHub repo and upload these files.
-2. Go to vercel.com → New Project → Import your repo.
-3. Framework preset: **Other** (static).
-4. Build command: **none**; Output directory: **/**.
-5. Deploy. Your app will be live on a vercel.app URL (add a custom domain later).
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-## Limitations
-- Single user (browser localStorage). No login/auth.
-- Email reminders require a backend (can add later).
-- iCal is a manual download (subscription feed requires a server).
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-## Next steps (when ready)
-- Rebuild with Next.js + Supabase for multi-user accounts.
-- Add server route `/api/ical/[token]` to publish a private calendar feed.
-- Add email reminders via a daily cron (Vercel Cron) and Resend.
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+
+## Learn More
+
+To learn more about Next.js, take a look at the following resources:
+
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
