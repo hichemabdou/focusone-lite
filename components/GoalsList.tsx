@@ -1,57 +1,82 @@
-'use client';
-import React from 'react';
-import type { TimelineItem, Status } from '@/components/Timeline';
+"use client";
 
-type Props = {
-  items: TimelineItem[];
-  onChange: (next: TimelineItem[]) => void;
-};
+import { useState, useEffect } from "react";
 
-export default function GoalsList({ items, onChange }: Props) {
-  const setStatus = (id: string, status: Status) => {
-    onChange(items.map(g => g.id === id ? { ...g, status } : g));
+interface Goal {
+  id: string;
+  title: string;
+  start: string;
+  due: string;
+  priority?: string;
+}
+
+export default function GoalsList() {
+  const [items, setItems] = useState<Goal[]>([]);
+
+  // ✅ Load data (if any) from localStorage for now
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("goals");
+      if (stored) {
+        setItems(JSON.parse(stored));
+      }
+    } catch (err) {
+      console.error("Failed to load goals:", err);
+    }
+  }, []);
+
+  // ✅ Add new goal
+  const addGoal = () => {
+    const title = prompt("Enter new goal title:");
+    if (!title) return;
+    const newGoal: Goal = {
+      id: Math.random().toString(36).slice(2),
+      title,
+      start: new Date().toISOString().slice(0, 10),
+      due: new Date().toISOString().slice(0, 10),
+      priority: "medium",
+    };
+    const updated = [...items, newGoal];
+    setItems(updated);
+    localStorage.setItem("goals", JSON.stringify(updated));
   };
-  const remove = (id: string) => {
-    onChange(items.filter(g => g.id !== id));
+
+  // ✅ Delete goal
+  const deleteGoal = (id: string) => {
+    if (!confirm("Delete this goal?")) return;
+    const updated = items.filter((g) => g.id !== id);
+    setItems(updated);
+    localStorage.setItem("goals", JSON.stringify(updated));
   };
 
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white p-3">
+    <div className="text-neutral-200">
       <div className="flex items-center justify-between mb-2">
-        <h2 className="font-semibold">Goals</h2>
+        <h2 className="text-lg font-semibold">Goals</h2>
         <button
-          className="px-3 py-1 rounded bg-neutral-900 text-white text-sm"
-          onClick={()=>{
-            const now = new Date();
-            const end = new Date(Date.now()+1000*60*60*24*14);
-            const n: TimelineItem = {
-              id: crypto.randomUUID(),
-              title: 'New Goal',
-              level: 'project',
-              priority: 'med',
-              status: 'open',
-              start: now.toISOString().slice(0,10),
-              end: end.toISOString().slice(0,10),
-            };
-            onChange([...items, n]);
-          }}
-        >+ Add</button>
+          onClick={addGoal}
+          className="rounded-md bg-white/10 hover:bg-white/20 px-3 py-1 text-sm"
+        >
+          + Add
+        </button>
       </div>
-      <ul className="divide-y">
-        {items.map(g=>(
-          <li key={g.id} className="py-2 flex items-center gap-2">
-            <span className="text-sm flex-1 truncate" title={g.title}>{g.title}</span>
-            <select
-              className="text-sm border rounded px-1 py-0.5"
-              value={g.status}
-              onChange={e=>setStatus(g.id, e.target.value as any)}
+
+      {(!items || items.length === 0) && (
+        <p className="text-sm text-neutral-400 italic">
+          No goals yet. Click “Add” to create one.
+        </p>
+      )}
+
+      <ul className="divide-y divide-neutral-700 mt-2">
+        {items.map((g) => (
+          <li key={g.id} className="py-2 flex items-center justify-between">
+            <span className="text-sm flex-1 truncate">{g.title}</span>
+            <button
+              onClick={() => deleteGoal(g.id)}
+              className="text-xs text-red-400 hover:text-red-300 ml-2"
             >
-              <option value="open">On Track</option>
-              <option value="at_risk">At Risk</option>
-              <option value="overdue">Overdue</option>
-              <option value="done">Done</option>
-            </select>
-            <button className="text-xs px-2 py-1 border rounded" onClick={()=>remove(g.id)}>Delete</button>
+              Delete
+            </button>
           </li>
         ))}
       </ul>
