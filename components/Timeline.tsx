@@ -1,171 +1,232 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Goal } from "./GoalsContext";
+import { CATEGORY_COLORS, PRIORITY_OPACITY, Goal, useGoals } from "./GoalsContext";
 
-export type DomainMode = "fit" | "this-year";
+type View =
+  | "fit"
+  | "this-month"
+  | "next-2m"
+  | "next-3m"
+  | "next-4m"
+  | "this-year"
+  | "next-365";
 
-const LANES: Record<string, number> = {
-  STRATEGY: 0,
-  VISION: 1,
-  TACTICAL: 2,
-  PROJECT: 3,
-  DAILY: 4,
-};
+const DAY_PX = 18;
 
-function clamp(n: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, n));
-}
+function addDays(d: Date, n: number) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
+function diffDays(a: Date, b: Date) { return Math.round((b.getTime() - a.getTime()) / 86400000); }
+function startOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth(), 1); }
+function endOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth() + 1, 0); }
 
-function parse(iso: string) {
-  return new Date(iso + (iso.length === 10 ? "T00:00:00" : ""));
-}
+export default function Timeline() {
+  const { visibleGoals } = useGoals();
+  const goals = visibleGoals ?? [];
 
-export default function Timeline({ goals, mode }: { goals: Goal[]; mode: DomainMode }) {
-  const wrapRef = useRef<HTMLDivElement | null>(null);
-  const [width, setWidth] = useState(1200);
+  const [view, setView] = useState<View>("fit");
 
-  // responsive width
-  useEffect(() => {
-    const el = wrapRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => setWidth(el.clientWidth));
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
+  // Compute visible domain
+  const [from, to] = useMemo<[Date, Date]>(() => {
+    const now = new Date();
 
-  // domain
-  const { start, end } = useMemo(() => {
-    if (mode === "this-year") {
-      const y = new Date().getFullYear();
-      return { start: new Date(y, 0, 1), end: new Date(y, 11, 31, 23, 59, 59) };
+    const minStart = goals.length
+      ? goals.map((g) => new Date(g.startDate)).reduce((a, b) => (a < b ? a : b))
+      : startOfMonth(now);
+    const maxEnd = goals.length
+      ? goals.map((g) => new Date(g.endDate)).reduce((a, b) => (a > b ? a : b))
+      : endOfMonth(now);
+
+    switch (view) {
+      case "this-month": {
+        const s = startOfMonth(now);
+        const e = endOfMonth(now);
+        return [s, e];
+      }
+      case "next-2m":
+      case "next-3m":
+      case "next-4m": {
+        const months = Number(view.split("-")[1].replace("m", ""));
+        const s = startOfMonth(now);
+        const e = endOfMonth(new Date(now.getFullYear(), now.getMonth() + months - 1, 1));
+        return [s, e];
+      }
+      case "this-year": {
+        const s = new Date(now.getFullYear(), 0, 1);
+        const e = new Date(now.getFullYear(), 11, 31);
+        return [s, e];
+      }
+      case "next-365": {
+        const s = new Date(now);
+        const e = addDays(now, 365);
+        return [s, e];
+      }
+      case "fit":
+      default: {
+        const padLeft = addDays(minStart, -3);
+        const padRight = addDays(maxEnd, 3);
+        return [padLeft, padRight];
+      }
     }
-    if (!goals.length) {
-      const y = new Date().getFullYear();
-      return { start: new Date(y, 0, 1), end: new Date(y, 11, 31, 23, 59, 59) };
-    }
-    const s = goals.map((g) => parse(g.start).getTime());
-    const e = goals.map((g) => parse(g.due).getTime());
-    const min = Math.min(...s);
-    const max = Math.max(...e);
-    const pad = 1000 * 60 * 60 * 24 * 14; // 14 days
-    return { start: new Date(min - pad), end: new Date(max + pad) };
-  }, [goals, mode]);
+  }, [goals, view]);
 
-  const span = Math.max(1, end.getTime() - start.getTime());
-  const pxPerMs = width / span;
+  // Grid & header math
+  const totalDays = Math.max(1, diffDays(from, addDays(to, 1)));
+  const widthPx = totalDays * DAY_PX;
 
   const months = useMemo(() => {
-    const arr: { d: Date; label: string }[] = [];
-    const d = new Date(start);
-    d.setDate(1);
-    while (d <= end) {
-      arr.push({ d: new Date(d), label: d.toLocaleString(undefined, { month: "short" }) });
-      d.setMonth(d.getMonth() + 1);
+    const arr: { label: string; start: Date; end: Date; offsetDays: number; spanDays: number }[] = [];
+    let cursor = new Date(from.getFullYear(), from.getMonth(), 1);
+    while (cursor <= to) {
+      const s = new Date(cursor);
+      const e = endOfMonth(cursor);
+      const startClip = s < from ? from : s;
+      const endClip = e > to ? to : e;
+      arr.push({
+        label: startClip.toLocaleString(undefined, { month: "long", year: "2-digit" }),
+        start: startClip,
+        end: endClip,
+        offsetDays: diffDays(from, startClip),
+        spanDays: diffDays(startClip, addDays(endClip, 1)),
+      });
+      cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
     }
     return arr;
-  }, [start, end]);
+  }, [from, to]);
 
+  // Today marker
   const today = new Date();
+  const showToday = today >= from && today <= to;
+  const todayLeft = diffDays(from, today) * DAY_PX;
 
-  const bars = useMemo(() => {
-    return goals.map((g) => {
-      const s = parse(g.start).getTime();
-      const e = parse(g.due).getTime();
-      const left = clamp((s - start.getTime()) * pxPerMs, -9999, 999999);
-      const right = clamp((e - start.getTime()) * pxPerMs, -9999, 999999);
-      const width = Math.max(8, right - left);
-      const lane = LANES[g.category] ?? 0;
-      const overdue = g.status !== "done" && parse(g.due) < today;
+  // Sticky titles vs grid scroll sync
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const titlesRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const s = scrollerRef.current;
+    const t = titlesRef.current;
+    if (!s || !t) return;
+    const onScroll = () => (t.scrollTop = s.scrollTop);
+    s.addEventListener("scroll", onScroll);
+    return () => s.removeEventListener("scroll", onScroll);
+  }, []);
 
-      const prioClass =
-        g.priority === "critical" ? "bg-rose-500" :
-        g.priority === "high"     ? "bg-orange-400" :
-        g.priority === "medium"   ? "bg-amber-300" :
-                                    "bg-emerald-400";
-
-      return {
-        id: g.id,
-        left,
-        width,
-        lane,
-        prioClass,
-        title: g.title,
-        overdue,
-        done: g.status === "done",
-      };
-    });
-  }, [goals, pxPerMs, start, today]);
-
-  const todayX = clamp((today.getTime() - start.getTime()) * pxPerMs, -9999, 999999);
+  // helpers to place bars
+  const leftPx = (g: Goal) => Math.max(0, diffDays(from, new Date(g.startDate)) * DAY_PX);
+  const widthFor = (g: Goal) =>
+    Math.max(DAY_PX, Math.max(1, diffDays(new Date(g.startDate), addDays(new Date(g.endDate), 1))) * DAY_PX);
 
   return (
-    <div ref={wrapRef} className="relative w-full">
-      {/* header */}
-      <div className="sticky top-0 z-10 mb-1 flex items-center justify-between bg-transparent">
-        <div className="text-xs uppercase tracking-wide text-white/60">Timeline</div>
-        <div className="text-xs text-white/50">
-          {start.toLocaleDateString()} – {end.toLocaleDateString()}
-        </div>
+    <div className="space-y-3">
+      {/* Controls */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm text-neutral-400">View:</span>
+        <select
+          value={view}
+          onChange={(e) => setView(e.target.value as View)}
+          className="rounded-md bg-neutral-800 border border-neutral-700 px-2 py-1 text-sm"
+        >
+          <option value="fit">Fit all</option>
+          <option value="this-month">This month</option>
+          <option value="next-2m">Next 2 months</option>
+          <option value="next-3m">Next 3 months</option>
+          <option value="next-4m">Next 4 months</option>
+          <option value="this-year">This year</option>
+          <option value="next-365">Next 365 days</option>
+        </select>
+        <span className="ml-auto text-xs text-neutral-500">
+          {goals.length} goal{goals.length === 1 ? "" : "s"}
+        </span>
       </div>
 
-      <div className="relative overflow-x-auto rounded-xl border border-white/10 bg-neutral-900/60">
-        <div className="relative" style={{ width: Math.max(width, 1200) }}>
-          {/* months row */}
-          <div className="sticky left-0 right-0 top-0 z-10 flex border-b border-white/10 bg-neutral-900/80 backdrop-blur">
-            {months.map((m, i) => {
-              const next = i + 1 < months.length ? months[i + 1].d : end;
-              const seg = (next.getTime() - m.d.getTime()) * pxPerMs;
-              return (
-                <div key={i} style={{ width: seg }} className="flex items-center justify-center px-2 py-1 text-xs text-white/70">
+      <div className="relative rounded-2xl bg-neutral-900/60 border border-white/10 overflow-hidden">
+        {/* Header months */}
+        <div className="sticky top-0 z-10 bg-neutral-900/80 backdrop-blur border-b border-white/10">
+          <div className="pl-48 relative" style={{ width: "100%" }}>
+            <div className="relative" style={{ width: widthPx }}>
+              {months.map((m, i) => (
+                <div
+                  key={i}
+                  className="absolute top-0 h-9 border-r border-white/10 flex items-center px-2 text-xs text-neutral-300"
+                  style={{ left: m.offsetDays * DAY_PX, width: m.spanDays * DAY_PX }}
+                >
                   {m.label}
                 </div>
-              );
-            })}
+              ))}
+            </div>
           </div>
+        </div>
 
-          {/* lanes */}
-          <div className="grid grid-rows-5 gap-px">
-            {Object.keys(LANES).map((label) => (
-              <div key={label} className="relative h-16 border-b border-white/5">
-                <div className="sticky left-0 top-0 z-10 -ml-2 inline-block h-6 rounded-md bg-white/5 px-2 text-xs font-semibold tracking-wide text-white/70">
-                  {label}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* quarter markers */}
-          <div className="pointer-events-none absolute left-0 right-0 top-7 z-[1] h-0.5">
-            {["Q1","Q2","Q3","Q4"].map((q, i) => (
-              <div key={q} className="absolute -mt-5 text-[10px] text-white/50" style={{ left: `${(i*25)}%` }}>{q}</div>
-            ))}
-          </div>
-
-          {/* bars */}
-          <div className="absolute left-0 right-0 top-0">
-            {bars.map((b) => (
+        {/* Body */}
+        <div className="flex">
+          {/* Sticky titles column */}
+          <div
+            ref={titlesRef}
+            className="shrink-0 w-48 border-r border-white/10 max-h-[420px] overflow-y-auto"
+          >
+            {goals.map((g) => (
               <div
-                key={b.id}
-                className={`group absolute rounded-md px-2 py-1 text-[11px] font-semibold text-black ${b.prioClass} ${b.done ? "opacity-60" : ""}`}
-                style={{
-                  transform: `translateX(${b.left}px)`,
-                  width: b.width,
-                  top: 28 + b.lane * 64,
-                }}
-                title={b.title}
+                key={g.id}
+                title={g.title}
+                className="h-10 flex items-center px-3 text-sm text-neutral-300 truncate"
               >
-                <span className="truncate">{b.title}</span>
-                {b.overdue && <span className="ml-2 rounded-sm bg-black/20 px-1 text-[10px] text-black">overdue</span>}
+                {g.title}
               </div>
             ))}
           </div>
 
-          {/* today line */}
-          <div className="pointer-events-none absolute top-0 bottom-0" style={{ transform: `translateX(${todayX}px)` }}>
-            <div className="relative h-full">
-              <div className="absolute left-[-18px] top-[26px] rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-neutral-900 shadow">Today</div>
-              <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-white/90" />
+          {/* Scrollable grid */}
+          <div
+            ref={scrollerRef}
+            className="relative overflow-auto max-h-[420px] w-full"
+          >
+            <div className="relative" style={{ width: widthPx }}>
+              {/* vertical grid lines (days) */}
+              {Array.from({ length: totalDays }).map((_, i) => (
+                <div
+                  key={i}
+                  className={`absolute top-0 bottom-0 ${i % 7 === 0 ? "bg-white/10" : "bg-white/5"}`}
+                  style={{ left: i * DAY_PX, width: 1 }}
+                />
+              ))}
+
+              {/* Today marker */}
+              {showToday && (
+                <div
+                  className="absolute top-0 bottom-0 w-0.5 bg-red-500"
+                  style={{ left: todayLeft }}
+                >
+                  <div className="sticky top-2 -translate-x-1/2 -mt-1">
+                    <span className="px-2 py-0.5 rounded-full text-xs bg-red-500 text-white shadow">
+                      Today
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Bars */}
+              {goals.map((g, row) => {
+                const top = row * 40 + 6;
+                const left = leftPx(g);
+                const w = widthFor(g);
+                const cat = CATEGORY_COLORS[g.category];
+                const op = PRIORITY_OPACITY[g.priority];
+                const title = `${g.title}\n${g.startDate} → ${g.endDate}\n${g.category} • ${g.priority}`;
+                return (
+                  <div key={g.id} className="absolute left-0 right-0" style={{ top }}>
+                    <div
+                      title={title}
+                      className={[
+                        "h-6 rounded-md shadow ring-1 ring-white/15 text-xs text-white truncate px-2 flex items-center",
+                        cat,
+                        op,
+                      ].join(" ")}
+                      style={{ left, width: w, position: "absolute" }}
+                    >
+                      {g.title}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

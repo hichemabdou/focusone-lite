@@ -1,237 +1,117 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Goal, useGoals, Category, Priority, Status } from "./GoalsContext";
-import Modal from "./Modal";
+import { Goal, useGoals } from "./GoalsContext";
 
-function Badge({ children, tone }: { children: React.ReactNode; tone: "low"|"medium"|"high"|"critical"|"muted" }) {
-  const map = {
-    low: "bg-emerald-500",
-    medium: "bg-amber-300 text-neutral-900",
-    high: "bg-orange-400",
-    critical: "bg-rose-500",
-    muted: "bg-white/10 text-white/80",
-  } as const;
-  return <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${map[tone]}`}>{children}</span>;
+function prettyRange(g: Goal) {
+  const s = new Date(g.startDate);
+  const e = new Date(g.endDate);
+  const fmt = (d: Date) =>
+    d.toLocaleString(undefined, { month: "short", day: "2-digit" });
+  return `${fmt(s)} — ${fmt(e)}`;
 }
 
-const cats: Category[] = ["STRATEGY","VISION","TACTICAL","PROJECT","DAILY"];
-const prios: Priority[] = ["low","medium","high","critical"];
-const stats: Status[] = ["open","in-progress","blocked","done"];
+export default function GoalsList() {
+  const { visibleGoals, goals, exportJson, importJson, deleteGoal } = useGoals();
+  const items = (visibleGoals ?? goals ?? []) as Goal[];
 
-export default function GoalsList({ visibleGoals }: { visibleGoals: Goal[] }) {
-  const { remove, add, update, exportJson, importMany } = useGoals();
+  const counts = useMemo(() => {
+    return {
+      open: items.filter((g) => g.status === "open").length,
+      inprog: items.filter((g) => g.status === "in-progress").length,
+      blocked: items.filter((g) => g.status === "blocked").length,
+      done: items.filter((g) => g.status === "done").length,
+    };
+  }, [items]);
 
-  const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<Goal | null>(null);
-
-  const [form, setForm] = useState<Omit<Goal,"id">>({
-    title: "",
-    start: new Date().toISOString().slice(0,10),
-    due:   new Date().toISOString().slice(0,10),
-    category: "TACTICAL",
-    priority: "medium",
-    status: "open",
-    notes: "",
-  });
-
-  const onSubmit = (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (editing) {
-      update(editing.id, form);
-    } else {
-      add(form);
-    }
-    setOpen(false);
-    setEditing(null);
-  };
-
-  const openNew = () => {
-    setEditing(null);
-    setForm({
-      title: "",
-      start: new Date().toISOString().slice(0,10),
-      due:   new Date().toISOString().slice(0,10),
-      category: "TACTICAL",
-      priority: "medium",
-      status: "open",
-      notes: "",
-    });
-    setOpen(true);
-  };
-
-  const openEdit = (g: Goal) => {
-    setEditing(g);
-    const { id, ...rest } = g;
-    setForm(rest);
-    setOpen(true);
-  };
-
-  const counts = useMemo(() => ({
-    open: visibleGoals.filter(g => g.status === "open").length,
-    inprog: visibleGoals.filter(g => g.status === "in-progress").length,
-    blocked: visibleGoals.filter(g => g.status === "blocked").length,
-    done: visibleGoals.filter(g => g.status === "done").length,
-  }), [visibleGoals]);
+  const [busy, setBusy] = useState(false);
 
   return (
-    <div>
-      <div className="mb-2 flex items-center justify-between">
-        <div className="text-sm text-white/70">
-          <Badge tone="muted">Open {counts.open}</Badge>{" "}
-          <Badge tone="muted">In-progress {counts.inprog}</Badge>{" "}
-          <Badge tone="muted">Blocked {counts.blocked}</Badge>{" "}
-          <Badge tone="muted">Done {counts.done}</Badge>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={openNew} className="rounded-md bg-white px-3 py-1.5 text-sm font-medium text-neutral-900">+ Add</button>
-          <button
-            onClick={() => {
-              const raw = prompt("Paste JSON to import");
-              if (!raw) return;
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <h2 className="text-lg font-medium flex-1">Goals</h2>
+        <button
+          className="text-xs rounded-md border border-white/10 px-2 py-1 bg-white/5"
+          onClick={() => {
+            const blob = new Blob([exportJson()], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "goals.json";
+            a.click();
+            URL.revokeObjectURL(url);
+          }}
+        >
+          Export
+        </button>
+        <label className="text-xs rounded-md border border-white/10 px-2 py-1 bg-white/5 cursor-pointer">
+          Import
+          <input
+            type="file"
+            accept="application/json"
+            className="hidden"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              setBusy(true);
+              const text = await file.text();
               try {
-                const arr = JSON.parse(raw) as Goal[];
-                if (Array.isArray(arr)) importMany(arr);
-              } catch { alert("Invalid JSON"); }
+                const data = JSON.parse(text);
+                if (Array.isArray(data)) importJson(data);
+              } finally {
+                setBusy(false);
+              }
             }}
-            className="rounded-md bg-white/10 px-3 py-1.5 text-sm hover:bg-white/20"
-          >
-            Import
-          </button>
-          <button
-            onClick={() => {
-              const data = exportJson();
-              navigator.clipboard.writeText(data);
-              alert("Export copied to clipboard");
-            }}
-            className="rounded-md bg-white/10 px-3 py-1.5 text-sm hover:bg-white/20"
-          >
-            Export
-          </button>
-        </div>
+          />
+        </label>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-white/10">
-        <table className="w-full text-sm">
-          <thead className="bg-white/5 text-white/70">
+      <div className="text-xs text-neutral-400">
+        Open {counts.open} · In-progress {counts.inprog} · Blocked {counts.blocked} · Done{" "}
+        {counts.done}
+      </div>
+
+      <div className="overflow-x-auto rounded-lg border border-white/10">
+        <table className="min-w-full text-sm">
+          <thead className="bg-white/5 text-neutral-300">
             <tr>
-              <th className="px-3 py-2 text-left">Title</th>
-              <th className="px-3 py-2 text-left">Dates</th>
-              <th className="px-3 py-2 text-left">Priority</th>
-              <th className="px-3 py-2 text-left">Status</th>
-              <th className="px-3 py-2 text-left">Category</th>
-              <th className="px-3 py-2 text-left">Actions</th>
+              <th className="text-left px-3 py-2">Title</th>
+              <th className="text-left px-3 py-2">Dates</th>
+              <th className="text-left px-3 py-2">Priority</th>
+              <th className="text-left px-3 py-2">Status</th>
+              <th className="text-left px-3 py-2">Category</th>
+              <th className="text-left px-3 py-2">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {visibleGoals.map((g) => (
-              <tr key={g.id} className="border-t border-white/5">
+            {items.map((g) => (
+              <tr key={g.id} className="border-t border-white/10">
                 <td className="px-3 py-2">{g.title}</td>
-                <td className="px-3 py-2">{new Date(g.start).toLocaleDateString()} — {new Date(g.due).toLocaleDateString()}</td>
-                <td className="px-3 py-2">
-                  <Badge tone={g.priority as any}>{g.priority}</Badge>
-                </td>
+                <td className="px-3 py-2">{prettyRange(g)}</td>
+                <td className="px-3 py-2">{g.priority}</td>
                 <td className="px-3 py-2">{g.status}</td>
                 <td className="px-3 py-2">{g.category}</td>
                 <td className="px-3 py-2">
-                  <button onClick={() => openEdit(g)} className="rounded-md bg-white/10 px-2 py-1 text-xs hover:bg-white/20">Edit</button>
-                  <button onClick={() => remove(g.id)} className="ml-2 rounded-md bg-rose-600/90 px-2 py-1 text-xs hover:bg-rose-600">Delete</button>
+                  <button
+                    className="text-red-400 hover:text-red-300"
+                    onClick={() => deleteGoal(g.id)}
+                    disabled={busy}
+                  >
+                    Delete
+                  </button>
                 </td>
               </tr>
             ))}
-            {!visibleGoals.length && (
+            {items.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-3 py-6 text-center text-white/50">No goals match the filters.</td>
+                <td className="px-3 py-6 text-neutral-400" colSpan={6}>
+                  No goals yet. Use Import to load sample data.
+                </td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
-
-      <Modal open={open} onClose={() => setOpen(false)} title={editing ? "Edit Goal" : "Add Goal"}>
-        <form onSubmit={onSubmit} className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <label className="flex flex-col gap-1">
-            <span className="text-xs text-white/60">Title</span>
-            <input
-              autoFocus
-              required
-              value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-              className="rounded-md bg-white/10 px-3 py-2 text-sm outline-none ring-1 ring-white/10 focus:ring-white/30"
-            />
-          </label>
-
-          <label className="flex flex-col gap-1">
-            <span className="text-xs text-white/60">Category</span>
-            <select
-              value={form.category}
-              onChange={(e) => setForm({ ...form, category: e.target.value as Category })}
-              className="rounded-md bg-white/10 px-3 py-2 text-sm outline-none ring-1 ring-white/10 focus:ring-white/30"
-            >
-              {cats.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </label>
-
-          <label className="flex flex-col gap-1">
-            <span className="text-xs text-white/60">Start</span>
-            <input
-              type="date"
-              value={form.start}
-              onChange={(e) => setForm({ ...form, start: e.target.value })}
-              className="rounded-md bg-white/10 px-3 py-2 text-sm outline-none ring-1 ring-white/10 focus:ring-white/30"
-            />
-          </label>
-
-          <label className="flex flex-col gap-1">
-            <span className="text-xs text-white/60">Due</span>
-            <input
-              type="date"
-              value={form.due}
-              onChange={(e) => setForm({ ...form, due: e.target.value })}
-              className="rounded-md bg-white/10 px-3 py-2 text-sm outline-none ring-1 ring-white/10 focus:ring-white/30"
-            />
-          </label>
-
-          <label className="flex flex-col gap-1">
-            <span className="text-xs text-white/60">Priority</span>
-            <select
-              value={form.priority}
-              onChange={(e) => setForm({ ...form, priority: e.target.value as Priority })}
-              className="rounded-md bg-white/10 px-3 py-2 text-sm outline-none ring-1 ring-white/10 focus:ring-white/30"
-            >
-              {prios.map((p) => <option key={p} value={p}>{p}</option>)}
-            </select>
-          </label>
-
-          <label className="flex flex-col gap-1">
-            <span className="text-xs text-white/60">Status</span>
-            <select
-              value={form.status}
-              onChange={(e) => setForm({ ...form, status: e.target.value as Status })}
-              className="rounded-md bg-white/10 px-3 py-2 text-sm outline-none ring-1 ring-white/10 focus:ring-white/30"
-            >
-              {stats.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </label>
-
-          <label className="md:col-span-2 flex flex-col gap-1">
-            <span className="text-xs text-white/60">Notes (optional)</span>
-            <textarea
-              rows={3}
-              value={form.notes ?? ""}
-              onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              className="rounded-md bg-white/10 px-3 py-2 text-sm outline-none ring-1 ring-white/10 focus:ring-white/30"
-            />
-          </label>
-
-          <div className="md:col-span-2 mt-2 flex items-center justify-end gap-2">
-            <button type="button" onClick={() => setOpen(false)} className="rounded-md bg-white/10 px-3 py-2 text-sm hover:bg-white/20">Cancel</button>
-            <button type="submit" className="rounded-md bg-white px-4 py-2 text-sm font-semibold text-neutral-900">
-              {editing ? "Save" : "Add"}
-            </button>
-          </div>
-        </form>
-      </Modal>
     </div>
   );
 }

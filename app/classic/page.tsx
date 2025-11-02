@@ -1,7 +1,5 @@
-// app/classic/page.tsx
 import Timeline from "@/components/Timeline";
 import GoalsList from "@/components/GoalsList";
-import { GoalsProvider } from "@/components/GoalsContext"; // ⬅️ add this
 
 export default function ClassicPage() {
   return (
@@ -9,17 +7,14 @@ export default function ClassicPage() {
       <div className="mx-auto max-w-7xl p-6">
         <h1 className="mb-4 text-2xl font-semibold">Dashboard</h1>
 
-        {/* ⬇️ Everything that needs useGoals() must be wrapped in GoalsProvider */}
-        <GoalsProvider>
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-              <Timeline />
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-              <GoalsList />
-            </div>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+            <Timeline />
           </div>
-        </GoalsProvider>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+            <GoalsList />
+          </div>
+        </div>
       </div>
     </main>
   );

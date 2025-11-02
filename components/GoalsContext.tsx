@@ -1,105 +1,142 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 
-export type Category = "STRATEGY" | "VISION" | "TACTICAL" | "PROJECT" | "DAILY";
 export type Priority = "low" | "medium" | "high" | "critical";
 export type Status = "open" | "in-progress" | "blocked" | "done";
+export type Category = "STRATEGY" | "VISION" | "TACTICAL" | "PROJECT" | "DAILY";
 
 export type Goal = {
   id: string;
   title: string;
-  start: string; // YYYY-MM-DD
-  due: string;   // YYYY-MM-DD
+  startDate: string; // ISO yyyy-mm-dd
+  endDate: string;   // ISO yyyy-mm-dd
   category: Category;
   priority: Priority;
   status: Status;
   notes?: string;
 };
 
+const STORAGE_KEY = "focusone_goals_v1";
+
+// Category base color + Priority opacity logic
+export const CATEGORY_COLORS: Record<Category, string> = {
+  STRATEGY: "bg-cyan-500",
+  VISION: "bg-amber-500",
+  TACTICAL: "bg-sky-500",
+  PROJECT: "bg-fuchsia-500",
+  DAILY: "bg-emerald-500",
+};
+export const PRIORITY_OPACITY: Record<Priority, string> = {
+  low: "opacity-50",
+  medium: "opacity-70",
+  high: "opacity-90",
+  critical: "opacity-100",
+};
+
+type Filters = {
+  categories: Set<Category> | null; // null => all
+  query: string;
+};
+
 type Ctx = {
   goals: Goal[];
-  add: (g: Omit<Goal, "id">) => void;
-  update: (id: string, patch: Partial<Goal>) => void;
-  remove: (id: string) => void;
-  importMany: (arr: Goal[]) => void;
-  exportJson: () => string;
+  visibleGoals: Goal[];
+  filters: Filters;
+  setFilters: React.Dispatch<React.SetStateAction<Filters>>;
+  addGoal(g: Omit<Goal, "id">): void;
+  updateGoal(g: Goal): void;
+  deleteGoal(id: string): void;
+  importJson(input: Goal[]): void;
+  exportJson(): string;
 };
 
 const GoalsCtx = createContext<Ctx | null>(null);
 
-const STORAGE_KEY = "focusone-goals-v2";
-
-const SAMPLE: Goal[] = [
+// A couple of safe defaults so the timeline renders immediately
+const sample: Goal[] = [
   {
     id: "g1",
     title: "Define Life Vision",
-    start: "2025-01-10",
-    due:   "2025-02-28",
+    startDate: "2025-11-01",
+    endDate: "2025-12-15",
     category: "STRATEGY",
-    priority: "high",
+    priority: "medium",
     status: "open",
   },
   {
     id: "g2",
     title: "A2 German Course",
-    start: "2025-03-01",
-    due:   "2025-04-15",
+    startDate: "2025-11-02",
+    endDate: "2026-02-07",
     category: "TACTICAL",
     priority: "critical",
     status: "open",
   },
-  {
-    id: "g3",
-    title: "Daily German 20m",
-    start: "2025-11-01",
-    due:   "2026-02-01",
-    category: "DAILY",
-    priority: "medium",
-    status: "in-progress",
-  },
 ];
+
+function load(): Goal[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return sample;
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed as Goal[];
+  } catch {}
+  return sample;
+}
+
+function persist(goals: Goal[]) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(goals));
+    // notify any listeners (timeline) that data changed
+    window.dispatchEvent(new Event("goals-updated"));
+  } catch {}
+}
 
 export function GoalsProvider({ children }: { children: React.ReactNode }) {
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [filters, setFilters] = useState<Filters>({ categories: null, query: "" });
 
-  // load from storage
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as Goal[];
-        setGoals(Array.isArray(parsed) ? parsed : SAMPLE);
-      } else {
-        setGoals(SAMPLE);
-      }
-    } catch {
-      setGoals(SAMPLE);
+  useEffect(() => setGoals(load()), []);
+  useEffect(() => persist(goals), [goals]);
+
+  const visibleGoals = useMemo(() => {
+    let arr = goals.slice();
+    if (filters.categories && filters.categories.size > 0) {
+      arr = arr.filter((g) => filters.categories!.has(g.category));
     }
-  }, []);
+    if (filters.query.trim()) {
+      const q = filters.query.trim().toLowerCase();
+      arr = arr.filter(
+        (g) =>
+          g.title.toLowerCase().includes(q) ||
+          g.notes?.toLowerCase().includes(q) ||
+          g.category.toLowerCase().includes(q)
+      );
+    }
+    arr.sort((a, b) => a.startDate.localeCompare(b.startDate) || a.endDate.localeCompare(b.endDate));
+    return arr;
+  }, [goals, filters]);
 
-  // persist
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(goals));
-    } catch {}
-  }, [goals]);
+  const addGoal = (g: Omit<Goal, "id">) => setGoals((s) => [...s, { ...g, id: crypto.randomUUID() }]);
+  const updateGoal = (g: Goal) => setGoals((s) => s.map((x) => (x.id === g.id ? g : x)));
+  const deleteGoal = (id: string) => setGoals((s) => s.filter((x) => x.id !== id));
+  const importJson = (input: Goal[]) => setGoals(input ?? []);
+  const exportJson = () => JSON.stringify(goals, null, 2);
 
-  const api = useMemo<Ctx>(() => ({
+  const value: Ctx = {
     goals,
-    add: (g) =>
-      setGoals((prev) => [
-        ...prev,
-        { ...g, id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) },
-      ]),
-    update: (id, patch) =>
-      setGoals((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x))),
-    remove: (id) => setGoals((prev) => prev.filter((x) => x.id !== id)),
-    importMany: (arr) => setGoals(arr),
-    exportJson: () => JSON.stringify(goals, null, 2),
-  }), [goals]);
+    visibleGoals,
+    filters,
+    setFilters,
+    addGoal,
+    updateGoal,
+    deleteGoal,
+    importJson,
+    exportJson,
+  };
 
-  return <GoalsCtx.Provider value={api}>{children}</GoalsCtx.Provider>;
+  return <GoalsCtx.Provider value={value}>{children}</GoalsCtx.Provider>;
 }
 
 export function useGoals() {
