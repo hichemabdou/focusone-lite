@@ -4,14 +4,12 @@ import { useMemo, useState } from "react";
 import { GoalsProvider, useGoals, Category, Priority, Status } from "@/components/GoalsContext";
 import FilterBar, { DomainMode } from "@/components/FilterBar";
 import Summary from "@/components/Summary";
-import Legend from "@/components/Legend";
 import Timeline from "@/components/Timeline";
 import GoalsList from "@/components/GoalsList";
 
 function ClassicInner() {
   const { goals } = useGoals();
 
-  // Filters
   const [search, setSearch] = useState("");
   const [categories, setCategories] = useState<Category[]>(["STRATEGY","VISION","TACTICAL","PROJECT","DAILY"]);
   const [priorities, setPriorities] = useState<Priority[]>(["low","medium","high","critical"]);
@@ -42,7 +40,6 @@ function ClassicInner() {
         />
 
         <Summary goals={filtered} />
-        <Legend />
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
