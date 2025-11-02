@@ -1,3 +1,4 @@
+// app/classic/page.tsx
 import ClassicClient from "./ClassicClient";
 
 export default function ClassicPage() {

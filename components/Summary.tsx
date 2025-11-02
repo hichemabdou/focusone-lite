@@ -2,29 +2,30 @@
 
 import { Goal } from "./GoalsContext";
 
-export default function Summary({ goals, className = "" }: { goals: Goal[]; className?: string }) {
+type Props = { goals: Goal[]; className?: string };
+
+export default function Summary({ goals, className = "" }: Props) {
   const open = goals.filter((g) => g.status === "open").length;
   const inprog = goals.filter((g) => g.status === "in-progress").length;
   const blocked = goals.filter((g) => g.status === "blocked").length;
   const done = goals.filter((g) => g.status === "done").length;
 
-  const Cell = ({ label, value }: { label: string; value: number }) => (
-    <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-      <div className="text-xs text-white/60">{label}</div>
-      <div className="text-xl font-semibold">{value}</div>
-    </div>
-  );
+  const items = [
+    { key: "total", label: "Total", value: goals.length, dot: "dot--total" },
+    { key: "active", label: "Active", value: goals.length - done, dot: "dot--active" },
+    { key: "blocked", label: "Blocked", value: blocked, dot: "dot--blocked" },
+    { key: "done", label: "Done", value: done, dot: "dot--done" }
+  ] as const;
 
   return (
-    <div
-      className={["grid grid-cols-2 gap-3 md:grid-cols-4", className]
-        .filter(Boolean)
-        .join(" ")}
-    >
-      <Cell label="Open" value={open} />
-      <Cell label="In-progress" value={inprog} />
-      <Cell label="Blocked" value={blocked} />
-      <Cell label="Done" value={done} />
+    <div className={["stats-strip stats-strip--kpis", className].join(" ")}>
+      {items.map((it) => (
+        <div key={it.key} className="stats-strip__item">
+          <span className={["dot", it.dot].join(" ")} />
+          <span className="stats-strip__label">{it.label}</span>
+          <span className="stats-strip__value">{it.value}</span>
+        </div>
+      ))}
     </div>
   );
 }

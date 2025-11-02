@@ -1,308 +1,129 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { CATEGORY_COLORS, PRIORITY_OPACITY, Goal, useGoals } from "./GoalsContext";
+import { useEffect, useMemo, useState } from "react";
+import { Goal, useGoals } from "./GoalsContext";
 
-type View =
-  | "fit"
-  | "this-month"
-  | "next-2m"
-  | "next-3m"
-  | "next-4m"
-  | "this-year"
-  | "next-365";
+/* -------- utilities -------- */
+const clampNum = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+const startOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1);
+const endOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth() + 1, 0);
+const addMonths = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth() + n, d.getDate());
+const fmtMonth = (d: Date) => d.toLocaleString(undefined, { month: "short", year: "numeric" });
+function parseISO(s: string) { const [y, m, dd] = s.split("-").map(Number); return new Date(y, (m || 1) - 1, dd || 1); }
 
-const VIEW_OPTIONS: { value: View; label: string }[] = [
-  { value: "fit", label: "Fit all" },
-  { value: "this-month", label: "This month" },
-  { value: "next-2m", label: "2 months" },
-  { value: "next-3m", label: "3 months" },
-  { value: "next-4m", label: "4 months" },
-  { value: "this-year", label: "This year" },
-  { value: "next-365", label: "365 days" },
-];
+type Range = { start: Date; end: Date };
 
-function addDays(d: Date, n: number) {
-  const x = new Date(d);
-  x.setDate(x.getDate() + n);
-  return x;
+function getFitAllRange(goals: Goal[]): Range {
+  if (!goals.length) {
+    const today = new Date();
+    return { start: startOfMonth(today), end: endOfMonth(addMonths(today, 5)) };
+  }
+  const minS = goals.reduce((a, g) => (parseISO(g.startDate) < a ? parseISO(g.startDate) : a), parseISO(goals[0].startDate));
+  const maxE = goals.reduce((a, g) => (parseISO(g.endDate) > a ? parseISO(g.endDate) : a), parseISO(goals[0].endDate));
+  return { start: startOfMonth(minS), end: endOfMonth(maxE) };
 }
+function monthsBetween(r: Range) { const out: Date[] = []; let cur = startOfMonth(r.start); const end = startOfMonth(r.end); while (cur <= end) { out.push(cur); cur = addMonths(cur, 1); } return out; }
 
-function diffDays(a: Date, b: Date) {
-  return Math.round((b.getTime() - a.getTime()) / 86400000);
-}
-
-function startOfMonth(d: Date) {
-  return new Date(d.getFullYear(), d.getMonth(), 1);
-}
-
-function endOfMonth(d: Date) {
-  return new Date(d.getFullYear(), d.getMonth() + 1, 0);
-}
+const statusLabel: Record<string, string> = {
+  open: "Open",
+  inprog: "In progress",
+  "in-progress": "In progress",
+  blocked: "Blocked",
+  done: "Done",
+};
 
 export default function Timeline() {
-  const { visibleGoals } = useGoals();
-  const goals = visibleGoals ?? [];
+  const { visibleGoals, goals } = useGoals();
+  const items = (visibleGoals ?? goals ?? []) as Goal[];
 
-  const [view, setView] = useState<View>("fit");
-  const [density, setDensity] = useState(18);
-
-  // Compute visible domain
-  const [from, to] = useMemo<[Date, Date]>(() => {
-    const now = new Date();
-
-    const minStart = goals.length
-      ? goals.map((g) => new Date(g.startDate)).reduce((a, b) => (a < b ? a : b))
-      : startOfMonth(now);
-    const maxEnd = goals.length
-      ? goals.map((g) => new Date(g.endDate)).reduce((a, b) => (a > b ? a : b))
-      : endOfMonth(now);
-
-    switch (view) {
-      case "this-month": {
-        const s = startOfMonth(now);
-        const e = endOfMonth(now);
-        return [s, e];
-      }
-      case "next-2m":
-      case "next-3m":
-      case "next-4m": {
-        const months = Number(view.split("-")[1].replace("m", ""));
-        const s = startOfMonth(now);
-        const e = endOfMonth(new Date(now.getFullYear(), now.getMonth() + months - 1, 1));
-        return [s, e];
-      }
-      case "this-year": {
-        const s = new Date(now.getFullYear(), 0, 1);
-        const e = new Date(now.getFullYear(), 11, 31);
-        return [s, e];
-      }
-      case "next-365": {
-        const s = new Date(now);
-        const e = addDays(now, 365);
-        return [s, e];
-      }
-      case "fit":
-      default: {
-        const padLeft = addDays(minStart, -3);
-        const padRight = addDays(maxEnd, 3);
-        return [padLeft, padRight];
-      }
-    }
-  }, [goals, view]);
-
-  // Grid & header math
-  const totalDays = Math.max(1, diffDays(from, addDays(to, 1)));
-  const widthPx = totalDays * density;
-  const contentHeight = Math.max(goals.length * 40 + 24, 320);
-
-  const months = useMemo(() => {
-    const arr: { label: string; start: Date; end: Date; offsetDays: number; spanDays: number }[] = [];
-    let cursor = new Date(from.getFullYear(), from.getMonth(), 1);
-    while (cursor <= to) {
-      const s = new Date(cursor);
-      const e = endOfMonth(cursor);
-      const startClip = s < from ? from : s;
-      const endClip = e > to ? to : e;
-      arr.push({
-        label: startClip.toLocaleString(undefined, { month: "long", year: "2-digit" }),
-        start: startClip,
-        end: endClip,
-        offsetDays: diffDays(from, startClip),
-        spanDays: diffDays(startClip, addDays(endClip, 1)),
-      });
-      cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
-    }
-    return arr;
-  }, [from, to]);
-
-  // Today marker
-  const today = new Date();
-  const showToday = today >= from && today <= to;
-  const todayLeft = diffDays(from, today) * density;
-
-  // Sticky titles vs grid scroll sync
-  const scrollerRef = useRef<HTMLDivElement>(null);
-  const titlesRef = useRef<HTMLDivElement>(null);
+  /* ----- RANGE ----- */
+  const [range, setRange] = useState<Range>(() => getFitAllRange(items));
   useEffect(() => {
-    const s = scrollerRef.current;
-    const t = titlesRef.current;
-    if (!s || !t) return;
-    const onScroll = () => {
-      t.scrollTop = s.scrollTop;
-    };
-    s.addEventListener("scroll", onScroll);
-    return () => s.removeEventListener("scroll", onScroll);
-  }, []);
+    setRange((prev) => {
+      const fit = getFitAllRange(items);
+      if (!items.length) return fit;
+      const days = Math.max(1, Math.round((prev.end.getTime() - prev.start.getTime()) / 86400000));
+      return days < 3 ? fit : prev;
+    });
+  }, [items.length]);
 
-  // helpers to place bars
-  const leftPx = (g: Goal) => Math.max(0, diffDays(from, new Date(g.startDate)) * density);
-  const widthFor = (g: Goal) =>
-    Math.max(
-      density,
-      Math.max(1, diffDays(new Date(g.startDate), addDays(new Date(g.endDate), 1))) * density,
-    );
+  /* ----- positioning ----- */
+  const msStart = range.start.getTime();
+  const msSpan = Math.max(1, range.end.getTime() - range.start.getTime());
+  const spans = useMemo(
+    () => items.map((g) => {
+      const s = parseISO(g.startDate), e = parseISO(g.endDate);
+      const leftPct = clampNum(((s.getTime() - msStart) / msSpan) * 100, -5, 105);
+      const rightPct = clampNum(((e.getTime() - msStart) / msSpan) * 100, -5, 105);
+      const widthPct = Math.max(1, rightPct - leftPct);
 
-  const recenter = (smooth = true) => {
-    const scroller = scrollerRef.current;
-    if (!scroller) return;
-    if (!showToday) {
-      scroller.scrollTo({ left: 0, behavior: smooth ? "smooth" : "auto" });
-      return;
-    }
-    const desired = Math.max(0, todayLeft - scroller.clientWidth / 2);
-    scroller.scrollTo({ left: desired, behavior: smooth ? "smooth" : "auto" });
+      const catClass = `bar--cat-${(g.category || "DAILY").toLowerCase()}`;
+      const stKey = (g.status === "in-progress" ? "inprog" : g.status) || "open";
+      const stClass = `bar--st-${stKey}`;
+
+      return { g, leftPct, widthPct, catClass, stClass, stKey };
+    }),
+    [items, msStart, msSpan]
+  );
+
+  /* ----- compact rows: fit inside fixed timeline height ----- */
+  const rowCount = Math.max(spans.length, 1);
+  const TARGET_VISUAL = 520 - 56; // ~panel-body area (px)
+  const rawRow = Math.floor(TARGET_VISUAL / rowCount);
+  const rowHeight = Math.max(16, Math.min(rawRow, 38));
+
+  /* ----- months + buttons ----- */
+  const months = monthsBetween(range);
+  const setMonthsWindow = (m: number) => {
+    const start = startOfMonth(new Date());
+    const end = endOfMonth(addMonths(start, m - 1));
+    setRange({ start, end });
   };
-
-  useEffect(() => {
-    recenter(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, from, to, density]);
+  const buttons = [
+    { label: "Fit all", onClick: () => setRange(getFitAllRange(items)) },
+    { label: "This month", onClick: () => setMonthsWindow(1) },
+    { label: "2 months", onClick: () => setMonthsWindow(2) },
+    { label: "3 months", onClick: () => setMonthsWindow(3) },
+    { label: "4 months", onClick: () => setMonthsWindow(4) },
+    { label: "This year", onClick: () => {
+        const now = new Date(); setRange({ start: new Date(now.getFullYear(), 0, 1), end: new Date(now.getFullYear(), 11, 31) });
+      } },
+    { label: "365 days", onClick: () => { const s = startOfMonth(new Date()); setRange({ start: s, end: addMonths(s, 12) }); } },
+  ];
 
   return (
-    <div className="flex h-full flex-1 flex-col gap-4">
-      {/* Controls */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex flex-wrap items-center gap-1 rounded-full border border-white/10 bg-white/10 p-1">
-          {VIEW_OPTIONS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => setView(option.value)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-                view === option.value ? "bg-white text-neutral-900 shadow" : "text-white/70 hover:bg-white/10"
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70">
-          <span className="font-medium uppercase tracking-[0.2em] text-white/40">Zoom</span>
-          <input
-            type="range"
-            min={12}
-            max={32}
-            value={density}
-            onChange={(e) => setDensity(Number(e.target.value))}
-            className="h-1 w-28 accent-white"
-          />
-        </div>
-        <button
-          type="button"
-          onClick={() => recenter()}
-          className="ml-auto rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-medium text-white/80 transition hover:bg-white/20"
-        >
-          Center on today
-        </button>
-        <span className="text-xs text-neutral-400">
-          {goals.length} goal{goals.length === 1 ? "" : "s"}
-        </span>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-4 text-[11px] uppercase tracking-[0.25em] text-white/40">
-        {Object.entries(CATEGORY_COLORS).map(([key, value]) => (
-          <span key={key} className="flex items-center gap-2">
-            <span className={`inline-block h-2.5 w-2.5 rounded-full ${value}`} />
-            {key.toLowerCase()}
-          </span>
+    <div
+      className="timeline"
+      style={{ ["--row-h" as any]: `${rowHeight}px` } as React.CSSProperties}
+    >
+      <div className="flex items-center gap-2 p-2">
+        {buttons.map((b) => (
+          <button key={b.label} className="btn" onClick={b.onClick}>{b.label}</button>
         ))}
-        <span className="ml-auto flex items-center gap-2 text-white/50">
-          <span className="inline-block h-2 w-2 rounded-sm bg-red-500" /> Today marker
-        </span>
       </div>
 
-      <div className="relative flex-1 overflow-hidden rounded-2xl border border-white/10 bg-neutral-900/60">
-        {/* Header months */}
-        <div className="sticky top-0 z-10 border-b border-white/10 bg-neutral-900/80 backdrop-blur">
-          <div className="relative pl-56" style={{ width: "100%" }}>
-            <div className="relative" style={{ width: widthPx }}>
-              {months.map((m, i) => (
-                <div
-                  key={i}
-                  className="absolute top-0 flex h-9 items-center border-r border-white/10 px-2 text-xs text-neutral-300"
-                  style={{ left: m.offsetDays * density, width: m.spanDays * density }}
-                >
-                  {m.label}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+      <div className="timeline__header">
+        {months.map((m) => (
+          <div key={m.toISOString()} className="timeline__month">{fmtMonth(m)}</div>
+        ))}
+      </div>
 
-        {/* Body */}
-        <div className="flex h-full">
-          {/* Sticky titles column */}
-          <div
-            ref={titlesRef}
-            className="h-full w-56 shrink-0 overflow-y-auto border-r border-white/10"
-          >
-            {goals.map((g) => (
+      <div className="timeline__grid">
+        <div className="timeline__rows">
+          {spans.map(({ g, leftPct, widthPct, catClass, stClass, stKey }) => (
+            <div key={g.id} className="timeline__row">
               <div
-                key={g.id}
-                title={g.title}
-                className="flex h-10 items-center truncate px-4 text-sm text-neutral-200"
+                className={["timeline__bar", catClass, stClass].join(" ")}
+                style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
+                title={`${g.title} • ${g.startDate} → ${g.endDate}`}
               >
-                {g.title}
+                <span className={["timeline__badge", `status--${stKey}`].join(" ")}>
+                  {statusLabel[stKey] ?? "Open"}
+                </span>
+                <span className="timeline__title">{g.title}</span>
               </div>
-            ))}
-          </div>
-
-          {/* Scrollable grid */}
-          <div
-            ref={scrollerRef}
-            className="relative h-full w-full overflow-x-auto overflow-y-auto"
-          >
-            <div className="relative" style={{ width: widthPx, height: contentHeight }}>
-              {/* vertical grid lines (days) */}
-              {Array.from({ length: totalDays }).map((_, i) => (
-                <div
-                  key={i}
-                  className={`absolute top-0 ${i % 7 === 0 ? "bg-white/10" : "bg-white/5"}`}
-                  style={{ left: i * density, width: 1, height: contentHeight }}
-                />
-              ))}
-
-              {/* Today marker */}
-              {showToday && (
-                <div
-                  className="absolute top-0 w-0.5 bg-red-500"
-                  style={{ left: todayLeft, height: contentHeight }}
-                >
-                  <div className="sticky top-2 -mt-1 -translate-x-1/2">
-                    <span className="rounded-full bg-red-500 px-2 py-0.5 text-xs text-white shadow">
-                      Today
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {/* Bars */}
-              {goals.map((g, row) => {
-                const top = row * 40 + 6;
-                const left = leftPx(g);
-                const w = widthFor(g);
-                const cat = CATEGORY_COLORS[g.category];
-                const op = PRIORITY_OPACITY[g.priority];
-                const title = `${g.title}\n${g.startDate} → ${g.endDate}\n${g.category} • ${g.priority}`;
-                return (
-                  <div key={g.id} className="absolute left-0 right-0" style={{ top }}>
-                    <div
-                      title={title}
-                      className={[
-                        "flex h-6 items-center truncate px-2 text-xs text-white ring-1 ring-white/15 shadow",
-                        cat,
-                        op,
-                      ].join(" ")}
-                      style={{ left, width: w, position: "absolute" }}
-                    >
-                      {g.title}
-                    </div>
-                  </div>
-                );
-              })}
             </div>
-          </div>
+          ))}
         </div>
       </div>
     </div>

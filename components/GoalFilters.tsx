@@ -1,174 +1,174 @@
 "use client";
 
-import { CATEGORY_COLORS, Category, Priority, Status, useGoals } from "./GoalsContext";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Goal, useGoals } from "./GoalsContext";
 
-const CATEGORY_LABELS: Record<Category, string> = {
-  STRATEGY: "Strategy",
-  VISION: "Vision",
-  TACTICAL: "Tactical",
-  PROJECT: "Project",
-  DAILY: "Daily",
-};
+type Cat = "STRATEGY" | "VISION" | "TACTICAL" | "PROJECT" | "DAILY";
+type Pri = "low" | "medium" | "high" | "critical";
+type St  = "open" | "in-progress" | "blocked" | "done";
 
-const PRIORITY_LABELS: Record<Priority, string> = {
-  low: "Low",
-  medium: "Medium",
-  high: "High",
-  critical: "Critical",
-};
+const CATEGORIES: Cat[] = ["STRATEGY", "VISION", "TACTICAL", "PROJECT", "DAILY"];
+const PRIORITIES: Pri[] = ["low", "medium", "high", "critical"];
+const STATUSES: St[]     = ["open", "in-progress", "blocked", "done"];
 
-const STATUS_LABELS: Record<Status, string> = {
-  open: "Open",
-  "in-progress": "In progress",
-  blocked: "Blocked",
-  done: "Done",
-};
+export default function GoalFilters() {
+  const api = useGoals() as any; // use `any` so we can safely call optional context functions
+  const all: Goal[] = (api.goals ?? []) as Goal[];
 
-const CATEGORY_ORDER: Category[] = ["STRATEGY", "VISION", "TACTICAL", "PROJECT", "DAILY"];
-const PRIORITY_ORDER: Priority[] = ["low", "medium", "high", "critical"];
-const STATUS_ORDER: Status[] = ["open", "in-progress", "blocked", "done"];
+  // ----- local filter state (mirrors your previous controls) -----
+  const [cats, setCats] = useState<Set<Cat>>(new Set());
+  const [pris, setPris] = useState<Set<Pri>>(new Set());
+  const [sts,  setSts]  = useState<Set<St>>(new Set());
+  const [q, setQ] = useState("");
 
-function PillButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
+  // compute counts for the header strip
+  const counts = useMemo(() => {
+    const open = all.filter(g => g.status === "open").length;
+    const done = all.filter(g => g.status === "done").length;
+    const inprog = all.length - done;
+    return { total: all.length, active: inprog, done };
+  }, [all]);
+
+  // apply filters → push to context if available (so Timeline & Library update)
+  useEffect(() => {
+    const text = q.trim().toLowerCase();
+    const filtered = all.filter(g => {
+      if (cats.size && !cats.has(g.category as Cat)) return false;
+      if (pris.size && !pris.has(g.priority as Pri)) return false;
+      if (sts.size  && !sts.has(g.status as St)) return false;
+      if (text) {
+        const hay = `${g.title} ${g.notes ?? ""}`.toLowerCase();
+        if (!hay.includes(text)) return false;
+      }
+      return true;
+    });
+    api.setVisibleGoals?.(filtered); // optional; falls back gracefully if not present
+  }, [all, cats, pris, sts, q, api]);
+
+  const toggle = <T,>(set: React.Dispatch<React.SetStateAction<Set<T>>>, value: T) =>
+    set(prev => {
+      const next = new Set(prev);
+      next.has(value) ? next.delete(value) : next.add(value);
+      return next;
+    });
+
+  const reset = () => {
+    setCats(new Set()); setPris(new Set()); setSts(new Set()); setQ("");
+    api.setVisibleGoals?.(all);
+  };
+
+  const Chip = ({
+    active,
+    onClick,
+    children,
+    className = "",
+  }: { active?: boolean; onClick?: () => void; children: React.ReactNode; className?: string }) => (
     <button
       type="button"
+      className={[
+        "chip",
+        active ? "chip--on" : "",
+        className,
+      ].join(" ")}
       onClick={onClick}
-      className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-        active
-          ? "bg-white text-neutral-900 shadow-sm"
-          : "bg-white/10 text-white/80 ring-1 ring-white/10 hover:bg-white/20"
-      }`}
     >
       {children}
     </button>
   );
-}
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="space-y-2">
-      <p className="text-[11px] uppercase tracking-[0.28em] text-white/40">{title}</p>
-      <div className="flex flex-wrap gap-2">{children}</div>
+    <div className="filters">
+      {/* Title & description */}
+      <div className="filters__header">
+        <h2 className="filters__title">Your goal control centre</h2>
+        <p className="filters__subtitle">
+          Filter by horizon, urgency, or progress to tailor the timeline to exactly what you want to see.
+        </p>
+      </div>
+
+      {/* Elegant stats strip */}
+      <div className="stats-strip" role="group" aria-label="Goal statistics">
+        <div className="stats-strip__item">
+          <span className="dot dot--total" />
+          <span className="stats-strip__label">Total</span>
+          <span className="stats-strip__value">{counts.total}</span>
+        </div>
+        <div className="stats-strip__item">
+          <span className="dot dot--active" />
+          <span className="stats-strip__label">Active</span>
+          <span className="stats-strip__value">{counts.active}</span>
+        </div>
+        <div className="stats-strip__item">
+          <span className="dot dot--done" />
+          <span className="stats-strip__label">Done</span>
+          <span className="stats-strip__value">{counts.done}</span>
+        </div>
+      </div>
+
+      {/* Categories */}
+      <div className="filters__section">
+        <div className="eyebrow">Focus categories</div>
+        <div className="filters__chips">
+          {CATEGORIES.map(c => (
+            <Chip
+              key={c}
+              active={cats.has(c)}
+              onClick={() => toggle(setCats, c)}
+              className={`chip--cat-${c.toLowerCase()}`}
+            >
+              {c.charAt(0) + c.slice(1).toLowerCase()}
+            </Chip>
+          ))}
+        </div>
+      </div>
+
+      {/* Priority */}
+      <div className="filters__section">
+        <div className="eyebrow">Priority</div>
+        <div className="filters__chips">
+          {PRIORITIES.map(p => (
+            <Chip
+              key={p}
+              active={pris.has(p)}
+              onClick={() => toggle(setPris, p)}
+              className={`chip--pri-${p}`}
+            >
+              {p.charAt(0).toUpperCase() + p.slice(1)}
+            </Chip>
+          ))}
+        </div>
+      </div>
+
+      {/* Status */}
+      <div className="filters__section">
+        <div className="eyebrow">Status</div>
+        <div className="filters__chips">
+          {STATUSES.map(s => (
+            <Chip
+              key={s}
+              active={sts.has(s)}
+              onClick={() => toggle(setSts, s)}
+              className={`chip--st-${s.replace("in-progress", "inprog")}`}
+            >
+              {s === "in-progress" ? "In progress" : s.charAt(0).toUpperCase() + s.slice(1)}
+            </Chip>
+          ))}
+        </div>
+      </div>
+
+      {/* Search + Reset */}
+      <div className="filters__section">
+        <div className="eyebrow">Quick search</div>
+        <div className="filters__actions">
+          <input
+            className="field filters__search"
+            placeholder="Find a goal by title or notes"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+          <button type="button" className="btn" onClick={reset}>Reset</button>
+        </div>
+      </div>
     </div>
-  );
-}
-
-export default function GoalFilters() {
-  const { filters, setFilters, goals } = useGoals();
-
-  const totals = useMemo(() => {
-    const now = new Date();
-    const active = goals.filter((g) => new Date(g.endDate) >= now).length;
-    const completed = goals.filter((g) => g.status === "done").length;
-    return { total: goals.length, active, completed };
-  }, [goals]);
-
-  const toggle = <T extends Category | Priority | Status>(
-    field: "categories" | "priorities" | "statuses",
-    value: T,
-    all: readonly T[],
-  ) => {
-    setFilters((prev) => {
-      const current = prev[field] ? new Set(prev[field] as Set<T>) : new Set(all);
-      if (current.has(value)) {
-        current.delete(value);
-      } else {
-        current.add(value);
-      }
-      if (current.size === all.length) {
-        return { ...prev, [field]: null };
-      }
-      return { ...prev, [field]: current };
-    });
-  };
-
-  const reset = () =>
-    setFilters((prev) => ({ ...prev, categories: null, priorities: null, statuses: null, query: "" }));
-
-  const isActive = <T extends Category | Priority | Status>(
-    field: "categories" | "priorities" | "statuses",
-    value: T,
-    all: readonly T[],
-  ) => {
-    const set = filters[field] as Set<T> | null;
-    if (!set) return true;
-    if (set.size === all.length) return true;
-    return set.has(value);
-  };
-
-  return (
-    <section className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_30px_60px_-45px_rgba(15,15,25,0.8)]">
-      <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-        <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-white">Your goal control centre</h2>
-          <p className="text-sm text-white/60">
-            Filter by horizon, urgency, or progress to tailor the timeline to exactly what you want to see.
-          </p>
-        </div>
-        <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-xs uppercase tracking-[0.2em] text-white/60">
-          {totals.total === 0 ? "No goals yet" : `${totals.total} total • ${totals.active} active • ${totals.completed} done`}
-        </div>
-      </div>
-
-      <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-        <div className="space-y-6">
-          <Section title="Focus categories">
-            {CATEGORY_ORDER.map((category) => (
-              <PillButton
-                key={category}
-                active={isActive("categories", category, CATEGORY_ORDER)}
-                onClick={() => toggle("categories", category, CATEGORY_ORDER)}
-              >
-                <span className={`mr-2 inline-block h-2.5 w-2.5 rounded-full ${CATEGORY_COLORS[category]}`} />
-                {CATEGORY_LABELS[category]}
-              </PillButton>
-            ))}
-          </Section>
-          <Section title="Priority">
-            {PRIORITY_ORDER.map((priority) => (
-              <PillButton
-                key={priority}
-                active={isActive("priorities", priority, PRIORITY_ORDER)}
-                onClick={() => toggle("priorities", priority, PRIORITY_ORDER)}
-              >
-                {PRIORITY_LABELS[priority]}
-              </PillButton>
-            ))}
-          </Section>
-        </div>
-        <div className="space-y-6">
-          <Section title="Status">
-            {STATUS_ORDER.map((status) => (
-              <PillButton
-                key={status}
-                active={isActive("statuses", status, STATUS_ORDER)}
-                onClick={() => toggle("statuses", status, STATUS_ORDER)}
-              >
-                {STATUS_LABELS[status]}
-              </PillButton>
-            ))}
-          </Section>
-          <div className="space-y-2">
-            <p className="text-[11px] uppercase tracking-[0.28em] text-white/40">Quick search</p>
-            <div className="flex gap-2">
-              <input
-                value={filters.query}
-                onChange={(event) => setFilters((prev) => ({ ...prev, query: event.target.value }))}
-                placeholder="Find a goal by title or notes"
-                className="flex-1 rounded-2xl border border-white/10 bg-white/10 px-4 py-2 text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/30"
-              />
-              <button
-                type="button"
-                onClick={reset}
-                className="rounded-2xl border border-white/20 bg-white/10 px-4 py-2 text-xs font-medium text-white/80 transition hover:bg-white/20"
-              >
-                Reset
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
   );
 }

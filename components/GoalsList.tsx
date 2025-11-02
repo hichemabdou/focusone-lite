@@ -4,36 +4,15 @@ import { useMemo, useState } from "react";
 import { Goal, Priority, Status, useGoals } from "./GoalsContext";
 import Modal from "./Modal";
 
+/* ---------- helpers ---------- */
 function prettyRange(g: Goal) {
   const s = new Date(g.startDate);
   const e = new Date(g.endDate);
   const fmt = (d: Date) => d.toLocaleString(undefined, { month: "short", day: "2-digit" });
   return `${fmt(s)} — ${fmt(e)}`;
 }
-
-const STATUS_BADGES: Record<Status, string> = {
-  open: "bg-white/10 text-white",
-  "in-progress": "bg-amber-400/20 text-amber-200",
-  blocked: "bg-rose-500/15 text-rose-200",
-  done: "bg-emerald-500/20 text-emerald-200",
-};
-
-const PRIORITY_BADGES: Record<Priority, string> = {
-  low: "border-white/10",
-  medium: "border-white/20",
-  high: "border-amber-400/40",
-  critical: "border-rose-500/40",
-};
-
-function toISO(date: Date) {
-  return date.toISOString().slice(0, 10);
-}
-
-function addDays(base: Date, amount: number) {
-  const copy = new Date(base);
-  copy.setDate(copy.getDate() + amount);
-  return copy;
-}
+const toISO = (d: Date) => d.toISOString().slice(0, 10);
+const addDays = (d: Date, days: number) => { const x = new Date(d); x.setDate(x.getDate() + days); return x; };
 
 const DEFAULT_GOAL = (): Omit<Goal, "id"> => {
   const today = new Date();
@@ -48,6 +27,20 @@ const DEFAULT_GOAL = (): Omit<Goal, "id"> => {
   };
 };
 
+const STATUS_BADGES: Record<Status, string> = {
+  open: "",
+  "in-progress": "bg-amber-400/20 text-amber-200",
+  blocked: "bg-rose-400/20 text-rose-300",
+  done: "bg-emerald-400/20 text-emerald-100",
+};
+const PRIORITY_BADGES: Record<Priority, string> = {
+  low: "",
+  medium: "",
+  high: "",
+  critical: "ring-2 ring-rose-400",
+};
+
+/* ---------- component ---------- */
 export default function GoalsList() {
   const { visibleGoals, goals, exportJson, importJson, deleteGoal, addGoal, updateGoal } = useGoals();
   const items = (visibleGoals ?? goals ?? []) as Goal[];
@@ -65,46 +58,24 @@ export default function GoalsList() {
   const [modalOpen, setModalOpen] = useState(false);
   const [draft, setDraft] = useState<Omit<Goal, "id">>(DEFAULT_GOAL());
   const [error, setError] = useState<string | null>(null);
-
-  const openModal = () => {
-    setDraft(DEFAULT_GOAL());
-    setError(null);
-    setModalOpen(true);
-  };
-
-  const onSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!draft.title.trim()) {
-      setError("Give the goal a name so it stands out on the timeline.");
-      return;
-    }
-    if (draft.startDate > draft.endDate) {
-      setError("The end date comes after the start. Flip them and try again.");
-      return;
-    }
-
-    addGoal({ ...draft, notes: draft.notes?.trim() ? draft.notes.trim() : undefined });
-    setModalOpen(false);
-  };
+  const openModal = () => { setDraft(DEFAULT_GOAL()); setError(null); setModalOpen(true); };
 
   return (
-    <div className="flex h-full flex-col gap-6">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-white">Goal library</h2>
+    <div className="min-w-0">
+      {/* Header (no duplicate title; panel title is enough) */}
+      <header className="mb-3 flex items-center justify-between">
+        <div className="space-y-1">
           <p className="text-sm text-white/60">
-            Keep a premium, high-level list of what matters. Edit status inline, or add a fresh intention in seconds.
+            Keep a premium, high-level list. Edit inline or add a new intention quickly.
           </p>
+          <div className="text-xs text-white/50">
+            Open {counts.open} • In-progress {counts.inprog} • Blocked {counts.blocked} • Done {counts.done}
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={openModal}
-            className="rounded-full bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-900 shadow"
-          >
-            + New goal
-          </button>
-          <label className="cursor-pointer rounded-full border border-white/10 bg-white/10 px-4 py-2 text-xs font-medium text-white/70 transition hover:bg-white/20">
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={openModal} className="btn btn--primary">+ New goal</button>
+
+          <label className="btn cursor-pointer">
             Import
             <input
               type="file"
@@ -124,118 +95,117 @@ export default function GoalsList() {
               }}
             />
           </label>
+
           <button
             type="button"
+            className="btn"
+            disabled={busy}
             onClick={() => {
               const blob = new Blob([exportJson()], { type: "application/json" });
-              const url = URL.createObjectURL(blob);
-              const anchor = document.createElement("a");
-              anchor.href = url;
-              anchor.download = "goals.json";
-              anchor.click();
-              URL.revokeObjectURL(url);
+              const a = document.createElement("a");
+              a.href = URL.createObjectURL(blob);
+              a.download = "goals.json";
+              a.click();
+              URL.revokeObjectURL(a.href);
             }}
-            className="rounded-full border border-white/10 bg-white/10 px-4 py-2 text-xs font-medium text-white/70 transition hover:bg-white/20"
           >
             Export
           </button>
         </div>
       </header>
 
-      <div className="flex flex-wrap gap-3 text-xs text-white/50">
-        <span>Open {counts.open}</span>
-        <span>In-progress {counts.inprog}</span>
-        <span>Blocked {counts.blocked}</span>
-        <span>Done {counts.done}</span>
-      </div>
-
-      <div className="flex-1 space-y-3 overflow-y-auto pr-1">
+      {/* List */}
+      <div className="space-y-3">
         {items.map((goal) => (
-          <article
-            key={goal.id}
-            className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-[0_20px_40px_-30px_rgba(15,15,20,0.9)]"
-          >
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="space-y-2">
-                <p className="text-xs uppercase tracking-[0.3em] text-white/40">{goal.category}</p>
-                <h3 className="text-lg font-medium text-white">{goal.title}</h3>
-                <p className="text-sm text-white/60">{prettyRange(goal)}</p>
-                {goal.notes && <p className="text-sm text-white/70">{goal.notes}</p>}
+          <article key={goal.id} className="goal-card">
+            <div className="min-w-0">
+              <div className="goal-card__meta uppercase text-white/50 text-[11px] tracking-[0.2em]">
+                {goal.category}
               </div>
-              <div className="flex flex-col items-end gap-2">
-                <div className="flex items-center gap-2 text-xs">
-                  <span className={`rounded-full px-3 py-1 ${STATUS_BADGES[goal.status]}`}>{goal.status}</span>
-                  <span className={`rounded-full border px-3 py-1 text-white/70 ${PRIORITY_BADGES[goal.priority]}`}>
-                    {goal.priority}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-white/60">
-                  <label className="flex items-center gap-1">
-                    <span>Status</span>
-                    <select
-                      value={goal.status}
-                      onChange={(event) => updateGoal({ ...goal, status: event.target.value as Status })}
-                      className="rounded-md border border-white/10 bg-white/10 px-2 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-white/40"
-                    >
-                      <option value="open">Open</option>
-                      <option value="in-progress">In-progress</option>
-                      <option value="blocked">Blocked</option>
-                      <option value="done">Done</option>
-                    </select>
-                  </label>
-                  <label className="flex items-center gap-1">
-                    <span>Priority</span>
-                    <select
-                      value={goal.priority}
-                      onChange={(event) => updateGoal({ ...goal, priority: event.target.value as Priority })}
-                      className="rounded-md border border-white/10 bg-white/10 px-2 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-white/40"
-                    >
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
-                      <option value="critical">Critical</option>
-                    </select>
-                  </label>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => deleteGoal(goal.id)}
-                  disabled={busy}
-                  className="text-xs font-medium text-rose-300 transition hover:text-rose-200 disabled:opacity-50"
-                >
-                  Delete
-                </button>
+              <h3 className="goal-card__title">{goal.title || <span className="text-white/50">Untitled</span>}</h3>
+              <div className="goal-card__meta">{prettyRange(goal)}</div>
+              {goal.notes && <div className="goal-card__meta">{goal.notes}</div>}
+            </div>
+
+            <div className="goal-card__right">
+              {/* chips */}
+              <div className="flex items-center gap-2">
+                <span className={`chip ${STATUS_BADGES[goal.status]}`}>{goal.status}</span>
+                <span className={`chip ${PRIORITY_BADGES[goal.priority]}`}>{goal.priority}</span>
+              </div>
+
+              {/* inline edit (clean selects) */}
+              <div className="goal-card__actions">
+                <label className="flex items-center gap-1">
+                  <span>Status</span>
+                  <select
+                    value={goal.status}
+                    onChange={(e) => updateGoal({ ...goal, status: e.target.value as Status })}
+                    className="field select"
+                  >
+                    <option value="open">Open</option>
+                    <option value="in-progress">In-progress</option>
+                    <option value="blocked">Blocked</option>
+                    <option value="done">Done</option>
+                  </select>
+                </label>
+
+                <label className="flex items-center gap-1">
+                  <span>Priority</span>
+                  <select
+                    value={goal.priority}
+                    onChange={(e) => updateGoal({ ...goal, priority: e.target.value as Priority })}
+                    className="field select"
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="critical">Critical</option>
+                  </select>
+                </label>
+
+                <button type="button" className="btn btn--danger" onClick={() => deleteGoal(goal.id)}>Delete</button>
               </div>
             </div>
           </article>
         ))}
 
         {items.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-white/10 bg-white/5 p-6 text-center text-sm text-white/60">
-            No goals yet. Tap “New goal” to start your roadmap or import a JSON file.
-          </div>
+          <div className="text-sm text-white/60">No goals yet. Click <span className="chip">+ New goal</span> to add one.</div>
         )}
       </div>
 
+      {/* Add modal */}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Add a goal">
-        <form className="space-y-4" onSubmit={onSubmit}>
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="space-y-2">
-              <span className="text-xs uppercase tracking-[0.2em] text-white/40">Title</span>
+        <form
+          className="space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!draft.title.trim()) { setError("Give the goal a name."); return; }
+            if (draft.startDate > draft.endDate) { setError("End date must be after start date."); return; }
+            addGoal(draft); setModalOpen(false);
+          }}
+        >
+          {error && <div className="rounded-md border border-white/10 bg-white/10 p-3 text-sm text-white/80">{error}</div>}
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="space-y-1">
+              <span className="text-xs uppercase tracking-[0.2em] text-white/50">Title</span>
               <input
+                className="field w-full"
+                type="text"
                 value={draft.title}
-                onChange={(event) => setDraft((prev) => ({ ...prev, title: event.target.value }))}
                 placeholder="Name the intention"
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/30"
-                required
+                onChange={(e) => setDraft((prev) => ({ ...prev, title: e.target.value }))}
               />
             </label>
-            <label className="space-y-2">
-              <span className="text-xs uppercase tracking-[0.2em] text-white/40">Category</span>
+
+            <label className="space-y-1">
+              <span className="text-xs uppercase tracking-[0.2em] text-white/50">Category</span>
               <select
+                className="field select w-full"
                 value={draft.category}
-                onChange={(event) => setDraft((prev) => ({ ...prev, category: event.target.value as Goal["category"] }))}
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/30"
+                onChange={(e) => setDraft((prev) => ({ ...prev, category: e.target.value as Goal["category"] }))}
               >
                 <option value="STRATEGY">Strategy</option>
                 <option value="VISION">Vision</option>
@@ -246,79 +216,42 @@ export default function GoalsList() {
             </label>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="space-y-2">
-              <span className="text-xs uppercase tracking-[0.2em] text-white/40">Start</span>
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="space-y-1">
+              <span className="text-xs uppercase tracking-[0.2em] text-white/50">Start</span>
               <input
                 type="date"
+                className="field w-full"
                 value={draft.startDate}
-                onChange={(event) => setDraft((prev) => ({ ...prev, startDate: event.target.value }))}
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/30"
+                onChange={(e) => setDraft((prev) => ({ ...prev, startDate: e.target.value }))}
               />
             </label>
-            <label className="space-y-2">
-              <span className="text-xs uppercase tracking-[0.2em] text-white/40">End</span>
+
+            <label className="space-y-1">
+              <span className="text-xs uppercase tracking-[0.2em] text-white/50">End</span>
               <input
                 type="date"
+                className="field w-full"
                 value={draft.endDate}
-                onChange={(event) => setDraft((prev) => ({ ...prev, endDate: event.target.value }))}
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/30"
+                onChange={(e) => setDraft((prev) => ({ ...prev, endDate: e.target.value }))}
               />
             </label>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="space-y-2">
-              <span className="text-xs uppercase tracking-[0.2em] text-white/40">Priority</span>
-              <select
-                value={draft.priority}
-                onChange={(event) => setDraft((prev) => ({ ...prev, priority: event.target.value as Priority }))}
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/30"
-              >
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-                <option value="critical">Critical</option>
-              </select>
-            </label>
-            <label className="space-y-2">
-              <span className="text-xs uppercase tracking-[0.2em] text-white/40">Status</span>
-              <select
-                value={draft.status}
-                onChange={(event) => setDraft((prev) => ({ ...prev, status: event.target.value as Status }))}
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/30"
-              >
-                <option value="open">Open</option>
-                <option value="in-progress">In-progress</option>
-                <option value="blocked">Blocked</option>
-                <option value="done">Done</option>
-              </select>
-            </label>
-          </div>
-
-          <label className="space-y-2">
-            <span className="text-xs uppercase tracking-[0.2em] text-white/40">Notes</span>
-            <textarea
+          <label className="space-y-1 block">
+            <span className="text-xs uppercase tracking-[0.2em] text-white/50">Notes</span>
+            <input
+              className="field w-full"
+              type="text"
+              placeholder="Optional notes"
               value={draft.notes}
-              onChange={(event) => setDraft((prev) => ({ ...prev, notes: event.target.value }))}
-              placeholder="Optional context or nudges"
-              className="h-28 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/30"
+              onChange={(e) => setDraft((prev) => ({ ...prev, notes: e.target.value }))}
             />
           </label>
 
-          {error && <p className="text-sm text-rose-300">{error}</p>}
-
-          <div className="flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={() => setModalOpen(false)}
-              className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 transition hover:bg-white/15"
-            >
-              Cancel
-            </button>
-            <button type="submit" className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-neutral-900">
-              Save goal
-            </button>
+          <div className="flex items-center justify-end gap-2">
+            <button type="button" className="btn" onClick={() => setModalOpen(false)}>Cancel</button>
+            <button type="submit" className="btn btn--primary">Save goal</button>
           </div>
         </form>
       </Modal>
