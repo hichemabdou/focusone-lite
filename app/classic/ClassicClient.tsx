@@ -11,7 +11,7 @@ export default function ClassicClient() {
   const activeGoals = visibleGoals ?? goals ?? [];
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-6 pb-16 pt-12">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-12 px-6 pb-16 pt-12">
       <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-white/10 via-white/5 to-white/0 p-10 shadow-[0_50px_120px_-60px_rgba(15,15,20,0.9)]">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.16),_transparent_55%)]" />
         <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
@@ -33,17 +33,32 @@ export default function ClassicClient() {
         </div>
       </section>
 
-      <GoalFilters />
+      <div className="grid gap-10 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+        <div className="space-y-10">
+          <GoalFilters />
 
-      <Summary goals={activeGoals} />
+          <section className="space-y-6 rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_30px_70px_-50px_rgba(15,15,25,0.85)]">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="space-y-1">
+                <h2 className="text-xl font-semibold text-white">Timeline overview</h2>
+                <p className="text-sm text-white/60">
+                  Scan how every intention lines up in time. Adjust the view to focus the horizon you care about most.
+                </p>
+              </div>
+              <Summary goals={activeGoals} className="md:max-w-sm" />
+            </div>
 
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
-        <div className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-[0_30px_60px_-40px_rgba(15,15,25,0.9)]">
-          <Timeline />
+            <div className="rounded-2xl border border-white/10 bg-neutral-950/80 p-3">
+              <Timeline />
+            </div>
+          </section>
         </div>
-        <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
-          <GoalsList />
-        </div>
+
+        <aside className="space-y-6">
+          <section className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_30px_70px_-50px_rgba(15,15,25,0.85)]">
+            <GoalsList />
+          </section>
+        </aside>
       </div>
     </div>
   );

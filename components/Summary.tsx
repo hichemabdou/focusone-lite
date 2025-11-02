@@ -2,7 +2,7 @@
 
 import { Goal } from "./GoalsContext";
 
-export default function Summary({ goals }: { goals: Goal[] }) {
+export default function Summary({ goals, className = "" }: { goals: Goal[]; className?: string }) {
   const open = goals.filter((g) => g.status === "open").length;
   const inprog = goals.filter((g) => g.status === "in-progress").length;
   const blocked = goals.filter((g) => g.status === "blocked").length;
@@ -16,7 +16,7 @@ export default function Summary({ goals }: { goals: Goal[] }) {
   );
 
   return (
-    <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+    <div className={["grid grid-cols-2 gap-3 md:grid-cols-4", className].filter(Boolean).join(" ")>
       <Cell label="Open" value={open} />
       <Cell label="In-progress" value={inprog} />
       <Cell label="Blocked" value={blocked} />
