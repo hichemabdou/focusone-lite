@@ -8,7 +8,7 @@ import Timeline from "@/components/Timeline";
 import GoalsList from "@/components/GoalsList";
 
 function ClassicInner() {
-  const { goals } = useGoals();
+  const { goals, importMany, exportJson } = useGoals();
 
   const [search, setSearch] = useState("");
   const [categories, setCategories] = useState<Category[]>(["STRATEGY","VISION","TACTICAL","PROJECT","DAILY"]);
@@ -18,11 +18,11 @@ function ClassicInner() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return goals.filter(g =>
+    return goals.filter((g) =>
       categories.includes(g.category) &&
       priorities.includes(g.priority) &&
       statuses.includes(g.status) &&
-      (q.length === 0 || g.title.toLowerCase().includes(q))
+      (q ? g.title.toLowerCase().includes(q) : true)
     );
   }, [goals, search, categories, priorities, statuses]);
 
@@ -37,6 +37,18 @@ function ClassicInner() {
           priorities={priorities} setPriorities={setPriorities}
           statuses={statuses} setStatuses={setStatuses}
           mode={mode} setMode={setMode}
+          onAdd={() => document.querySelector<HTMLButtonElement>("#goals-list-add")?.click()}
+          onImport={(raw) => {
+            try {
+              const arr = JSON.parse(raw);
+              if (Array.isArray(arr)) importMany(arr);
+            } catch { alert("Invalid JSON"); }
+          }}
+          onExport={() => {
+            const data = exportJson();
+            navigator.clipboard.writeText(data);
+            alert("Export copied to clipboard");
+          }}
         />
 
         <Summary goals={filtered} />
@@ -46,6 +58,8 @@ function ClassicInner() {
             <Timeline goals={filtered} mode={mode} />
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+            {/* GoalsList has its own Add button, expose hidden trigger for FilterBar */}
+            <button id="goals-list-add" className="hidden" />
             <GoalsList visibleGoals={filtered} />
           </div>
         </div>

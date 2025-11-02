@@ -1,45 +1,20 @@
 "use client";
 
 import { Category, Priority, Status } from "./GoalsContext";
-
 export type DomainMode = "fit" | "this-year";
 
-const ALL_CAT: Category[] = ["STRATEGY", "VISION", "TACTICAL", "PROJECT", "DAILY"];
-const ALL_PRI: Priority[] = ["low", "medium", "high", "critical"];
-const ALL_STA: Status[] = ["open", "in-progress", "blocked", "done"];
+const CATS: Category[] = ["STRATEGY","VISION","TACTICAL","PROJECT","DAILY"];
+const PRIOS: Priority[] = ["low","medium","high","critical"];
+const STATES: Status[] = ["open","in-progress","blocked","done"];
 
-function ToggleGroup<T extends string>({
-  label, values, all, setValues,
-}: { label: string; values: T[]; all: readonly T[]; setValues: (v: T[]) => void }) {
-  const onToggle = (v: T) =>
-    setValues(values.includes(v) ? values.filter((x) => x !== v) : [...values, v]);
-  const onReset = () => setValues([...all]);
-
+function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <details className="relative">
-      <summary className="cursor-pointer select-none rounded-md bg-white/10 px-3 py-1.5 text-sm hover:bg-white/20">
-        {label} ({values.length})
-      </summary>
-      <div className="absolute z-20 mt-1 w-52 rounded-md border border-white/10 bg-neutral-900 p-2 shadow-xl">
-        <div className="mb-2 flex justify-between text-xs opacity-70">
-          <span>{label}</span>
-          <button className="underline" onClick={onReset} type="button">All</button>
-        </div>
-        <div className="max-h-56 space-y-1 overflow-auto pr-1">
-          {all.map((v) => (
-            <label key={v} className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={values.includes(v)}
-                onChange={() => onToggle(v)}
-                className="accent-white"
-              />
-              <span className="capitalize">{String(v).replace("-", " ")}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-    </details>
+    <button
+      onClick={onClick}
+      className={`rounded-full px-3 py-1 text-xs font-medium ring-1 ${active ? "bg-white text-neutral-900 ring-white" : "bg-white/5 text-white ring-white/10 hover:bg-white/10"}`}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -48,49 +23,65 @@ export default function FilterBar(props: {
   categories: Category[]; setCategories: (v: Category[]) => void;
   priorities: Priority[]; setPriorities: (v: Priority[]) => void;
   statuses: Status[]; setStatuses: (v: Status[]) => void;
-  mode: DomainMode; setMode: (m: DomainMode) => void;
+  mode: DomainMode; setMode: (v: DomainMode) => void;
+  onAdd: () => void;
+  onImport: (raw: string) => void;
+  onExport: () => void;
 }) {
-  const { search, setSearch, categories, setCategories, priorities, setPriorities, statuses, setStatuses, mode, setMode } = props;
+  const { search, setSearch, categories, setCategories, priorities, setPriorities, statuses, setStatuses, mode, setMode, onAdd, onImport, onExport } = props;
 
-  const clear = () => {
+  const toggle = <T extends string>(v: T, list: T[], set: (x: T[]) => void) =>
+    set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
+
+  const reset = () => {
+    setCategories([...CATS]);
+    setPriorities([...PRIOS]);
+    setStatuses([...STATES]);
     setSearch("");
-    setCategories([...ALL_CAT]);
-    setPriorities([...ALL_PRI]);
-    setStatuses([...ALL_STA]);
   };
 
   return (
-    <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-white/5 p-3">
-      <input
-        placeholder="Search title…"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="min-w-[260px] flex-1 rounded-md bg-white/5 px-3 py-2 text-sm outline-none ring-1 ring-white/10 focus:ring-white/25"
-      />
+    <div className="mb-4 grid gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 md:grid-cols-[1fr_auto]">
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search title…"
+          className="min-w-[240px] flex-1 rounded-md bg-white/10 px-3 py-2 text-sm outline-none ring-1 ring-white/10 focus:ring-white/30"
+        />
+        <div className="hidden h-6 w-px bg-white/10 md:block" />
+        <div className="flex flex-wrap items-center gap-2">
+          <Chip active={mode === "fit"} onClick={() => setMode("fit")}>Fit</Chip>
+          <Chip active={mode === "this-year"} onClick={() => setMode("this-year")}>This Year</Chip>
+        </div>
+      </div>
 
-      <div className="ml-auto flex items-center gap-2">
-        <ToggleGroup label="Category" values={categories} all={ALL_CAT} setValues={setCategories} />
-        <ToggleGroup label="Priority" values={priorities} all={ALL_PRI} setValues={setPriorities} />
-        <ToggleGroup label="Status" values={statuses} all={ALL_STA} setValues={setStatuses} />
-
-        <div className="ml-1 inline-flex overflow-hidden rounded-md ring-1 ring-white/10">
-          <button
-            onClick={() => setMode("fit")}
-            className={`px-3 py-1.5 text-sm ${mode === "fit" ? "bg-white text-neutral-900" : "bg-white/10 hover:bg-white/20"}`}
-          >
-            Fit
-          </button>
-          <button
-            onClick={() => setMode("this-year")}
-            className={`px-3 py-1.5 text-sm ${mode === "this-year" ? "bg-white text-neutral-900" : "bg-white/10 hover:bg-white/20"}`}
-          >
-            This Year
-          </button>
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {CATS.map((c) => (
+            <Chip key={c} active={categories.includes(c)} onClick={() => toggle(c, categories, setCategories)}>{c}</Chip>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {PRIOS.map((p) => (
+            <Chip key={p} active={priorities.includes(p)} onClick={() => toggle(p, priorities, setPriorities)}>{p}</Chip>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {STATES.map((s) => (
+            <Chip key={s} active={statuses.includes(s)} onClick={() => toggle(s, statuses, setStatuses)}>{s}</Chip>
+          ))}
         </div>
 
-        <button onClick={clear} className="rounded-md bg-white/10 px-3 py-1.5 text-sm hover:bg-white/20">
-          Clear
-        </button>
+        <div className="hidden h-6 w-px bg-white/10 md:block" />
+
+        <button onClick={onAdd} className="rounded-md bg-white px-3 py-2 text-sm font-medium text-neutral-900">+ Add</button>
+        <button onClick={() => {
+          const raw = prompt("Paste JSON to import");
+          if (raw) onImport(raw);
+        }} className="rounded-md bg-white/10 px-3 py-2 text-sm hover:bg-white/20">Import</button>
+        <button onClick={onExport} className="rounded-md bg-white/10 px-3 py-2 text-sm hover:bg-white/20">Export</button>
+        <button onClick={reset} className="rounded-md bg-white/10 px-3 py-2 text-sm hover:bg-white/20">Clear</button>
       </div>
     </div>
   );

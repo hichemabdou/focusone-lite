@@ -3,29 +3,24 @@
 import { Goal } from "./GoalsContext";
 
 export default function Summary({ goals }: { goals: Goal[] }) {
-  const now = new Date();
-  const counts = {
-    open: goals.filter(g => g.status === "open").length,
-    inprogress: goals.filter(g => g.status === "in-progress").length,
-    blocked: goals.filter(g => g.status === "blocked").length,
-    done: goals.filter(g => g.status === "done").length,
-    overdue: goals.filter(g => g.status !== "done" && new Date(g.due) < now).length,
-  };
+  const open = goals.filter((g) => g.status === "open").length;
+  const inprog = goals.filter((g) => g.status === "in-progress").length;
+  const blocked = goals.filter((g) => g.status === "blocked").length;
+  const done = goals.filter((g) => g.status === "done").length;
 
-  const Item = ({ label, value }: { label: string; value: number }) => (
-    <div className="rounded-xl bg-white/5 px-3 py-2 ring-1 ring-white/10">
-      <div className="text-[11px] opacity-70">{label}</div>
-      <div className="text-lg font-semibold">{value}</div>
+  const Cell = ({ label, value }: { label: string; value: number }) => (
+    <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+      <div className="text-xs text-white/60">{label}</div>
+      <div className="text-xl font-semibold">{value}</div>
     </div>
   );
 
   return (
-    <div className="grid grid-cols-5 gap-2 mb-3">
-      <Item label="Open" value={counts.open} />
-      <Item label="In-progress" value={counts.inprogress} />
-      <Item label="Blocked" value={counts.blocked} />
-      <Item label="Done" value={counts.done} />
-      <Item label="Overdue" value={counts.overdue} />
+    <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+      <Cell label="Open" value={open} />
+      <Cell label="In-progress" value={inprog} />
+      <Cell label="Blocked" value={blocked} />
+      <Cell label="Done" value={done} />
     </div>
   );
 }
