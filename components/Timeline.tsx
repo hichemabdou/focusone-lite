@@ -1,84 +1,121 @@
 "use client";
 
+import { Goal, Priority, Category } from "./GoalsContext";
+import { DomainMode } from "./FilterBar";
 import { useMemo } from "react";
-import { useGoals, Goal, Priority, Category } from "./GoalsContext";
 
-const PRI_COLOR: Record<Priority, string> = {
+const PRI: Record<Priority, string> = {
   low: "bg-emerald-400",
   medium: "bg-amber-400",
   high: "bg-orange-400",
   critical: "bg-rose-500",
 };
+const CATS: Category[] = ["STRATEGY", "VISION", "TACTICAL", "PROJECT", "DAILY"];
 
-const CATEGORIES: Category[] = ["STRATEGY", "VISION", "TACTICAL", "PROJECT", "DAILY"];
-const LABEL_WIDTH = 120;     // left label column (px)
-const MONTH_WIDTH = 96;      // width per month column
-const ROW_H = 42;            // height per lane row
-const HEADER_H = 28;
+const LABEL_COL_PX = 120;
+const MONTH_PX = 96;
+const ROW_H = 42;
 
 const mkey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 
-function buildMonths(goals: Goal[]) {
-  if (goals.length === 0) {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), 0, 1);
-    const end = new Date(now.getFullYear(), 11, 1);
+function monthsFor(goals: Goal[], mode: DomainMode) {
+  if (mode === "this-year") {
+    const y = new Date().getFullYear();
     const arr: { key: string; label: string }[] = [];
-    const it = new Date(start);
-    while (it <= end) {
-      arr.push({ key: mkey(it), label: it.toLocaleString(undefined, { month: "short" }) });
-      it.setMonth(it.getMonth() + 1);
+    for (let m = 0; m < 12; m++) {
+      const d = new Date(y, m, 1);
+      arr.push({ key: mkey(d), label: d.toLocaleString(undefined, { month: "short" }) });
     }
     return arr;
   }
-
-  const min = new Date(Math.min(...goals.map((g) => new Date(g.start).getTime())));
-  const max = new Date(Math.max(...goals.map((g) => new Date(g.due).getTime())));
-  const start = new Date(min.getFullYear(), 0, 1);
-  const end = new Date(max.getFullYear(), 11, 1);
-
-  const arr: { key: string; label: string }[] = [];
+  if (goals.length === 0) {
+    const now = new Date();
+    const y = now.getFullYear();
+    return Array.from({ length: 12 }, (_, i) => {
+      const d = new Date(y, i, 1);
+      return { key: mkey(d), label: d.toLocaleString(undefined, { month: "short" }) };
+    });
+  }
+  const min = new Date(Math.min(...goals.map(g => new Date(g.start).getTime())));
+  const max = new Date(Math.max(...goals.map(g => new Date(g.due).getTime())));
+  const start = new Date(min.getFullYear(), min.getMonth(), 1);
+  const end = new Date(max.getFullYear(), max.getMonth(), 1);
+  const res: { key: string; label: string }[] = [];
   const it = new Date(start);
   while (it <= end) {
-    arr.push({ key: mkey(it), label: it.toLocaleString(undefined, { month: "short" }) });
+    res.push({ key: mkey(it), label: it.toLocaleString(undefined, { month: "short" }) });
     it.setMonth(it.getMonth() + 1);
   }
-  return arr;
+  return res;
 }
 
-export default function Timeline() {
-  const { goals } = useGoals();
-  const months = useMemo(() => buildMonths(goals), [goals]);
-
-  const indexOfMonth = (iso: string) => {
-    const d = new Date(iso + (iso.length === 10 ? "T00:00:00" : ""));
-    const k = mkey(d);
-    return months.findIndex((m) => m.key === k);
-  };
-
+export default function Timeline({ goals, mode }: { goals: Goal[]; mode: DomainMode }) {
+  const months = useMemo(() => monthsFor(goals, mode), [goals, mode]);
   const todayIdx = useMemo(() => {
     const k = mkey(new Date());
     return months.findIndex((m) => m.key === k);
   }, [months]);
 
+  const colTemplate = `${LABEL_COL_PX}px repeat(${months.length}, ${MONTH_PX}px)`;
+
+  const colIndexFor = (iso: string) => {
+    const d = new Date(iso + (iso.length === 10 ? "T00:00:00" : ""));
+    const k = mkey(d);
+    const idx = months.findIndex((m) => m.key === k);
+    return idx < 0 ? null : idx + 2; // +1 for grid (starts at 1), +1 for label col
+  };
+
   return (
-    <div className="relative rounded-2xl bg-neutral-800 p-3 text-neutral-200" style={{ paddingLeft: LABEL_WIDTH }}>
-      {/* Left category labels */}
-      <div className="absolute left-3 top-[44px] select-none">
-        {CATEGORIES.map((c, i) => (
-          <div key={c} className="h-[42px] flex items-center text-xs font-medium opacity-80">{c}</div>
+    <div className="relative rounded-2xl bg-neutral-800 p-3 text-neutral-200">
+      {/* Months header */}
+      <div className="grid border-b border-white/10" style={{ gridTemplateColumns: colTemplate }}>
+        <div className="h-7" />
+        {months.map((m) => (
+          <div key={m.key} className="h-7 py-1 text-center text-xs font-medium opacity-80">
+            {m.label}
+          </div>
         ))}
       </div>
 
-      {/* Header months */}
-      <div
-        className="grid border-b border-white/10"
-        style={{ gridTemplateColumns: `repeat(${months.length}, ${MONTH_WIDTH}px)` }}
-      >
-        {months.map((m) => (
-          <div key={m.key} className="py-1 text-center text-xs font-medium opacity-80">
-            {m.label}
-          </div>
+      {/* Body rows */}
+      <div className="mt-2 grid gap-0" style={{ gridTemplateColumns: colTemplate }}>
+        {CATS.map((cat, ri) => (
+          <>
+            <div key={`${cat}-label`} className="flex h-[42px] items-center pl-2 text-xs font-medium opacity-80">
+              {cat}
+            </div>
+            {months.map((m, ci) => (
+              <div
+                key={`${cat}-${m.key}`}
+                className={`h-[42px] border-l border-white/10 ${ci === months.length - 1 ? "border-r" : ""} border-white/10`}
+              />
+            ))}
+            {/* Bars for this row */}
+            {goals.filter(g => g.category === cat).map(g => {
+              const start = colIndexFor(g.start);
+              const end = colIndexFor(g.due);
+              if (!start || !end) return null;
+              const span = Math.max(1, end - start + 1);
+              const done = g.status === "done";
+              const overdue = !done && new Date(g.due) < new Date();
+
+              return (
+                <div
+                  key={g.id}
+                  className="pointer-events-none col-start-[1] col-end-[-1] row-start-[auto] relative"
+                  style={{ gridColumn: `${start} / span ${span}`, gridRowStart: ri + 2 }} // +1 header row
+                >
+                  <div
+                    className={`h-6 rounded-full ${PRI[g.priority]} ${done ? "opacity-60" : ""} ${overdue ? "ring-2 ring-rose-400" : ""}`}
+                    title={`${g.title} • ${g.priority} • ${g.status}`}
+                  />
+                  <div className="absolute inset-0 flex items-center px-2 text-[11px] font-medium truncate">
+                    {g.title}
+                  </div>
+                </div>
+              );
+            })}
+          </>
         ))}
       </div>
 
@@ -86,57 +123,18 @@ export default function Timeline() {
       {todayIdx >= 0 && (
         <div
           className="pointer-events-none absolute z-20"
-          style={{ top: HEADER_H, bottom: 12, left: LABEL_WIDTH + todayIdx * MONTH_WIDTH + MONTH_WIDTH / 2 }}
+          style={{
+            top: 28, // header height
+            bottom: 12,
+            left: LABEL_COL_PX + todayIdx * MONTH_PX + MONTH_PX / 2,
+          }}
         >
           <div className="absolute -top-3 -translate-x-1/2 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-medium text-neutral-900 shadow">
             Today
           </div>
-          <div className="absolute top-3 bottom-0 -translate-x-1/2 w-px bg-white/60" />
+          <div className="absolute top-3 bottom-0 -translate-x-1/2 w-px bg-white/70" />
         </div>
       )}
-
-      {/* Grid body (rows x months) */}
-      <div
-        className="relative mt-2"
-        style={{
-          height: ROW_H * CATEGORIES.length,
-          backgroundImage: `linear-gradient(to bottom, transparent 41px, rgba(255,255,255,0.07) 41px),
-                            linear-gradient(to right, rgba(255,255,255,0.06) 1px, transparent 1px)`,
-          backgroundSize: `100% ${ROW_H}px, ${MONTH_WIDTH}px 100%`,
-          backgroundPosition: `0 ${HEADER_H}px, ${LABEL_WIDTH}px 0`,
-          backgroundRepeat: "repeat",
-        }}
-      >
-        {/* Bars */}
-        {goals.map((g) => {
-          const row = CATEGORIES.indexOf(g.category ?? "PROJECT");
-          if (row < 0) return null;
-          const a = indexOfMonth(g.start);
-          const b = indexOfMonth(g.due);
-          if (a < 0 || b < 0) return null;
-
-          const left = LABEL_WIDTH + a * MONTH_WIDTH + 8;
-          const width = Math.max(1, b - a + 1) * MONTH_WIDTH - 16;
-          const top = HEADER_H + row * ROW_H + 8;
-
-          const done = g.status === "done";
-          const overdue = !done && new Date(g.due) < new Date();
-
-          return (
-            <div key={g.id} className="absolute" style={{ top, left, width, height: 26 }}>
-              <div
-                className={`h-full rounded-full ${PRI_COLOR[g.priority]} ${done ? "opacity-60" : ""} ${
-                  overdue ? "ring-2 ring-rose-400" : ""
-                }`}
-                title={`${g.title} • ${g.priority} • ${g.status}`}
-              />
-              <div className="absolute inset-0 px-2 text-[11px] font-medium flex items-center truncate">
-                {g.title}
-              </div>
-            </div>
-          );
-        })}
-      </div>
     </div>
   );
 }

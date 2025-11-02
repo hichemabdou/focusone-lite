@@ -47,7 +47,6 @@ export function GoalsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setGoals(load());
   }, []);
-
   useEffect(() => {
     save(goals);
   }, [goals]);
