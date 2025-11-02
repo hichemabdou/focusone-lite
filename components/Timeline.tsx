@@ -1,143 +1,198 @@
-'use client';
+"use client";
+import React, { useMemo, useEffect, useRef, useState } from "react";
+import { Goal } from "@/types/goal";
 
-import React, { useEffect, useRef } from 'react';
-import 'vis-timeline/styles/vis-timeline-graph2d.min.css';
-import { DataSet } from 'vis-data/peer';
-import { Timeline } from 'vis-timeline/standalone';
+// Color palette by priority
+const PRI_COLOR = {
+  low: "bg-emerald-400",
+  medium: "bg-amber-400",
+  high: "bg-orange-400",
+  critical: "bg-rose-500",
+} as const;
 
-export type Level = 'strategy' | 'vision' | 'tactical' | 'project' | 'daily';
-export type Priority = 'low' | 'med' | 'high';
-export type Status = 'open' | 'at_risk' | 'overdue' | 'done';
+// Helper to format YYYY-MM for a given Date
+const monthKeyFromDate = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 
-export type TimelineItem = {
-  id: string;
-  title: string;
-  start: string; // ISO date
-  end?: string;  // ISO date (optional)
-  level: Level;
-  priority: Priority;
-  status: Status;
-};
+function parseISO(iso: string) {
+  return new Date(iso + (iso.length === 10 ? "T00:00:00" : ""));
+}
 
-type Props = {
-  items: TimelineItem[];
-  height?: number;   // px
-  autoFit?: boolean; // fit on mount
-};
+// Builds month span from earliest to latest goal
+function monthSpan(fromISO: string, toISO: string) {
+  const start = parseISO(fromISO);
+  const end = parseISO(toISO);
+  const months: { y: number; m: number; key: string }[] = [];
+  const d = new Date(start.getFullYear(), start.getMonth(), 1);
+  const last = new Date(end.getFullYear(), end.getMonth(), 1);
+  while (d <= last) {
+    const y = d.getFullYear();
+    const m = d.getMonth();
+    months.push({ y, m, key: `${y}-${String(m + 1).padStart(2, "0")}` });
+    d.setMonth(d.getMonth() + 1);
+  }
+  return months;
+}
 
-const LEVELS: Level[] = ['strategy', 'vision', 'tactical', 'project', 'daily'];
+function yearQuarter(dateISO: string) {
+  const d = parseISO(dateISO);
+  const q = Math.floor(d.getMonth() / 3) + 1;
+  return { year: d.getFullYear(), quarter: q };
+}
 
-export default function TimelineVis({ items, height = 420, autoFit = true }: Props) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const timelineRef = useRef<Timeline | null>(null);
-  const dataRef = useRef<DataSet<any> | null>(null); // keep our own DataSet reference
+export default function Timeline({ goals }: { goals: Goal[] }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [monthWidth, setMonthWidth] = useState(72);
 
-  // init once
+  // Determine full range (min start to max due)
+  const domain = useMemo(() => {
+    if (goals.length === 0) {
+      const now = new Date();
+      const from = new Date(now.getFullYear(), 0, 1).toISOString().slice(0, 10);
+      const to = new Date(now.getFullYear(), 11, 1).toISOString().slice(0, 10);
+      return { months: monthSpan(from, to) };
+    }
+    const minStart = goals.map((g) => parseISO(g.startDate)).sort((a, b) => (a < b ? -1 : 1))[0];
+    const maxDue = goals.map((g) => parseISO(g.dueDate)).sort((a, b) => (a > b ? -1 : 1))[0];
+    const from = new Date(minStart.getFullYear(), 0, 1).toISOString().slice(0, 10);
+    const to = new Date(maxDue.getFullYear(), 11, 1).toISOString().slice(0, 10);
+    return { months: monthSpan(from, to) };
+  }, [goals]);
+
+  // Fit columns to container width
   useEffect(() => {
-    if (!containerRef.current) return;
-
-    const groups = new DataSet(
-      LEVELS.map((lvl, i) => ({ id: lvl, content: lvl.toUpperCase(), order: i }))
-    );
-
-    const ds = new DataSet(items.map(toVisItem));
-    dataRef.current = ds;
-
-    const tl = new Timeline(containerRef.current, ds, groups, {
-      stack: true,
-      horizontalScroll: true,
-      zoomKey: 'ctrlKey',
-      zoomMin: 24 * 60 * 60 * 1000,               // 1 day
-      zoomMax: 5 * 365 * 24 * 60 * 60 * 1000,     // 5 years
-      selectable: true,
-      multiselect: false,
-      orientation: 'top',
-      showCurrentTime: true,
-      minHeight: `${height}px`,
-      maxHeight: `${height}px`,
-      margin: { item: 10, axis: 18 },
-      timeAxis: { scale: 'month', step: 1 },
-      tooltip: { followMouse: true, overflowMethod: 'cap' },
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      const cols = domain.months.length;
+      const w = el.clientWidth;
+      const mw = Math.max(48, Math.floor(w / Math.max(cols, 1)));
+      setMonthWidth(mw);
     });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [domain.months.length]);
 
-    if (autoFit) tl.fit({ animation: { duration: 300, easingFunction: 'easeInOutQuad' } });
-    timelineRef.current = tl;
+  function monthIndex(iso: string) {
+    const k = `${parseISO(iso).getFullYear()}-${String(
+      parseISO(iso).getMonth() + 1
+    ).padStart(2, "0")}`;
+    return domain.months.findIndex((m) => m.key === k);
+  }
 
-    return () => {
-      tl?.destroy();
-      timelineRef.current = null;
-      dataRef.current = null;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  function colSpan(fromISO: string, toISO: string) {
+    const a = monthIndex(fromISO);
+    const b = monthIndex(toISO);
+    if (a === -1 || b === -1) return { start: 1, span: 1 };
+    return { start: a + 1, span: Math.max(1, b - a + 1) };
+  }
 
-  // update dataset when items change
-  useEffect(() => {
-    const ds = dataRef.current;
-    if (!ds) return;
-
-    const next = items.map(toVisItem);
-    const nextIds = new Set(next.map((n) => String(n.id)));
-    const existingIds = (ds.getIds() as string[]) || [];
-
-    // remove items that no longer exist
-    existingIds.forEach((id) => {
-      if (!nextIds.has(String(id))) ds.remove(id);
-    });
-
-    // upsert items
-    next.forEach((n) => {
-      if (ds.get(n.id)) ds.update(n);
-      else ds.add(n);
-    });
-  }, [items]);
+  // 🟢 New: “Today” marker index
+  const todayIndex = useMemo(() => {
+    const k = monthKeyFromDate(new Date());
+    return domain.months.findIndex((m) => m.key === k);
+  }, [domain.months]);
 
   return (
-    <div className="relative">
-      <div ref={containerRef} className="w-full rounded-xl border border-neutral-200 bg-white" />
-      <style jsx global>{`
-        .vis-timeline { border: none; }
-        .vis-item .vis-item-content { padding: 4px 8px; font-size: 12px; border-radius: 8px; }
-        .vis-group { color: #6b7280; font-weight: 600; }
-        .tl-prio-low  .vis-item-content { background: #E5F4FF; }
-        .tl-prio-med  .vis-item-content { background: #FFEFD5; }
-        .tl-prio-high .vis-item-content { background: #FFE5E5; }
-        .tl-done      .vis-item-content { opacity: .55; text-decoration: line-through; }
-        .tl-risk      .vis-item-content { outline: 2px dashed #f59e0b; }
-        .tl-overdue   .vis-item-content { outline: 2px solid #ef4444; }
-      `}</style>
+    <div className="grid gap-3">
+      {/* Header */}
+      <div ref={containerRef} className="overflow-hidden">
+        <div
+          className="relative"
+          style={{ width: domain.months.length * monthWidth }}
+        >
+          <div
+            className="grid"
+            style={{
+              gridTemplateColumns: `repeat(${domain.months.length}, ${monthWidth}px)`,
+            }}
+          >
+            {domain.months.map((m) => {
+              const month = m.m + 1;
+              const label = month === 1 ? `${m.y}` : "";
+              const q = Math.floor(m.m / 3) + 1;
+              return (
+                <div key={m.key} className="h-10 border-b border-white/10">
+                  <div className="text-[10px] uppercase tracking-widest opacity-70">
+                    {label}
+                  </div>
+                  <div className="text-xs opacity-60">Q{q}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div
+        className="relative rounded-2xl border border-white/10 bg-white/5 overflow-auto"
+        style={{ height: 360 }}
+      >
+        <div
+          className="relative"
+          style={{ width: domain.months.length * monthWidth }}
+        >
+          {/* Month stripes */}
+          <div
+            className="absolute inset-0 grid"
+            style={{
+              gridTemplateColumns: `repeat(${domain.months.length}, ${monthWidth}px)`,
+            }}
+          >
+            {domain.months.map((m) => (
+              <div key={m.key} className="border-r border-white/5" />
+            ))}
+          </div>
+
+          {/* 🟡 Today marker */}
+          {todayIndex >= 0 && (
+            <div
+              className="pointer-events-none absolute inset-y-0 z-20"
+              style={{
+                left: todayIndex * monthWidth + monthWidth / 2,
+              }}
+            >
+              <div className="absolute top-1 -translate-x-1/2 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-medium text-neutral-900 shadow">
+                Today
+              </div>
+              <div className="absolute top-6 bottom-2 -translate-x-1/2 w-px bg-white/60" />
+            </div>
+          )}
+
+          {/* Goal rows */}
+          <div className="relative divide-y divide-white/5">
+            {goals.map((g) => {
+              const { start, span } = colSpan(g.startDate, g.dueDate);
+              const { quarter } = yearQuarter(g.dueDate);
+              const color = PRI_COLOR[g.priority];
+              const done = g.status === "done";
+              const overdue = !done && parseISO(g.dueDate) < new Date();
+
+              return (
+                <div key={g.id} className="relative h-14 px-3">
+                  <div className="absolute left-2 top-1 text-xs opacity-70 truncate max-w-[220px]">
+                    {g.title}
+                  </div>
+                  <div
+                    className={`absolute top-6 h-6 rounded-full ${color} ${
+                      done ? "opacity-60" : ""
+                    } ${overdue ? "ring-2 ring-rose-400" : ""}`}
+                    style={{
+                      left: (start - 1) * monthWidth + 8,
+                      width: span * monthWidth - 16,
+                    }}
+                    title={`${g.title} • ${g.priority} • ${g.status}`}
+                  />
+                  <div className="absolute right-2 top-1 text-[10px] opacity-50">
+                    D{quarter}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
     </div>
   );
-}
-
-function toVisItem(g: TimelineItem) {
-  return {
-    id: g.id,
-    group: g.level,
-    start: g.start,
-    end: g.end,
-    content: `<div title="${escapeHtml(g.title)}">${escapeHtml(truncate(g.title, 28))}</div>`,
-    className: classFor(g),
-  };
-}
-
-function classFor(g: TimelineItem) {
-  const pr =
-    g.priority === 'high' ? 'tl-prio-high' :
-    g.priority === 'med'  ? 'tl-prio-med'  : 'tl-prio-low';
-  const st =
-    g.status === 'done'     ? 'tl-done'   :
-    g.status === 'at_risk'  ? 'tl-risk'   :
-    g.status === 'overdue'  ? 'tl-overdue': '';
-  return `${pr} ${st}`;
-}
-
-function truncate(s: string, n: number) {
-  return s.length > n ? s.slice(0, n - 1) + '…' : s;
-}
-
-function escapeHtml(s: string) {
-  return s.replace(/[&<>"']/g, (m) => (
-    { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[m] as string
-  ));
 }
