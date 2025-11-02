@@ -12,7 +12,15 @@ type View =
   | "this-year"
   | "next-365";
 
-const DAY_PX = 18;
+const VIEW_OPTIONS: { value: View; label: string }[] = [
+  { value: "fit", label: "Fit all" },
+  { value: "this-month", label: "This month" },
+  { value: "next-2m", label: "2 months" },
+  { value: "next-3m", label: "3 months" },
+  { value: "next-4m", label: "4 months" },
+  { value: "this-year", label: "This year" },
+  { value: "next-365", label: "365 days" },
+];
 
 function addDays(d: Date, n: number) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
 function diffDays(a: Date, b: Date) { return Math.round((b.getTime() - a.getTime()) / 86400000); }
@@ -24,6 +32,7 @@ export default function Timeline() {
   const goals = visibleGoals ?? [];
 
   const [view, setView] = useState<View>("fit");
+  const [density, setDensity] = useState(18);
 
   // Compute visible domain
   const [from, to] = useMemo<[Date, Date]>(() => {
@@ -71,7 +80,7 @@ export default function Timeline() {
 
   // Grid & header math
   const totalDays = Math.max(1, diffDays(from, addDays(to, 1)));
-  const widthPx = totalDays * DAY_PX;
+  const widthPx = totalDays * density;
 
   const months = useMemo(() => {
     const arr: { label: string; start: Date; end: Date; offsetDays: number; spanDays: number }[] = [];
@@ -96,7 +105,7 @@ export default function Timeline() {
   // Today marker
   const today = new Date();
   const showToday = today >= from && today <= to;
-  const todayLeft = diffDays(from, today) * DAY_PX;
+  const todayLeft = diffDays(from, today) * density;
 
   // Sticky titles vs grid scroll sync
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -111,43 +120,92 @@ export default function Timeline() {
   }, []);
 
   // helpers to place bars
-  const leftPx = (g: Goal) => Math.max(0, diffDays(from, new Date(g.startDate)) * DAY_PX);
+  const leftPx = (g: Goal) => Math.max(0, diffDays(from, new Date(g.startDate)) * density);
   const widthFor = (g: Goal) =>
-    Math.max(DAY_PX, Math.max(1, diffDays(new Date(g.startDate), addDays(new Date(g.endDate), 1))) * DAY_PX);
+    Math.max(
+      density,
+      Math.max(1, diffDays(new Date(g.startDate), addDays(new Date(g.endDate), 1))) * density,
+    );
+
+  const recenter = (smooth = true) => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    if (!showToday) {
+      scroller.scrollTo({ left: 0, behavior: smooth ? "smooth" : "auto" });
+      return;
+    }
+    const desired = Math.max(0, todayLeft - scroller.clientWidth / 2);
+    scroller.scrollTo({ left: desired, behavior: smooth ? "smooth" : "auto" });
+  };
+
+  useEffect(() => {
+    recenter(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, from, to, density]);
 
   return (
     <div className="space-y-3">
       {/* Controls */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm text-neutral-400">View:</span>
-        <select
-          value={view}
-          onChange={(e) => setView(e.target.value as View)}
-          className="rounded-md bg-neutral-800 border border-neutral-700 px-2 py-1 text-sm"
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-1 rounded-full border border-white/10 bg-white/10 p-1">
+          {VIEW_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => setView(option.value)}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                view === option.value ? "bg-white text-neutral-900 shadow" : "text-white/70 hover:bg-white/10"
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70">
+          <span className="font-medium uppercase tracking-[0.2em] text-white/40">Zoom</span>
+          <input
+            type="range"
+            min={12}
+            max={32}
+            value={density}
+            onChange={(e) => setDensity(Number(e.target.value))}
+            className="h-1 w-28 accent-white"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() => recenter()}
+          className="ml-auto rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-medium text-white/80 transition hover:bg-white/20"
         >
-          <option value="fit">Fit all</option>
-          <option value="this-month">This month</option>
-          <option value="next-2m">Next 2 months</option>
-          <option value="next-3m">Next 3 months</option>
-          <option value="next-4m">Next 4 months</option>
-          <option value="this-year">This year</option>
-          <option value="next-365">Next 365 days</option>
-        </select>
-        <span className="ml-auto text-xs text-neutral-500">
+          Center on today
+        </button>
+        <span className="text-xs text-neutral-400">
           {goals.length} goal{goals.length === 1 ? "" : "s"}
+        </span>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-4 text-[11px] uppercase tracking-[0.25em] text-white/40">
+        {Object.entries(CATEGORY_COLORS).map(([key, value]) => (
+          <span key={key} className="flex items-center gap-2">
+            <span className={`inline-block h-2.5 w-2.5 rounded-full ${value}`} />
+            {key.toLowerCase()}
+          </span>
+        ))}
+        <span className="ml-auto flex items-center gap-2 text-white/50">
+          <span className="inline-block h-2 w-2 rounded-sm bg-red-500" /> Today marker
         </span>
       </div>
 
       <div className="relative rounded-2xl bg-neutral-900/60 border border-white/10 overflow-hidden">
         {/* Header months */}
         <div className="sticky top-0 z-10 bg-neutral-900/80 backdrop-blur border-b border-white/10">
-          <div className="pl-48 relative" style={{ width: "100%" }}>
+          <div className="relative pl-56" style={{ width: "100%" }}>
             <div className="relative" style={{ width: widthPx }}>
               {months.map((m, i) => (
                 <div
                   key={i}
                   className="absolute top-0 h-9 border-r border-white/10 flex items-center px-2 text-xs text-neutral-300"
-                  style={{ left: m.offsetDays * DAY_PX, width: m.spanDays * DAY_PX }}
+                  style={{ left: m.offsetDays * density, width: m.spanDays * density }}
                 >
                   {m.label}
                 </div>
@@ -161,13 +219,13 @@ export default function Timeline() {
           {/* Sticky titles column */}
           <div
             ref={titlesRef}
-            className="shrink-0 w-48 border-r border-white/10 max-h-[420px] overflow-y-auto"
+            className="shrink-0 w-56 border-r border-white/10 max-h-[420px] overflow-y-auto"
           >
             {goals.map((g) => (
               <div
                 key={g.id}
                 title={g.title}
-                className="h-10 flex items-center px-3 text-sm text-neutral-300 truncate"
+                className="h-10 flex items-center px-4 text-sm text-neutral-200 truncate"
               >
                 {g.title}
               </div>
@@ -185,7 +243,7 @@ export default function Timeline() {
                 <div
                   key={i}
                   className={`absolute top-0 bottom-0 ${i % 7 === 0 ? "bg-white/10" : "bg-white/5"}`}
-                  style={{ left: i * DAY_PX, width: 1 }}
+                  style={{ left: i * density, width: 1 }}
                 />
               ))}
 
