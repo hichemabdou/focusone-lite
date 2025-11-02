@@ -149,7 +149,7 @@ export default function GoalsList() {
         <span>Done {counts.done}</span>
       </div>
 
-      <div className="space-y-3 overflow-y-auto pr-1" style={{ maxHeight: "32rem" }}>
+      <div className="flex-1 space-y-3 overflow-y-auto pr-1">
         {items.map((goal) => (
           <article
             key={goal.id}

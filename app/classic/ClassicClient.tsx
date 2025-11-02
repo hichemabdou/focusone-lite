@@ -11,8 +11,8 @@ export default function ClassicClient() {
   const activeGoals = visibleGoals ?? goals ?? [];
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-12 px-6 pb-16 pt-12">
-      <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-white/10 via-white/5 to-white/0 p-10 shadow-[0_50px_120px_-60px_rgba(15,15,20,0.9)]">
+    <div className="mx-auto flex h-dvh w-full max-w-6xl flex-col gap-10 px-6 pb-10 pt-12">
+      <section className="relative shrink-0 overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-white/10 via-white/5 to-white/0 p-10 shadow-[0_50px_120px_-60px_rgba(15,15,20,0.9)]">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.16),_transparent_55%)]" />
         <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
           <div className="max-w-xl space-y-4">
@@ -33,11 +33,13 @@ export default function ClassicClient() {
         </div>
       </section>
 
-      <div className="grid gap-10 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-        <div className="space-y-10">
-          <GoalFilters />
+      <div className="flex flex-1 flex-col gap-10 xl:grid xl:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)] xl:gap-12">
+        <div className="flex h-full flex-col gap-8 overflow-hidden">
+          <div className="shrink-0">
+            <GoalFilters />
+          </div>
 
-          <section className="space-y-6 rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_30px_70px_-50px_rgba(15,15,25,0.85)]">
+          <section className="flex min-h-[26rem] flex-1 flex-col gap-6 rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_30px_70px_-50px_rgba(15,15,25,0.85)]">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div className="space-y-1">
                 <h2 className="text-xl font-semibold text-white">Timeline overview</h2>
@@ -48,14 +50,14 @@ export default function ClassicClient() {
               <Summary goals={activeGoals} className="md:max-w-sm" />
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-neutral-950/80 p-3">
+            <div className="relative flex flex-1 flex-col overflow-hidden rounded-2xl border border-white/10 bg-neutral-950/80 p-3">
               <Timeline />
             </div>
           </section>
         </div>
 
-        <aside className="space-y-6">
-          <section className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_30px_70px_-50px_rgba(15,15,25,0.85)]">
+        <aside className="flex h-full flex-col overflow-hidden">
+          <section className="flex h-full flex-col rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_30px_70px_-50px_rgba(15,15,25,0.85)]">
             <GoalsList />
           </section>
         </aside>
