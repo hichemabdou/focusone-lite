@@ -1,87 +1,81 @@
 "use client";
 
-import { useMemo, useEffect, useState } from "react";
+import { useMemo } from "react";
+import { useGoals, Goal, Priority } from "./GoalsContext";
 
-interface Goal {
-  id: string;
-  title: string;
-  start: string;
-  due: string;
-  priority?: string;
-}
+const PRI_COLOR: Record<Priority, string> = {
+  low: "bg-emerald-400",
+  medium: "bg-amber-400",
+  high: "bg-orange-400",
+  critical: "bg-rose-500",
+};
 
-const monthKeyFromDate = (d: Date) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 
-export default function Timeline() {
-  const [goals, setGoals] = useState<Goal[]>([]);
-
-  // ✅ Load data from localStorage (same source as GoalsList)
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem("goals");
-      if (stored) setGoals(JSON.parse(stored));
-    } catch (err) {
-      console.error("Failed to load goals:", err);
-    }
-  }, []);
-
-  // ✅ Determine full range safely
-  const domain = useMemo(() => {
-    if (!goals || goals.length === 0) {
-      const now = new Date();
-      const from = new Date(now.getFullYear(), 0, 1).toISOString().slice(0, 10);
-      const to = new Date(now.getFullYear(), 11, 1).toISOString().slice(0, 10);
-      return { from, to, months: [] };
-    }
-
-    const starts = goals.map((g) => new Date(g.start));
-    const ends = goals.map((g) => new Date(g.due));
-    const minDate = new Date(Math.min(...starts.map((d) => d.getTime())));
-    const maxDate = new Date(Math.max(...ends.map((d) => d.getTime())));
-
-    const months: { key: string; label: string }[] = [];
-    const iter = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
-    while (iter <= maxDate) {
-      months.push({
-        key: monthKeyFromDate(iter),
-        label: iter.toLocaleString("default", { month: "short" }),
-      });
+function monthsBetween(goals: Goal[]) {
+  if (goals.length === 0) {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), 0, 1);
+    const end = new Date(now.getFullYear(), 11, 1);
+    const arr: { key: string; label: string }[] = [];
+    const iter = new Date(start);
+    while (iter <= end) {
+      arr.push({ key: monthKey(iter), label: iter.toLocaleString(undefined, { month: "short" }) });
       iter.setMonth(iter.getMonth() + 1);
     }
+    return arr;
+  }
 
-    return { from: minDate, to: maxDate, months };
-  }, [goals]);
+  const starts = goals.map((g) => new Date(g.start));
+  const ends = goals.map((g) => new Date(g.due));
+  const min = new Date(Math.min(...starts.map((d) => d.getTime())));
+  const max = new Date(Math.max(...ends.map((d) => d.getTime())));
 
-  const monthWidth = 120;
+  const arr: { key: string; label: string }[] = [];
+  const iter = new Date(min.getFullYear(), min.getMonth(), 1);
+  const last = new Date(max.getFullYear(), max.getMonth(), 1);
+  while (iter <= last) {
+    arr.push({ key: monthKey(iter), label: iter.toLocaleString(undefined, { month: "short" }) });
+    iter.setMonth(iter.getMonth() + 1);
+  }
+  return arr;
+}
 
-  // ✅ Today marker
-  const todayIndex = useMemo(() => {
-    const k = monthKeyFromDate(new Date());
-    return domain.months.findIndex((m) => m.key === k);
-  }, [domain.months]);
+export default function Timeline() {
+  const { goals } = useGoals();
+  const months = useMemo(() => monthsBetween(goals), [goals]);
+  const monthWidth = 96;
+
+  const indexOf = (iso: string) => {
+    const d = new Date(iso + (iso.length === 10 ? "T00:00:00" : ""));
+    const k = monthKey(d);
+    return months.findIndex((m) => m.key === k);
+  };
+
+  const todayIdx = useMemo(() => {
+    const k = monthKey(new Date());
+    return months.findIndex((m) => m.key === k);
+  }, [months]);
 
   return (
-    <div className="relative overflow-x-auto rounded-lg bg-neutral-800 p-2 text-neutral-200">
+    <div className="relative rounded-2xl bg-neutral-800 p-3 text-neutral-200">
       {/* Header months */}
       <div
-        className="grid border-b border-neutral-700"
-        style={{
-          gridTemplateColumns: `repeat(${domain.months.length}, ${monthWidth}px)`,
-        }}
+        className="grid border-b border-white/10"
+        style={{ gridTemplateColumns: `repeat(${months.length}, ${monthWidth}px)` }}
       >
-        {domain.months.map((m) => (
-          <div key={m.key} className="text-center py-1 text-sm font-medium">
+        {months.map((m) => (
+          <div key={m.key} className="py-1 text-center text-xs font-medium opacity-80">
             {m.label}
           </div>
         ))}
       </div>
 
-      {/* TODAY marker */}
-      {todayIndex >= 0 && (
+      {/* Today marker */}
+      {todayIdx >= 0 && (
         <div
           className="pointer-events-none absolute inset-y-0 z-20"
-          style={{ left: todayIndex * monthWidth + monthWidth / 2 }}
+          style={{ left: todayIdx * monthWidth + monthWidth / 2 }}
         >
           <div className="absolute top-1 -translate-x-1/2 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-medium text-neutral-900 shadow">
             Today
@@ -90,23 +84,37 @@ export default function Timeline() {
         </div>
       )}
 
-      {/* Goals */}
-      <div
-        className="grid mt-2"
-        style={{
-          gridTemplateColumns: `repeat(${domain.months.length}, ${monthWidth}px)`,
-        }}
-      >
-        {goals.map((goal) => (
-          <div
-            key={goal.id}
-            className="relative flex items-center justify-center"
-          >
-            <div className="m-1 w-full rounded-md bg-blue-500/40 p-1 text-xs text-center">
-              {goal.title}
-            </div>
-          </div>
-        ))}
+      {/* Rows */}
+      <div className="relative mt-2">
+        <div
+          className="grid"
+          style={{ gridTemplateColumns: `repeat(${months.length}, ${monthWidth}px)` }}
+        >
+          {goals.map((g) => {
+            const a = indexOf(g.start);
+            const b = indexOf(g.due);
+            if (a < 0 || b < 0) return null;
+            const left = a * monthWidth + 8;
+            const width = Math.max(1, b - a + 1) * monthWidth - 16;
+            const done = g.status === "done";
+            const overdue = !done && new Date(g.due) < new Date();
+
+            return (
+              <div key={g.id} className="relative h-10">
+                <div
+                  className={`absolute top-2 h-6 rounded-full ${PRI_COLOR[g.priority]} ${done ? "opacity-60" : ""} ${
+                    overdue ? "ring-2 ring-rose-400" : ""
+                  }`}
+                  style={{ left, width }}
+                  title={`${g.title} • ${g.priority} • ${g.status}`}
+                />
+                <div className="absolute left-2 top-2 text-[11px] font-medium truncate max-w-[220px]">
+                  {g.title}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
