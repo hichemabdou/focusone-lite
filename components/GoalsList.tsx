@@ -88,8 +88,8 @@ export default function GoalsList() {
   };
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className="flex h-full flex-col gap-6">
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="space-y-2">
           <h2 className="text-xl font-semibold text-white">Goal library</h2>
           <p className="text-sm text-white/60">
@@ -149,7 +149,7 @@ export default function GoalsList() {
         <span>Done {counts.done}</span>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-3 overflow-y-auto pr-1" style={{ maxHeight: "32rem" }}>
         {items.map((goal) => (
           <article
             key={goal.id}
