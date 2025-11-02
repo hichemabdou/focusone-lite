@@ -27,15 +27,20 @@ export const CATEGORY_COLORS: Record<Category, string> = {
   PROJECT: "bg-fuchsia-500",
   DAILY: "bg-emerald-500",
 };
+const CATEGORY_VALUES: Category[] = ["STRATEGY", "VISION", "TACTICAL", "PROJECT", "DAILY"];
 export const PRIORITY_OPACITY: Record<Priority, string> = {
   low: "opacity-50",
   medium: "opacity-70",
   high: "opacity-90",
   critical: "opacity-100",
 };
+const PRIORITY_VALUES: Priority[] = ["low", "medium", "high", "critical"];
+const STATUS_VALUES: Status[] = ["open", "in-progress", "blocked", "done"];
 
 type Filters = {
   categories: Set<Category> | null; // null => all
+  priorities: Set<Priority> | null; // null => all
+  statuses: Set<Status> | null; // null => all
   query: string;
 };
 
@@ -95,15 +100,26 @@ function persist(goals: Goal[]) {
 
 export function GoalsProvider({ children }: { children: React.ReactNode }) {
   const [goals, setGoals] = useState<Goal[]>([]);
-  const [filters, setFilters] = useState<Filters>({ categories: null, query: "" });
+  const [filters, setFilters] = useState<Filters>({
+    categories: null,
+    priorities: null,
+    statuses: null,
+    query: "",
+  });
 
   useEffect(() => setGoals(load()), []);
   useEffect(() => persist(goals), [goals]);
 
   const visibleGoals = useMemo(() => {
     let arr = goals.slice();
-    if (filters.categories && filters.categories.size > 0) {
+    if (filters.categories && filters.categories.size > 0 && filters.categories.size < CATEGORY_VALUES.length) {
       arr = arr.filter((g) => filters.categories!.has(g.category));
+    }
+    if (filters.priorities && filters.priorities.size > 0 && filters.priorities.size < PRIORITY_VALUES.length) {
+      arr = arr.filter((g) => filters.priorities!.has(g.priority));
+    }
+    if (filters.statuses && filters.statuses.size > 0 && filters.statuses.size < STATUS_VALUES.length) {
+      arr = arr.filter((g) => filters.statuses!.has(g.status));
     }
     if (filters.query.trim()) {
       const q = filters.query.trim().toLowerCase();
