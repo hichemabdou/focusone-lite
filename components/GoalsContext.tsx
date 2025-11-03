@@ -99,15 +99,13 @@ function persist(goals: Goal[]) {
 }
 
 export function GoalsProvider({ children }: { children: React.ReactNode }) {
-  const [goals, setGoals] = useState<Goal[]>([]);
+  const [goals, setGoals] = useState<Goal[]>(() => load());
   const [filters, setFilters] = useState<Filters>({
     categories: null,
     priorities: null,
     statuses: null,
     query: "",
   });
-
-  useEffect(() => setGoals(load()), []);
   useEffect(() => persist(goals), [goals]);
 
   const visibleGoals = useMemo(() => {
