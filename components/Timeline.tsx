@@ -61,6 +61,8 @@ type SpanInfo = {
   stClass: string;
   stKey: string;
   isCompact: boolean;
+  milestonePct: number | null;
+  milestoneLabel: string | null;
 };
 
 const statusLabel: Record<string, string> = {
@@ -139,8 +141,24 @@ export default function Timeline() {
         const stKey = (goal.status === "in-progress" ? "inprog" : goal.status) || "open";
         const stClass = `bar--st-${stKey}`;
         const isCompact = widthPct < 16;
+        const milestonePct = goal.milestone?.date
+          ? clampNum(((parseISO(goal.milestone.date).getTime() - msStart) / msSpan) * 100, -5, 105)
+          : null;
+        const milestoneLabel = goal.milestone?.label?.trim() || null;
 
-        return { g: goal, start, end, leftPct, widthPct, catClass, stClass, stKey, isCompact };
+        return {
+          g: goal,
+          start,
+          end,
+          leftPct,
+          widthPct,
+          catClass,
+          stClass,
+          stKey,
+          isCompact,
+          milestonePct,
+          milestoneLabel,
+        };
       }),
     [items, msStart, msSpan]
   );
@@ -252,11 +270,23 @@ export default function Timeline() {
               const isHovering = hovered?.id === span.g.id;
 
               return (
-                <div key={span.g.id} className="timeline__row">
-                  <div
-                    className={[
-                      "timeline__bar",
-                      span.catClass,
+            <div key={span.g.id} className="timeline__row">
+              {span.milestonePct !== null && span.milestonePct >= -5 && span.milestonePct <= 105 && (
+                <div
+                  className="timeline__milestone"
+                  style={{ left: `${span.milestonePct}%` }}
+                  title={span.milestoneLabel ? `Milestone: ${span.milestoneLabel}` : "Milestone"}
+                >
+                  <span className="timeline__milestone-dot" />
+                  {rowHeight >= 28 && span.milestoneLabel && (
+                    <span className="timeline__milestone-label">{span.milestoneLabel}</span>
+                  )}
+                </div>
+              )}
+              <div
+                className={[
+                  "timeline__bar",
+                  span.catClass,
                       span.stClass,
                       span.isCompact ? "timeline__bar--compact" : "",
                       isHovering ? "timeline__bar--active" : "",

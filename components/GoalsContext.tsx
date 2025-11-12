@@ -6,6 +6,12 @@ export type Priority = "low" | "medium" | "high" | "critical";
 export type Status = "open" | "in-progress" | "blocked" | "done";
 export type Category = "STRATEGY" | "VISION" | "TACTICAL" | "PROJECT" | "DAILY";
 
+export type Milestone = {
+  id: string;
+  label: string;
+  date: string; // ISO
+};
+
 export type Goal = {
   id: string;
   title: string;
@@ -15,6 +21,7 @@ export type Goal = {
   priority: Priority;
   status: Status;
   notes?: string;
+  milestone?: Milestone | null;
 };
 
 const STORAGE_KEY = "focusone_goals_v1";
@@ -68,6 +75,11 @@ const sample: Goal[] = [
     category: "STRATEGY",
     priority: "medium",
     status: "open",
+    milestone: {
+      id: "m1",
+      label: "Draft manifesto",
+      date: "2025-11-20",
+    },
   },
   {
     id: "g2",
@@ -77,15 +89,42 @@ const sample: Goal[] = [
     category: "TACTICAL",
     priority: "critical",
     status: "open",
+    milestone: null,
   },
 ];
+
+type RawGoal = Partial<Goal> & Record<string, unknown>;
+
+function sanitizeGoal(goalInput: RawGoal): Goal {
+  const { milestone } = goalInput;
+  const startDate = goalInput.startDate ?? goalInput.endDate ?? new Date().toISOString().slice(0, 10);
+  const endDate = goalInput.endDate ?? goalInput.startDate ?? startDate;
+
+  return {
+    id: goalInput.id ?? crypto.randomUUID(),
+    title: goalInput.title ?? "Untitled",
+    startDate,
+    endDate,
+    category: goalInput.category ?? "PROJECT",
+    priority: goalInput.priority ?? "medium",
+    status: goalInput.status ?? "open",
+    notes: goalInput.notes,
+    milestone: milestone
+      ? {
+          id: (milestone as Milestone).id ?? crypto.randomUUID(),
+          label: (milestone as Milestone).label ?? "Milestone",
+          date: (milestone as Milestone).date ?? endDate,
+        }
+      : null,
+  };
+}
 
 function load(): Goal[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return sample;
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) return parsed as Goal[];
+    if (Array.isArray(parsed)) return parsed.map((item) => sanitizeGoal(item as RawGoal));
   } catch {}
   return sample;
 }
@@ -132,10 +171,11 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
     return arr;
   }, [goals, filters]);
 
-  const addGoal = (g: Omit<Goal, "id">) => setGoals((s) => [...s, { ...g, id: crypto.randomUUID() }]);
-  const updateGoal = (g: Goal) => setGoals((s) => s.map((x) => (x.id === g.id ? g : x)));
+  const addGoal = (g: Omit<Goal, "id">) =>
+    setGoals((s) => [...s, sanitizeGoal({ ...g, id: crypto.randomUUID() })]);
+  const updateGoal = (g: Goal) => setGoals((s) => s.map((x) => (x.id === g.id ? sanitizeGoal(g) : x)));
   const deleteGoal = (id: string) => setGoals((s) => s.filter((x) => x.id !== id));
-  const importJson = (input: Goal[]) => setGoals(input ?? []);
+  const importJson = (input: Goal[]) => setGoals((input ?? []).map(sanitizeGoal));
   const exportJson = () => JSON.stringify(goals, null, 2);
 
   const value: Ctx = {

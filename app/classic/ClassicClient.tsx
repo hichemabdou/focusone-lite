@@ -6,61 +6,68 @@ import Summary from "@/components/Summary";
 import Timeline from "@/components/Timeline";
 import { useGoals } from "@/components/GoalsContext";
 
-/**
- * Layout:
- * ┌────────── sticky left ┬──────────────────────────────────────────────┐
- * │  Filters (frameless)  │ Timeline (hero)                              │
- * │                       │ Summary (compact)                            │
- * │                       │ Goal library                                 │
- * └───────────────────────┴──────────────────────────────────────────────┘
- */
 export default function ClassicClient() {
   const { goals, visibleGoals } = useGoals();
   const activeGoals = visibleGoals ?? goals ?? [];
 
+  const scrollToLibrary = () => {
+    document.getElementById("goal-library")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   return (
-    <div className="app">
-      <div className="app__inner mx-auto max-w-7xl">
-        <div className="app__grid">
-          {/* LEFT: sticky filters (no outer panel, avoids double frame) */}
-          <aside className="sidebar">
-            <div className="sidebar__inner">
-              <GoalFilters />
+    <div className="workspace">
+      <section className="workspace__hero">
+        <div className="workspace__hero-copy">
+          <p className="workspace__eyebrow">Focus.One workspace</p>
+          <h1>Manage every intention with calm clarity.</h1>
+          <p>
+            Filter horizons on the left, adjust the timeline density on the right, and capture milestones without
+            breaking flow. It’s a premium control centre for modern goal management.
+          </p>
+        </div>
+        <div className="workspace__hero-side">
+          <Summary goals={activeGoals} />
+          <div className="workspace__hero-actions">
+            <button type="button" className="btn btn--primary" onClick={scrollToLibrary}>
+              + Add a goal
+            </button>
+            <button type="button" className="btn" onClick={scrollToLibrary}>
+              Jump to library
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <div className="workspace__layout">
+        <aside className="workspace__sidebar">
+          <GoalFilters />
+        </aside>
+
+        <div className="workspace__main">
+          <section className="workspace__panel workspace__panel--timeline">
+            <div className="workspace__panel-head">
+              <div>
+                <p className="workspace__eyebrow">Timeline</p>
+                <h2>Multiple windows, one integrated view</h2>
+                <p className="workspace__lead">
+                  Toggle between this month, six months, year to date, or the next five years. Milestones are embedded
+                  directly on each bar so you never lose sight of key checkpoints.
+                </p>
+              </div>
             </div>
-          </aside>
+            <Timeline />
+          </section>
 
-          {/* RIGHT: Main column */}
-          <main className="main">
-            {/* Timeline (hero) */}
-            <section className="panel" style={{ minHeight: "clamp(440px, 52vh, 640px)" }}>
-              <div className="panel__head">
-                <h2 className="panel__title">Timeline overview</h2>
-              </div>
-              <div className="panel__body min-w-0">
-                <Timeline />
-              </div>
-            </section>
-
-            {/* Compact summary */}
-            <section className="panel panel--compact">
-              <div className="panel__head">
-                <h2 className="panel__title">Overview</h2>
-              </div>
-              <div className="panel__body">
-                <Summary goals={activeGoals} className="grid grid-cols-2 gap-3 md:grid-cols-4" />
-              </div>
-            </section>
-
-            {/* Goal library */}
-            <section className="panel flex-1 min-w-0">
-              <div className="panel__head">
-                <h2 className="panel__title">Goal library</h2>
-              </div>
-              <div className="panel__body h-full">
-                <GoalsList />
-              </div>
-            </section>
-          </main>
+          <section id="goal-library" className="workspace__panel workspace__panel--library">
+            <div className="workspace__panel-head">
+              <p className="workspace__eyebrow">Goal library</p>
+              <h2>Work the list</h2>
+              <p className="workspace__lead">
+                Add goals in seconds, regroup by status or priority, and edit context inline without modal hopping.
+              </p>
+            </div>
+            <GoalsList />
+          </section>
         </div>
       </div>
     </div>

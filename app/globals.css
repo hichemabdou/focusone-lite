@@ -99,6 +99,106 @@ body {
 .main { min-width: 0; display: flex; flex-direction: column; gap: 16px; }
 
 /* =========================================================================
+   WORKSPACE LAYOUT (new classic client)
+   ========================================================================= */
+.workspace{
+  min-height:100dvh;
+  display:flex;
+  flex-direction:column;
+  gap:24px;
+  padding:24px;
+  max-width:1200px;
+  margin:0 auto 80px;
+}
+.workspace__hero{
+  display:flex;
+  flex-wrap:wrap;
+  gap:24px;
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:28px;
+  padding:28px;
+  background: radial-gradient(circle at top left, rgba(255,255,255,.08), transparent 60%), rgba(12,14,20,.85);
+  box-shadow:0 40px 90px -60px rgba(5,6,10,.9);
+}
+.workspace__hero-copy{
+  flex:1 1 320px;
+}
+.workspace__hero-copy h1{
+  margin:10px 0;
+  font-size:32px;
+  line-height:1.2;
+  color:#f8fafc;
+}
+.workspace__hero-copy p{
+  margin:0;
+  color:rgba(226,232,240,.78);
+  font-size:15px;
+  line-height:1.5;
+}
+.workspace__hero-side{
+  flex:1 1 320px;
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+}
+.workspace__hero-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+}
+.workspace__layout{
+  display:grid;
+  grid-template-columns: minmax(280px, 340px) minmax(0,1fr);
+  gap:24px;
+}
+.workspace__sidebar{
+  position:sticky;
+  top:24px;
+  align-self:start;
+}
+.workspace__main{
+  display:flex;
+  flex-direction:column;
+  gap:24px;
+}
+.workspace__panel{
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:26px;
+  padding:20px;
+  background: rgba(13,15,21,.86);
+  box-shadow:0 30px 60px -50px rgba(5,6,10,.9);
+}
+.workspace__panel-head{
+  margin-bottom:18px;
+}
+.workspace__eyebrow{
+  font-size:11px;
+  letter-spacing:.24em;
+  text-transform:uppercase;
+  color:rgba(148,163,184,.8);
+  margin-bottom:6px;
+}
+.workspace__panel-head h2{
+  margin:0;
+  font-size:22px;
+  color:#f8fafc;
+}
+.workspace__lead{
+  margin-top:6px;
+  color:rgba(209,213,219,.78);
+  font-size:14px;
+  max-width:640px;
+}
+@media (max-width: 960px){
+  .workspace__layout{
+    grid-template-columns: 1fr;
+  }
+  .workspace__sidebar{
+    position:static;
+  }
+}
+
+/* =========================================================================
    CONTROLS
    ========================================================================= */
 .field, input.field, select.field {
@@ -511,35 +611,24 @@ body {
   position:absolute;
   top:12px;
   bottom:12px;
-  width:1px;
-  background: linear-gradient(180deg, rgba(96,165,250,.85), rgba(59,130,246,.0));
-  pointer-events:none;
-  z-index:2;
-}
-.timeline__today::after{
-  content:\"\"; position:absolute;
-  top:-10px;
-  left:50%;
-  transform:translate(-50%, 0);
-  width:12px; height:12px;
+  width:2px;
+  background: rgba(147,197,253,.7);
   border-radius:999px;
-  background: rgba(96,165,250,.92);
-  box-shadow:0 0 18px rgba(96,165,250,.55);
+  pointer-events:none;
+  z-index:1;
 }
 .timeline__today-label{
   position:absolute;
-  top:-34px;
+  top:-18px;
   left:50%;
   transform:translate(-50%, 0);
   font-size:10px;
-  letter-spacing:.18em;
+  letter-spacing:.16em;
   text-transform:uppercase;
-  color:#c5dcff;
-  background: rgba(11,13,18,.92);
-  padding:4px 12px;
+  color:#dbeafe;
+  background: rgba(12,14,20,.9);
+  padding:2px 8px;
   border-radius:999px;
-  border:1px solid rgba(96,165,250,.38);
-  box-shadow:0 12px 32px -18px rgba(96,165,250,.65);
   pointer-events:none;
 }
 
@@ -621,6 +710,69 @@ body {
   align-items:center;
   gap:10px;
   flex-wrap:wrap;
+}
+.goal-library__view-toggle{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-bottom:16px;
+}
+.goal-section-list{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+.goal-section{
+  border:1px solid rgba(255,255,255,.05);
+  border-radius:18px;
+  background: rgba(12,14,20,.78);
+  padding:14px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+}
+.goal-section__header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:12px;
+}
+.goal-section__title{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  font-size:13px;
+  font-weight:600;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:#f5f8ff;
+  background:none;
+  border:none;
+  cursor:pointer;
+  padding:0;
+}
+.goal-section__chevron{
+  width:10px;
+  height:10px;
+  border-bottom:1px solid rgba(255,255,255,.6);
+  border-right:1px solid rgba(255,255,255,.6);
+  transform: rotate(-45deg);
+  transition: transform .2s ease;
+}
+.goal-section__chevron.is-open{
+  transform: rotate(45deg);
+}
+.goal-section__count{
+  font-size:11px;
+  color:rgba(226,232,240,.6);
+}
+.goal-section__collapse{
+  height:28px;
+  padding:0 12px;
+}
+.goal-section__body{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
 }
 .goal-composer{
   margin-bottom:18px;
@@ -809,6 +961,23 @@ body {
   flex-wrap:wrap;
   justify-content:flex-end;
 }
+.goal-card__milestone{
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap:8px;
+  width:100%;
+}
+.goal-card__milestone-label{
+  grid-column: 1 / -1;
+  font-size:10px;
+  letter-spacing:.18em;
+  text-transform:uppercase;
+  color: rgba(224,232,245,.55);
+}
+.goal-card__milestone-input{
+  height:32px;
+  font-size:12px;
+}
 .goal-chip{
   border:none;
   font-size:11px;
@@ -909,3 +1078,31 @@ body {
 .grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}
 .gap-3{gap:.75rem}
 @media (min-width:768px){ .md\:grid-cols-4{grid-template-columns:repeat(4,minmax(0,1fr))} }
+.timeline__milestone{
+  position:absolute;
+  top:8px;
+  transform:translateX(-50%);
+  display:flex;
+  align-items:center;
+  gap:6px;
+  pointer-events:none;
+  z-index:2;
+}
+.timeline__milestone-dot{
+  width:10px;
+  height:10px;
+  border-radius:999px;
+  background: #facc15;
+  box-shadow:0 0 12px rgba(250,204,21,.6);
+  border:1px solid rgba(0,0,0,.4);
+}
+.timeline__milestone-label{
+  font-size:10px;
+  letter-spacing:.18em;
+  text-transform:uppercase;
+  color:#ffe5a5;
+  background: rgba(12,12,18,.85);
+  border-radius:999px;
+  padding:3px 8px;
+  border:1px solid rgba(250,204,21,.35);
+}

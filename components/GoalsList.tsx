@@ -25,6 +25,7 @@ const DEFAULT_GOAL = (): Omit<Goal, "id"> => {
     priority: "medium",
     status: "open",
     notes: "",
+    milestone: null,
   };
 };
 
@@ -33,6 +34,24 @@ const STATUS_LABELS: Record<Status, string> = {
   "in-progress": "In progress",
   blocked: "Blocked",
   done: "Done",
+};
+type GroupMode = "status" | "priority" | "flow";
+
+const ensureMilestoneDraft = (milestone: Goal["milestone"], fallbackDate: string) =>
+  milestone ?? { id: crypto.randomUUID(), label: "", date: fallbackDate };
+
+const normalizeMilestoneDraft = (
+  milestone: Goal["milestone"],
+  fallbackDate: string
+): Goal["milestone"] | null => {
+  const label = milestone?.label?.trim() ?? "";
+  const date = milestone?.date ?? "";
+  if (!label && !date) return null;
+  return {
+    id: milestone?.id ?? crypto.randomUUID(),
+    label: label || milestone?.label || "Milestone",
+    date: date || fallbackDate,
+  };
 };
 
 /* ---------- component ---------- */
@@ -49,6 +68,8 @@ export default function GoalsList() {
     };
   }, [items]);
 
+  const [groupMode, setGroupMode] = useState<GroupMode>("status");
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [quickDraft, setQuickDraft] = useState<Omit<Goal, "id">>(DEFAULT_GOAL());
   const [quickError, setQuickError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -57,13 +78,51 @@ export default function GoalsList() {
   const [error, setError] = useState<string | null>(null);
   const openModal = () => { setDraft(DEFAULT_GOAL()); setError(null); setModalOpen(true); };
 
+  const updateQuickMilestone = (patch: Partial<Goal["milestone"]>) => {
+    setQuickDraft((prev) => {
+      const base = ensureMilestoneDraft(prev.milestone ?? null, prev.endDate);
+      return { ...prev, milestone: { ...base, ...patch } };
+    });
+  };
+
   const handleQuickSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!quickDraft.title.trim()) { setQuickError("Give the goal a name."); return; }
     if (quickDraft.startDate > quickDraft.endDate) { setQuickError("End date must be after start date."); return; }
-    addGoal(quickDraft);
+    const normalizedMilestone = normalizeMilestoneDraft(quickDraft.milestone ?? null, quickDraft.endDate);
+    addGoal({ ...quickDraft, milestone: normalizedMilestone });
     setQuickDraft(DEFAULT_GOAL());
     setQuickError(null);
+  };
+
+  const grouped = useMemo(() => {
+    if (groupMode === "flow") {
+      return [{ key: "all", label: "All goals", items }];
+    }
+
+    if (groupMode === "priority") {
+      const order: Priority[] = ["critical", "high", "medium", "low"];
+      return order
+        .map((pri) => ({
+          key: `priority-${pri}`,
+          label: pri.charAt(0).toUpperCase() + pri.slice(1),
+          items: items.filter((goal) => goal.priority === pri),
+        }))
+        .filter((section) => section.items.length > 0);
+    }
+
+    const order: Status[] = ["open", "in-progress", "blocked", "done"];
+    return order
+      .map((status) => ({
+        key: `status-${status}`,
+        label: STATUS_LABELS[status],
+        items: items.filter((goal) => goal.status === status),
+      }))
+      .filter((section) => section.items.length > 0);
+  }, [groupMode, items]);
+
+  const toggleSection = (key: string) => {
+    setCollapsedSections((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
   return (
@@ -117,7 +176,6 @@ export default function GoalsList() {
           </button>
         </div>
       </div>
-
       {/* Quick add composer */}
       <form className="goal-composer" onSubmit={handleQuickSubmit}>
         <div className="goal-composer__grid">
@@ -145,6 +203,33 @@ export default function GoalsList() {
               onChange={(e) => {
                 setQuickError(null);
                 setQuickDraft((prev) => ({ ...prev, notes: e.target.value }));
+              }}
+            />
+          </label>
+
+          <label className="goal-composer__field">
+            <span>Milestone title</span>
+            <input
+              className="field"
+              type="text"
+              value={quickDraft.milestone?.label ?? ""}
+              placeholder="e.g. Mid-review"
+              onChange={(e) => {
+                setQuickError(null);
+                updateQuickMilestone({ label: e.target.value });
+              }}
+            />
+          </label>
+
+          <label className="goal-composer__field">
+            <span>Milestone date</span>
+            <input
+              className="field"
+              type="date"
+              value={quickDraft.milestone?.date ?? ""}
+              onChange={(e) => {
+                setQuickError(null);
+                updateQuickMilestone({ date: e.target.value });
               }}
             />
           </label>
@@ -233,19 +318,71 @@ export default function GoalsList() {
         </div>
       </form>
 
-      {/* List */}
-      <div className="space-y-3">
-        {items.map((goal) => (
-          <GoalCard
-            key={goal.id}
-            goal={goal}
-            updateGoal={updateGoal}
-            deleteGoal={deleteGoal}
-          />
+      <div className="goal-library__view-toggle">
+        {([
+          { key: "status", label: "Status lanes" },
+          { key: "priority", label: "Priority lanes" },
+          { key: "flow", label: "Chronological" },
+        ] as { key: GroupMode; label: string }[]).map((option) => (
+          <button
+            key={option.key}
+            type="button"
+            className={[
+              "chip",
+              "chip--interactive",
+              groupMode === option.key ? "chip--on" : "",
+            ].join(" ")}
+            onClick={() => setGroupMode(option.key)}
+          >
+            {option.label}
+          </button>
         ))}
+      </div>
 
-        {items.length === 0 && (
-          <div className="text-sm text-white/60">No goals yet. Click <span className="chip">+ New goal</span> to add one.</div>
+      <div className="goal-section-list">
+        {grouped.map((section) => {
+          const collapsed = collapsedSections[section.key];
+          return (
+            <section key={section.key} className="goal-section">
+              <header className="goal-section__header">
+                <button
+                  type="button"
+                  className="goal-section__title"
+                  aria-expanded={!collapsed}
+                  onClick={() => toggleSection(section.key)}
+                >
+                  <span className={["goal-section__chevron", collapsed ? "" : "is-open"].join(" ")} aria-hidden />
+                  <span>{section.label}</span>
+                  <span className="goal-section__count">{section.items.length}</span>
+                </button>
+                <button
+                  type="button"
+                  className="btn goal-section__collapse"
+                  onClick={() => toggleSection(section.key)}
+                >
+                  {collapsed ? "Expand" : "Collapse"}
+                </button>
+              </header>
+              {!collapsed && (
+                <div className="goal-section__body">
+                  {section.items.map((goal) => (
+                    <GoalCard
+                      key={goal.id}
+                      goal={goal}
+                      updateGoal={updateGoal}
+                      deleteGoal={deleteGoal}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          );
+        })}
+
+        {grouped.length === 0 && (
+          <div className="text-sm text-white/60">
+            No goals yet. Click <span className="chip">+ Detailed entry</span> to add one.
+          </div>
         )}
       </div>
 
@@ -376,6 +513,24 @@ function GoalCard({ goal, updateGoal, deleteGoal }: GoalCardProps) {
     }
   };
 
+  const handleMilestoneBlur = (field: "label" | "date") => (
+    event: FocusEvent<HTMLInputElement>
+  ) => {
+    const base = ensureMilestoneDraft(goal.milestone ?? null, goal.endDate);
+    const next = { ...base, [field]: event.target.value };
+    const normalized = normalizeMilestoneDraft(next, goal.endDate);
+    if (
+      (normalized === null && goal.milestone === null) ||
+      (normalized && goal.milestone && normalized.label === goal.milestone.label && normalized.date === goal.milestone.date)
+    ) {
+      if (normalized === null && goal.milestone !== null) {
+        updateGoal({ ...goal, milestone: null });
+      }
+      return;
+    }
+    updateGoal({ ...goal, milestone: normalized });
+  };
+
   return (
     <article className={["goal-card", `goal-card--${statusKey}`].join(" ")}>
       <div className="goal-card__content">
@@ -406,6 +561,24 @@ function GoalCard({ goal, updateGoal, deleteGoal }: GoalCardProps) {
         <div className="goal-card__chips">
           <span className={["chip", "goal-chip", `goal-chip--${statusKey}`].join(" ")}>{statusLabel}</span>
           <span className={["chip", "goal-chip", `goal-chip--pri-${goal.priority}`].join(" ")}>{priorityLabel}</span>
+        </div>
+
+        <div className="goal-card__milestone">
+          <span className="goal-card__milestone-label">Milestone</span>
+          <input
+            key={`${goal.id}-milestone-label-${goal.milestone?.label ?? ""}`}
+            className="field goal-card__milestone-input"
+            placeholder="Title"
+            defaultValue={goal.milestone?.label ?? ""}
+            onBlur={handleMilestoneBlur("label")}
+          />
+          <input
+            key={`${goal.id}-milestone-date-${goal.milestone?.date ?? ""}`}
+            className="field goal-card__milestone-input"
+            type="date"
+            defaultValue={goal.milestone?.date ?? ""}
+            onBlur={handleMilestoneBlur("date")}
+          />
         </div>
 
         <div className="goal-card__actions">
