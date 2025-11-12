@@ -3,6 +3,10 @@
 import { useMemo } from "react";
 import { Goal, useGoals } from "./GoalsContext";
 
+type Props = {
+  onJumpToLibrary?: () => void;
+};
+
 type Cat = "STRATEGY" | "VISION" | "TACTICAL" | "PROJECT" | "DAILY";
 type Pri = "low" | "medium" | "high" | "critical";
 type St  = "open" | "in-progress" | "blocked" | "done";
@@ -12,7 +16,7 @@ const CATEGORIES: Cat[] = ["STRATEGY", "VISION", "TACTICAL", "PROJECT", "DAILY"]
 const PRIORITIES: Pri[] = ["low", "medium", "high", "critical"];
 const STATUSES: St[]     = ["open", "in-progress", "blocked", "done"];
 
-export default function GoalFilters() {
+export default function GoalFilters({ onJumpToLibrary }: Props = {}) {
   const { goals = [], filters, setFilters } = useGoals();
   const all: Goal[] = goals;
 
@@ -133,6 +137,13 @@ export default function GoalFilters() {
         <p className="filters__subtitle">
           Filter by horizon, urgency, or progress to tailor the timeline to exactly what you want to see.
         </p>
+        {onJumpToLibrary && (
+          <div className="filters__cta">
+            <button type="button" className="btn" onClick={onJumpToLibrary}>
+              Jump to library
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Elegant stats strip */}

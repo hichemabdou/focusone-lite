@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import type { FormEvent, KeyboardEvent, FocusEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { KeyboardEvent, FocusEvent } from "react";
 import { Goal, Priority, Status, useGoals } from "./GoalsContext";
-import Modal from "./Modal";
+import GoalEditor from "./GoalEditor";
+import MilestoneEditor from "./MilestoneEditor";
 
 /* ---------- helpers ---------- */
 function prettyRange(g: Goal) {
@@ -12,22 +13,6 @@ function prettyRange(g: Goal) {
   const fmt = (d: Date) => d.toLocaleString(undefined, { month: "short", day: "2-digit" });
   return `${fmt(s)} — ${fmt(e)}`;
 }
-const toISO = (d: Date) => d.toISOString().slice(0, 10);
-const addDays = (d: Date, days: number) => { const x = new Date(d); x.setDate(x.getDate() + days); return x; };
-
-const DEFAULT_GOAL = (): Omit<Goal, "id"> => {
-  const today = new Date();
-  return {
-    title: "",
-    startDate: toISO(today),
-    endDate: toISO(addDays(today, 30)),
-    category: "STRATEGY",
-    priority: "medium",
-    status: "open",
-    notes: "",
-    milestone: null,
-  };
-};
 
 const STATUS_LABELS: Record<Status, string> = {
   open: "Open",
@@ -37,63 +22,21 @@ const STATUS_LABELS: Record<Status, string> = {
 };
 type GroupMode = "status" | "priority" | "flow";
 
-const ensureMilestoneDraft = (milestone: Goal["milestone"], fallbackDate: string) =>
-  milestone ?? { id: crypto.randomUUID(), label: "", date: fallbackDate };
-
-const normalizeMilestoneDraft = (
-  milestone: Goal["milestone"],
-  fallbackDate: string
-): Goal["milestone"] | null => {
-  const label = milestone?.label?.trim() ?? "";
-  const date = milestone?.date ?? "";
-  if (!label && !date) return null;
-  return {
-    id: milestone?.id ?? crypto.randomUUID(),
-    label: label || milestone?.label || "Milestone",
-    date: date || fallbackDate,
-  };
-};
-
 /* ---------- component ---------- */
 export default function GoalsList() {
-  const { visibleGoals, goals, exportJson, importJson, deleteGoal, addGoal, updateGoal } = useGoals();
+  const { visibleGoals, goals, deleteGoal, addGoal, updateGoal } = useGoals();
   const items = useMemo(() => (visibleGoals ?? goals ?? []) as Goal[], [visibleGoals, goals]);
-
-  const counts = useMemo(() => {
-    return {
-      open: items.filter((g) => g.status === "open").length,
-      inprog: items.filter((g) => g.status === "in-progress").length,
-      blocked: items.filter((g) => g.status === "blocked").length,
-      done: items.filter((g) => g.status === "done").length,
-    };
-  }, [items]);
 
   const [groupMode, setGroupMode] = useState<GroupMode>("status");
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
-  const [quickDraft, setQuickDraft] = useState<Omit<Goal, "id">>(DEFAULT_GOAL());
-  const [quickError, setQuickError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [draft, setDraft] = useState<Omit<Goal, "id">>(DEFAULT_GOAL());
-  const [error, setError] = useState<string | null>(null);
-  const openModal = () => { setDraft(DEFAULT_GOAL()); setError(null); setModalOpen(true); };
+  const [editorState, setEditorState] = useState<{ mode: "create" | "edit"; goal?: Goal | null } | null>(null);
+  const [milestoneGoal, setMilestoneGoal] = useState<Goal | null>(null);
 
-  const updateQuickMilestone = (patch: Partial<Goal["milestone"]>) => {
-    setQuickDraft((prev) => {
-      const base = ensureMilestoneDraft(prev.milestone ?? null, prev.endDate);
-      return { ...prev, milestone: { ...base, ...patch } };
-    });
-  };
-
-  const handleQuickSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!quickDraft.title.trim()) { setQuickError("Give the goal a name."); return; }
-    if (quickDraft.startDate > quickDraft.endDate) { setQuickError("End date must be after start date."); return; }
-    const normalizedMilestone = normalizeMilestoneDraft(quickDraft.milestone ?? null, quickDraft.endDate);
-    addGoal({ ...quickDraft, milestone: normalizedMilestone });
-    setQuickDraft(DEFAULT_GOAL());
-    setQuickError(null);
-  };
+  useEffect(() => {
+    const handler = () => setEditorState({ mode: "create" });
+    window.addEventListener("open-goal-composer", handler);
+    return () => window.removeEventListener("open-goal-composer", handler);
+  }, []);
 
   const grouped = useMemo(() => {
     if (groupMode === "flow") {
@@ -125,198 +68,22 @@ export default function GoalsList() {
     setCollapsedSections((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
+  const openEdit = (goal: Goal) => setEditorState({ mode: "edit", goal });
+  const closeEditor = () => setEditorState(null);
+
+  const handleSave = (input: Goal | Omit<Goal, "id">) => {
+    if (editorState?.mode === "edit" && "id" in input) {
+      updateGoal(input as Goal);
+    } else {
+      addGoal(input as Omit<Goal, "id">);
+    }
+    closeEditor();
+  };
+
   return (
     <div className="min-w-0">
       {/* Header & global actions */}
-      <div className="goal-library__intro">
-        <div className="goal-library__copy">
-          <p className="goal-library__lead">
-            Keep a premium, high-level list. Tweak inline or capture a new intention in seconds.
-          </p>
-          <div className="goal-library__counts">
-            Open {counts.open} • In progress {counts.inprog} • Blocked {counts.blocked} • Done {counts.done}
-          </div>
-        </div>
-        <div className="goal-library__actions">
-          <button type="button" onClick={openModal} className="btn btn--primary">+ Detailed entry</button>
-          <label className="btn cursor-pointer">
-            Import
-            <input
-              type="file"
-              accept="application/json"
-              className="hidden"
-              onChange={async (event) => {
-                const file = event.target.files?.[0];
-                if (!file) return;
-                setBusy(true);
-                const text = await file.text();
-                try {
-                  const data = JSON.parse(text);
-                  if (Array.isArray(data)) importJson(data as Goal[]);
-                } finally {
-                  setBusy(false);
-                }
-              }}
-            />
-          </label>
-          <button
-            type="button"
-            className="btn"
-            disabled={busy}
-            onClick={() => {
-              const blob = new Blob([exportJson()], { type: "application/json" });
-              const a = document.createElement("a");
-              a.href = URL.createObjectURL(blob);
-              a.download = "goals.json";
-              a.click();
-              URL.revokeObjectURL(a.href);
-            }}
-          >
-            Export
-          </button>
-        </div>
-      </div>
-      {/* Quick add composer */}
-      <form className="goal-composer" onSubmit={handleQuickSubmit}>
-        <div className="goal-composer__grid">
-          <label className="goal-composer__field goal-composer__field--wide">
-            <span>Title</span>
-            <input
-              className="field"
-              type="text"
-              value={quickDraft.title}
-              placeholder="Name the intention"
-              onChange={(e) => {
-                setQuickError(null);
-                setQuickDraft((prev) => ({ ...prev, title: e.target.value }));
-              }}
-            />
-          </label>
-
-          <label className="goal-composer__field goal-composer__field--wide">
-            <span>Notes</span>
-            <input
-              className="field"
-              type="text"
-              value={quickDraft.notes ?? ""}
-              placeholder="Optional context"
-              onChange={(e) => {
-                setQuickError(null);
-                setQuickDraft((prev) => ({ ...prev, notes: e.target.value }));
-              }}
-            />
-          </label>
-
-          <label className="goal-composer__field">
-            <span>Milestone title</span>
-            <input
-              className="field"
-              type="text"
-              value={quickDraft.milestone?.label ?? ""}
-              placeholder="e.g. Mid-review"
-              onChange={(e) => {
-                setQuickError(null);
-                updateQuickMilestone({ label: e.target.value });
-              }}
-            />
-          </label>
-
-          <label className="goal-composer__field">
-            <span>Milestone date</span>
-            <input
-              className="field"
-              type="date"
-              value={quickDraft.milestone?.date ?? ""}
-              onChange={(e) => {
-                setQuickError(null);
-                updateQuickMilestone({ date: e.target.value });
-              }}
-            />
-          </label>
-
-          <label className="goal-composer__field">
-            <span>Start</span>
-            <input
-              type="date"
-              className="field"
-              value={quickDraft.startDate}
-              onChange={(e) => {
-                setQuickError(null);
-                setQuickDraft((prev) => ({ ...prev, startDate: e.target.value }));
-              }}
-            />
-          </label>
-
-          <label className="goal-composer__field">
-            <span>End</span>
-            <input
-              type="date"
-              className="field"
-              value={quickDraft.endDate}
-              onChange={(e) => {
-                setQuickError(null);
-                setQuickDraft((prev) => ({ ...prev, endDate: e.target.value }));
-              }}
-            />
-          </label>
-
-          <label className="goal-composer__field">
-            <span>Status</span>
-            <select
-              className="field select"
-              value={quickDraft.status}
-              onChange={(e) => {
-                setQuickError(null);
-                setQuickDraft((prev) => ({ ...prev, status: e.target.value as Status }));
-              }}
-            >
-              <option value="open">Open</option>
-              <option value="in-progress">In progress</option>
-              <option value="blocked">Blocked</option>
-              <option value="done">Done</option>
-            </select>
-          </label>
-
-          <label className="goal-composer__field">
-            <span>Priority</span>
-            <select
-              className="field select"
-              value={quickDraft.priority}
-              onChange={(e) => {
-                setQuickError(null);
-                setQuickDraft((prev) => ({ ...prev, priority: e.target.value as Priority }));
-              }}
-            >
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-              <option value="critical">Critical</option>
-            </select>
-          </label>
-
-          <label className="goal-composer__field">
-            <span>Category</span>
-            <select
-              className="field select"
-              value={quickDraft.category}
-              onChange={(e) => {
-                setQuickError(null);
-                setQuickDraft((prev) => ({ ...prev, category: e.target.value as Goal["category"] }));
-              }}
-            >
-              <option value="STRATEGY">Strategy</option>
-              <option value="VISION">Vision</option>
-              <option value="TACTICAL">Tactical</option>
-              <option value="PROJECT">Project</option>
-              <option value="DAILY">Daily</option>
-            </select>
-          </label>
-        </div>
-        <div className="goal-composer__footer">
-          {quickError && <span className="goal-composer__error">{quickError}</span>}
-          <button type="submit" className="btn btn--primary">Add goal</button>
-        </div>
-      </form>
+      <div className="goal-library__intro" />
 
       <div className="goal-library__view-toggle">
         {([
@@ -371,6 +138,8 @@ export default function GoalsList() {
                       goal={goal}
                       updateGoal={updateGoal}
                       deleteGoal={deleteGoal}
+                      onEdit={openEdit}
+                      onEditMilestone={setMilestoneGoal}
                     />
                   ))}
                 </div>
@@ -381,91 +150,28 @@ export default function GoalsList() {
 
         {grouped.length === 0 && (
           <div className="text-sm text-white/60">
-            No goals yet. Click <span className="chip">+ Detailed entry</span> to add one.
+            No goals yet. Use the <span className="chip">+ Add goal</span> button in the header to capture one.
           </div>
         )}
       </div>
 
-      {/* Add modal */}
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Add a goal">
-        <form
-          className="space-y-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (!draft.title.trim()) { setError("Give the goal a name."); return; }
-            if (draft.startDate > draft.endDate) { setError("End date must be after start date."); return; }
-            addGoal(draft); setModalOpen(false);
-          }}
-        >
-          {error && <div className="rounded-md border border-white/10 bg-white/10 p-3 text-sm text-white/80">{error}</div>}
+      <GoalEditor
+        open={Boolean(editorState)}
+        mode={editorState?.mode ?? "create"}
+        goal={editorState?.goal ?? undefined}
+        onCancel={closeEditor}
+        onSave={handleSave}
+      />
 
-          <div className="grid gap-3 md:grid-cols-2">
-            <label className="space-y-1">
-              <span className="text-xs uppercase tracking-[0.2em] text-white/50">Title</span>
-              <input
-                className="field w-full"
-                type="text"
-                value={draft.title}
-                placeholder="Name the intention"
-                onChange={(e) => setDraft((prev) => ({ ...prev, title: e.target.value }))}
-              />
-            </label>
-
-            <label className="space-y-1">
-              <span className="text-xs uppercase tracking-[0.2em] text-white/50">Category</span>
-              <select
-                className="field select w-full"
-                value={draft.category}
-                onChange={(e) => setDraft((prev) => ({ ...prev, category: e.target.value as Goal["category"] }))}
-              >
-                <option value="STRATEGY">Strategy</option>
-                <option value="VISION">Vision</option>
-                <option value="TACTICAL">Tactical</option>
-                <option value="PROJECT">Project</option>
-                <option value="DAILY">Daily</option>
-              </select>
-            </label>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-2">
-            <label className="space-y-1">
-              <span className="text-xs uppercase tracking-[0.2em] text-white/50">Start</span>
-              <input
-                type="date"
-                className="field w-full"
-                value={draft.startDate}
-                onChange={(e) => setDraft((prev) => ({ ...prev, startDate: e.target.value }))}
-              />
-            </label>
-
-            <label className="space-y-1">
-              <span className="text-xs uppercase tracking-[0.2em] text-white/50">End</span>
-              <input
-                type="date"
-                className="field w-full"
-                value={draft.endDate}
-                onChange={(e) => setDraft((prev) => ({ ...prev, endDate: e.target.value }))}
-              />
-            </label>
-          </div>
-
-          <label className="space-y-1 block">
-            <span className="text-xs uppercase tracking-[0.2em] text-white/50">Notes</span>
-            <input
-              className="field w-full"
-              type="text"
-              placeholder="Optional notes"
-              value={draft.notes}
-              onChange={(e) => setDraft((prev) => ({ ...prev, notes: e.target.value }))}
-            />
-          </label>
-
-          <div className="flex items-center justify-end gap-2">
-            <button type="button" className="btn" onClick={() => setModalOpen(false)}>Cancel</button>
-            <button type="submit" className="btn btn--primary">Save goal</button>
-          </div>
-        </form>
-      </Modal>
+      <MilestoneEditor
+        open={Boolean(milestoneGoal)}
+        goal={milestoneGoal}
+        onClose={() => setMilestoneGoal(null)}
+        onSave={(next) => {
+          updateGoal(next);
+          setMilestoneGoal(null);
+        }}
+      />
     </div>
   );
 }
@@ -474,12 +180,13 @@ type GoalCardProps = {
   goal: Goal;
   updateGoal: (goal: Goal) => void;
   deleteGoal: (id: string) => void;
+  onEdit(goal: Goal): void;
+  onEditMilestone(goal: Goal): void;
 };
 
-function GoalCard({ goal, updateGoal, deleteGoal }: GoalCardProps) {
+function GoalCard({ goal, updateGoal, deleteGoal, onEdit, onEditMilestone }: GoalCardProps) {
   const statusKey = goal.status === "in-progress" ? "inprog" : goal.status;
   const statusLabel = STATUS_LABELS[goal.status];
-  const priorityLabel = goal.priority.charAt(0).toUpperCase() + goal.priority.slice(1);
   const categoryLabel = goal.category.charAt(0) + goal.category.slice(1).toLowerCase();
   const notesValue = goal.notes ?? "";
 
@@ -513,103 +220,66 @@ function GoalCard({ goal, updateGoal, deleteGoal }: GoalCardProps) {
     }
   };
 
-  const handleMilestoneBlur = (field: "label" | "date") => (
-    event: FocusEvent<HTMLInputElement>
-  ) => {
-    const base = ensureMilestoneDraft(goal.milestone ?? null, goal.endDate);
-    const next = { ...base, [field]: event.target.value };
-    const normalized = normalizeMilestoneDraft(next, goal.endDate);
-    if (
-      (normalized === null && goal.milestone === null) ||
-      (normalized && goal.milestone && normalized.label === goal.milestone.label && normalized.date === goal.milestone.date)
-    ) {
-      if (normalized === null && goal.milestone !== null) {
-        updateGoal({ ...goal, milestone: null });
-      }
-      return;
-    }
-    updateGoal({ ...goal, milestone: normalized });
-  };
-
   return (
-    <article className={["goal-card", `goal-card--${statusKey}`].join(" ")}>
-      <div className="goal-card__content">
-        <div className="goal-card__tags">
-          <span className={`chip chip--micro chip--cat-${goal.category.toLowerCase()}`}>{categoryLabel}</span>
-          <span className="goal-card__dates">{prettyRange(goal)}</span>
-        </div>
+    <article className="goal-row">
+      <div className="goal-row__main">
+        <span className={["goal-row__status", `goal-row__status--${statusKey}`].join(" ")}>{statusLabel}</span>
         <input
           key={`${goal.id}-title-${goal.title}`}
-          className="goal-card__title-input"
+          className="goal-row__title"
           defaultValue={goal.title}
           onBlur={handleTitleBlur}
           onKeyDown={handleTitleKey}
           placeholder="Untitled goal"
         />
-        <textarea
-          key={`${goal.id}-notes-${notesValue}`}
-          className="goal-card__notes-input"
-          defaultValue={notesValue}
-          onBlur={handleNotesBlur}
-          onKeyDown={handleNotesKey}
-          placeholder="Add a short note"
-          rows={notesValue ? 2 : 1}
-        />
+        <span className="goal-row__category">{categoryLabel}</span>
+        <span className="goal-row__range">{prettyRange(goal)}</span>
       </div>
 
-      <div className="goal-card__aside">
-        <div className="goal-card__chips">
-          <span className={["chip", "goal-chip", `goal-chip--${statusKey}`].join(" ")}>{statusLabel}</span>
-          <span className={["chip", "goal-chip", `goal-chip--pri-${goal.priority}`].join(" ")}>{priorityLabel}</span>
+      <div className="goal-row__controls">
+        <textarea
+          key={`${goal.id}-notes-${notesValue}`}
+          className="goal-row__notes"
+          defaultValue={notesValue}
+          placeholder="Add note"
+          rows={notesValue ? 2 : 1}
+          onBlur={handleNotesBlur}
+          onKeyDown={handleNotesKey}
+        />
+        <div className="goal-row__selects">
+          <select
+            className="goal-row__select"
+            value={goal.status}
+            onChange={(e) => updateGoal({ ...goal, status: e.target.value as Status })}
+          >
+            <option value="open">Open</option>
+            <option value="in-progress">In progress</option>
+            <option value="blocked">Blocked</option>
+            <option value="done">Done</option>
+          </select>
+          <select
+            className="goal-row__select"
+            value={goal.priority}
+            onChange={(e) => updateGoal({ ...goal, priority: e.target.value as Priority })}
+          >
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+            <option value="critical">Critical</option>
+          </select>
+          <select
+            className="goal-row__select"
+            value={goal.category}
+            onChange={(e) => updateGoal({ ...goal, category: e.target.value as Goal["category"] })}
+          >
+            {["STRATEGY", "VISION", "TACTICAL", "PROJECT", "DAILY"].map((cat) => (
+              <option key={cat} value={cat}>{cat.charAt(0) + cat.slice(1).toLowerCase()}</option>
+            ))}
+          </select>
         </div>
-
-        <div className="goal-card__milestone">
-          <span className="goal-card__milestone-label">Milestone</span>
-          <input
-            key={`${goal.id}-milestone-label-${goal.milestone?.label ?? ""}`}
-            className="field goal-card__milestone-input"
-            placeholder="Title"
-            defaultValue={goal.milestone?.label ?? ""}
-            onBlur={handleMilestoneBlur("label")}
-          />
-          <input
-            key={`${goal.id}-milestone-date-${goal.milestone?.date ?? ""}`}
-            className="field goal-card__milestone-input"
-            type="date"
-            defaultValue={goal.milestone?.date ?? ""}
-            onBlur={handleMilestoneBlur("date")}
-          />
-        </div>
-
-        <div className="goal-card__actions">
-          <label className="goal-card__field">
-            <span>Status</span>
-            <select
-              value={goal.status}
-              onChange={(e) => updateGoal({ ...goal, status: e.target.value as Status })}
-              className="field select"
-            >
-              <option value="open">Open</option>
-              <option value="in-progress">In progress</option>
-              <option value="blocked">Blocked</option>
-              <option value="done">Done</option>
-            </select>
-          </label>
-
-          <label className="goal-card__field">
-            <span>Priority</span>
-            <select
-              value={goal.priority}
-              onChange={(e) => updateGoal({ ...goal, priority: e.target.value as Priority })}
-              className="field select"
-            >
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-              <option value="critical">Critical</option>
-            </select>
-          </label>
-
+        <div className="goal-row__actions">
+          <button type="button" className="btn" onClick={() => onEdit(goal)}>Details</button>
+          <button type="button" className="btn" onClick={() => onEditMilestone(goal)}>Milestone</button>
           <button type="button" className="btn btn--danger" onClick={() => deleteGoal(goal.id)}>Delete</button>
         </div>
       </div>

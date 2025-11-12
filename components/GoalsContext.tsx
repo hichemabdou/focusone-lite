@@ -6,11 +6,22 @@ export type Priority = "low" | "medium" | "high" | "critical";
 export type Status = "open" | "in-progress" | "blocked" | "done";
 export type Category = "STRATEGY" | "VISION" | "TACTICAL" | "PROJECT" | "DAILY";
 
-export type Milestone = {
-  id: string;
-  label: string;
-  date: string; // ISO
-};
+export type Milestone =
+  | {
+      id: string;
+      type: "point";
+      label: string;
+      date: string;
+      color?: string;
+    }
+  | {
+      id: string;
+      type: "window";
+      label: string;
+      windowStart: string;
+      windowEnd: string;
+      color?: string;
+    };
 
 export type Goal = {
   id: string;
@@ -77,6 +88,7 @@ const sample: Goal[] = [
     status: "open",
     milestone: {
       id: "m1",
+      type: "point",
       label: "Draft manifesto",
       date: "2025-11-20",
     },
@@ -96,9 +108,9 @@ const sample: Goal[] = [
 type RawGoal = Partial<Goal> & Record<string, unknown>;
 
 function sanitizeGoal(goalInput: RawGoal): Goal {
-  const { milestone } = goalInput;
   const startDate = goalInput.startDate ?? goalInput.endDate ?? new Date().toISOString().slice(0, 10);
   const endDate = goalInput.endDate ?? goalInput.startDate ?? startDate;
+  const normalizedMilestone = normalizeMilestone(goalInput.milestone, endDate);
 
   return {
     id: goalInput.id ?? crypto.randomUUID(),
@@ -109,13 +121,36 @@ function sanitizeGoal(goalInput: RawGoal): Goal {
     priority: goalInput.priority ?? "medium",
     status: goalInput.status ?? "open",
     notes: goalInput.notes,
-    milestone: milestone
-      ? {
-          id: (milestone as Milestone).id ?? crypto.randomUUID(),
-          label: (milestone as Milestone).label ?? "Milestone",
-          date: (milestone as Milestone).date ?? endDate,
-        }
-      : null,
+    milestone: normalizedMilestone,
+  };
+}
+
+function normalizeMilestone(input: unknown, fallbackDate: string): Goal["milestone"] | null {
+  if (!input) return null;
+  const data = input as Partial<Milestone> & { date?: string; windowStart?: string; windowEnd?: string };
+
+  if (data.type === "window") {
+    const rawStart = data.windowStart ?? fallbackDate;
+    const rawEnd = data.windowEnd ?? rawStart;
+    const [windowStart, windowEnd] = rawStart <= rawEnd ? [rawStart, rawEnd] : [rawEnd, rawStart];
+    return {
+      id: data.id ?? crypto.randomUUID(),
+      type: "window",
+      label: data.label ?? "Milestone window",
+      windowStart,
+      windowEnd,
+      color: data.color,
+    };
+  }
+
+  const label = data.label ?? "Milestone";
+  const date = data.date ?? fallbackDate;
+  return {
+    id: data.id ?? crypto.randomUUID(),
+    type: "point",
+    label,
+    date,
+    color: data.color,
   };
 }
 
