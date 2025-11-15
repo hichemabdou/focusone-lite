@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, MouseEvent } from "react";
-import { Goal, Category, Priority, Status, CATEGORY_COLORS, useGoals } from "./GoalsContext";
+import { Goal, Priority, Status, CATEGORY_COLORS, useGoals } from "./GoalsContext";
 import GoalEditor from "./GoalEditor";
 
 /* -------- utilities -------- */
@@ -67,6 +67,7 @@ type HoverState = { id: string; title: string; status: string; dateRange: string
 type Density = "cozy" | "balanced" | "compact";
 type SpanInfo = {
   g: Goal;
+  title: string;
   start: Date;
   end: Date;
   leftPct: number;
@@ -78,11 +79,10 @@ type SpanInfo = {
   stKey: string;
   isCompact: boolean;
   showOutside: boolean;
-  outsideAlign: "left" | "center" | "right";
-  catColor: string;
   statusColor: string;
   priorityColor: string;
-  priorityHeight: number;
+  priorityBg: string;
+  priorityBgStrong: string;
 };
 
 type MilestonePoint = { id: string; label: string; leftPct: number; color: string };
@@ -94,14 +94,6 @@ const statusLabel: Record<string, string> = {
   "in-progress": "In progress",
   blocked: "Blocked",
   done: "Done",
-};
-
-const CATEGORY_HEX: Record<Category, string> = {
-  STRATEGY: "#3b82f6",
-  VISION: "#c084fc",
-  TACTICAL: "#0ea5e9",
-  PROJECT: "#f97316",
-  DAILY: "#facc15",
 };
 
 const STATUS_HEX: Record<Status | "inprog", string> = {
@@ -118,12 +110,11 @@ const PRIORITY_HEX: Record<Priority, string> = {
   high: "#facc15",
   critical: "#fb7185",
 };
-
-const PRIORITY_HEIGHT: Record<Priority, number> = {
-  low: 2,
-  medium: 3,
-  high: 4,
-  critical: 5,
+const PRIORITY_TINTS: Record<Priority, { base: number; strong: number }> = {
+  low: { base: 0.18, strong: 0.35 },
+  medium: { base: 0.25, strong: 0.45 },
+  high: { base: 0.32, strong: 0.55 },
+  critical: { base: 0.4, strong: 0.65 },
 };
 
 function hexToRgba(hex: string, alpha = 1) {
@@ -161,6 +152,10 @@ export default function Timeline() {
   const [focusMode, setFocusMode] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [viewportWidth, setViewportWidth] = useState<number | null>(null);
+  const [showMonthGrid, setShowMonthGrid] = useState(false);
+  const [showQuarterGrid, setShowQuarterGrid] = useState(false);
+  const [gridMenuOpen, setGridMenuOpen] = useState(false);
+  const gridToggleRef = useRef<HTMLDivElement>(null);
 
   const range = useMemo<Range>(() => {
     const now = new Date();
@@ -185,6 +180,15 @@ export default function Timeline() {
   const msSpan = Math.max(1, range.end.getTime() - range.start.getTime());
 
   const months = monthsBetween(range);
+  const monthGridLines = useMemo(() => {
+    if (!showMonthGrid) return [];
+    return months
+      .map((month) => {
+        const boundary = endOfMonth(month);
+        return clampNum(((boundary.getTime() - msStart) / msSpan) * 100, 0, 100);
+      })
+      .filter((pct, index, arr) => arr.indexOf(pct) === index);
+  }, [months, msStart, msSpan, showMonthGrid]);
   const { pixelBasis, contentWidth } = useMemo(() => {
     const monthsCount = Math.max(months.length, 1);
     const monthWidth = focusMode ? 170 : 140;
@@ -211,34 +215,40 @@ export default function Timeline() {
     });
   }, [range, msStart, msSpan]);
 
+  const quarterGridLines = useMemo(() => {
+    if (!showQuarterGrid) return [];
+    return quarters.map((quarter) => quarter.leftPct);
+  }, [quarters, showQuarterGrid]);
+
   const spans = useMemo<SpanInfo[]>(
     () =>
       items.map((goal) => {
         const start = parseISO(goal.startDate);
         const end = parseISO(goal.endDate);
+        const title = (goal.title ?? "").trim().replace(/\s+/g, " ") || "Untitled goal";
         const leftPct = clampNum(((start.getTime() - msStart) / msSpan) * 100, -5, 105);
         const rightPct = clampNum(((end.getTime() - msStart) / msSpan) * 100, -5, 105);
         const widthPct = Math.max(0.8, rightPct - leftPct);
         const pixelWidth = Math.max(1, (widthPct / 100) * pixelBasis);
+        const estimatedText = Math.min(260, Math.max(60, title.length * 7.2));
 
         const category = goal.category || "PROJECT";
         const catClass = `bar--cat-${category.toLowerCase()}`;
         const priClass = `bar--pri-${goal.priority}`;
         const stKey = (goal.status === "in-progress" ? "inprog" : goal.status) || "open";
         const stClass = `bar--st-${stKey}`;
-        const showOutside = pixelWidth < (density === "compact" ? 140 : 160);
+        const showOutside = pixelWidth < estimatedText;
         const isCompact = pixelWidth < 220;
-        const catColor = CATEGORY_HEX[category];
         const statusColor = STATUS_HEX[stKey as keyof typeof STATUS_HEX] ?? "#38bdf8";
         const priorityColor = PRIORITY_HEX[goal.priority];
-        const priorityHeight = PRIORITY_HEIGHT[goal.priority];
-        const outsideAlign: SpanInfo["outsideAlign"] =
-          leftPct < 4 ? "left" : leftPct + widthPct > 96 ? "right" : "center";
-
+        const tints = PRIORITY_TINTS[goal.priority];
+        const priorityBg = hexToRgba(priorityColor, tints.base);
+        const priorityBgStrong = hexToRgba(priorityColor, tints.strong);
         return {
           g: goal,
           start,
           end,
+          title,
           leftPct,
           widthPct,
           pixelWidth,
@@ -248,14 +258,13 @@ export default function Timeline() {
           stKey,
           isCompact,
           showOutside,
-          outsideAlign,
-          catColor,
           statusColor,
           priorityColor,
-          priorityHeight,
+          priorityBg,
+          priorityBgStrong,
         };
       }),
-    [items, msStart, msSpan, density, pixelBasis]
+    [items, msStart, msSpan, pixelBasis]
   );
 
   const { milestonePoints, milestoneWindows } = useMemo(() => {
@@ -362,6 +371,17 @@ export default function Timeline() {
       document.body.style.overflow = originalOverflow;
     };
   }, [focusMode]);
+  useEffect(() => {
+    if (!gridMenuOpen) return;
+    const handleClick = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (gridToggleRef.current && !gridToggleRef.current.contains(target)) {
+        setGridMenuOpen(false);
+      }
+    };
+    window.addEventListener("mousedown", handleClick);
+    return () => window.removeEventListener("mousedown", handleClick);
+  }, [gridMenuOpen]);
 
   useEffect(() => {
     const viewportEl = viewportRef.current;
@@ -422,6 +442,42 @@ export default function Timeline() {
               {focusMode ? "Exit focus" : "Focus view"}
             </button>
           </div>
+          <div className="timeline__grid-toggle" ref={gridToggleRef}>
+            <button
+              type="button"
+              className="timeline__grid-trigger"
+              onClick={(event) => {
+                event.stopPropagation();
+                setGridMenuOpen((prev) => !prev);
+              }}
+              onMouseDown={(event) => event.stopPropagation()}
+              aria-label="Grid settings"
+            >
+              <span />
+            </button>
+            {gridMenuOpen && (
+              <div className="timeline__grid-menu">
+                <label className="timeline__grid-option" onClick={(event) => event.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    onClick={(event) => event.stopPropagation()}
+                    checked={showMonthGrid}
+                    onChange={() => setShowMonthGrid((prev) => !prev)}
+                  />
+                  <span>Month grid</span>
+                </label>
+                <label className="timeline__grid-option" onClick={(event) => event.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    onClick={(event) => event.stopPropagation()}
+                    checked={showQuarterGrid}
+                    onChange={() => setShowQuarterGrid((prev) => !prev)}
+                  />
+                  <span>Quarter grid</span>
+                </label>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="timeline__grid" ref={timelineRef}>
@@ -448,6 +504,18 @@ export default function Timeline() {
               </div>
 
               <div className="timeline__canvas">
+                {(showMonthGrid || showQuarterGrid) && (
+                  <div className="timeline__gridlines">
+                    {showMonthGrid &&
+                      monthGridLines.map((pct, index) => (
+                        <span key={`month-${index}`} className="timeline__gridline timeline__gridline--month" style={{ left: `${pct}%` }} />
+                      ))}
+                    {showQuarterGrid &&
+                      quarterGridLines.map((pct, index) => (
+                        <span key={`quarter-${index}`} className="timeline__gridline timeline__gridline--quarter" style={{ left: `${pct}%` }} />
+                      ))}
+                  </div>
+                )}
                 {showToday && (
                   <div
                     className="timeline__today"
@@ -473,14 +541,14 @@ export default function Timeline() {
                 )}
                 <div className="timeline__rows">
                   {spans.map((span) => {
-                    const title = span.g.title || "Untitled goal";
-                    const statusText = statusLabel[span.stKey] ?? "Open";
-                    const rangeText = formatRange(span.start, span.end);
-                    const onHover = handleBarHover(span);
-                    const isHovering = hovered?.id === span.g.id;
+                const statusText = statusLabel[span.stKey] ?? "Open";
+                const rangeText = formatRange(span.start, span.end);
+                const onHover = handleBarHover(span);
+                const isHovering = hovered?.id === span.g.id;
+                const title = span.title;
 
-                    return (
-                      <div key={span.g.id} className="timeline__row">
+                return (
+                  <div key={span.g.id} className="timeline__row">
                         <div
                           className={[
                             "timeline__bar",
@@ -488,39 +556,34 @@ export default function Timeline() {
                             span.stClass,
                             span.priClass,
                             span.isCompact ? "timeline__bar--compact" : "",
+                            span.showOutside ? "timeline__bar--outside" : "",
                             isHovering ? "timeline__bar--active" : "",
                           ].filter(Boolean).join(" ")}
                           style={{
                             left: `${span.leftPct}%`,
                             width: `${span.widthPct}%`,
-                            ["--bar-color" as string]: hexToRgba(span.catColor, 0.25),
-                            ["--bar-color-strong" as string]: hexToRgba(span.catColor, 0.55),
-                            ["--bar-accent" as string]: span.statusColor,
-                            ["--bar-border" as string]: hexToRgba(span.statusColor, 0.7),
-                            ["--bar-shadow" as string]: `inset 0 1px 0 rgba(255,255,255,.08), inset 0 -1px 0 rgba(0,0,0,.55), 0 12px 26px -18px ${hexToRgba(span.catColor, 0.55)}`,
-                            ["--priority-stripe-color" as string]: hexToRgba(span.priorityColor, 0.85),
-                            ["--priority-stripe-height" as string]: `${span.priorityHeight}px`,
+                            ["--bar-color" as string]: span.priorityBg,
+                            ["--bar-color-strong" as string]: span.priorityBgStrong,
+                            ["--bar-border" as string]: hexToRgba(span.priorityColor, 0.75),
+                            ["--bar-shadow" as string]: `inset 0 1px 0 rgba(255,255,255,.08), inset 0 -1px 0 rgba(0,0,0,.55), 0 12px 26px -18px ${hexToRgba(span.priorityColor, 0.4)}`,
                           }}
-                          aria-label={`${title} • ${statusText} • ${rangeText}`}
-                          onMouseEnter={onHover}
-                          onMouseMove={onHover}
+                      aria-label={`${title} • ${statusText} • ${rangeText}`}
+                      onMouseEnter={onHover}
+                      onMouseMove={onHover}
                           onMouseLeave={clearHover}
                           onBlur={clearHover}
                           onClick={() => setEditingGoal(span.g)}
                           tabIndex={0}
-                        >
-                          <span className="timeline__priority-chip" style={{ background: span.priorityColor }} />
-                          <span
-                            className={[
-                              "timeline__title",
-                              span.showOutside ? "timeline__title--outside" : "",
-                              span.isCompact ? "timeline__title--compact" : "",
-                              span.showOutside && span.pixelWidth < 90 ? "timeline__title--micro" : "",
-                            ].filter(Boolean).join(" ")}
-                            data-align={span.showOutside ? span.outsideAlign : undefined}
-                          >
-                            {title}
-                          </span>
+                    >
+                      <span
+                        className={[
+                          "timeline__title",
+                          span.isCompact && !span.showOutside ? "timeline__title--compact" : "",
+                          span.showOutside ? "timeline__title--outside-right" : "",
+                        ].filter(Boolean).join(" ")}
+                      >
+                        {span.title}
+                      </span>
                         </div>
                       </div>
                     );

@@ -5,6 +5,7 @@ import type { KeyboardEvent, FocusEvent } from "react";
 import { Goal, Priority, Status, useGoals } from "./GoalsContext";
 import GoalEditor from "./GoalEditor";
 import MilestoneEditor from "./MilestoneEditor";
+import InlineSelect from "./InlineSelect";
 
 /* ---------- helpers ---------- */
 function prettyRange(g: Goal) {
@@ -26,6 +27,7 @@ type GroupMode = "status" | "priority" | "flow";
 export default function GoalsList() {
   const { visibleGoals, goals, deleteGoal, addGoal, updateGoal } = useGoals();
   const items = useMemo(() => (visibleGoals ?? goals ?? []) as Goal[], [visibleGoals, goals]);
+  const milestones = useMemo(() => items.filter((goal) => goal.milestone), [items]);
 
   const [groupMode, setGroupMode] = useState<GroupMode>("status");
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
@@ -81,7 +83,8 @@ export default function GoalsList() {
   };
 
   return (
-    <div className="min-w-0">
+    <div className="goal-layout">
+      <div className="goal-layout__main">
       {/* Header & global actions */}
       <div className="goal-library__intro" />
 
@@ -139,7 +142,6 @@ export default function GoalsList() {
                       updateGoal={updateGoal}
                       deleteGoal={deleteGoal}
                       onEdit={openEdit}
-                      onEditMilestone={setMilestoneGoal}
                     />
                   ))}
                 </div>
@@ -154,6 +156,10 @@ export default function GoalsList() {
           </div>
         )}
       </div>
+      </div>
+      <aside className="goal-layout__milestones">
+        <MilestonesShelf milestones={milestones} onEdit={setMilestoneGoal} />
+      </aside>
 
       <GoalEditor
         open={Boolean(editorState)}
@@ -181,13 +187,9 @@ type GoalCardProps = {
   updateGoal: (goal: Goal) => void;
   deleteGoal: (id: string) => void;
   onEdit(goal: Goal): void;
-  onEditMilestone(goal: Goal): void;
 };
 
-function GoalCard({ goal, updateGoal, deleteGoal, onEdit, onEditMilestone }: GoalCardProps) {
-  const statusKey = goal.status === "in-progress" ? "inprog" : goal.status;
-  const statusLabel = STATUS_LABELS[goal.status];
-  const categoryLabel = goal.category.charAt(0) + goal.category.slice(1).toLowerCase();
+function GoalCard({ goal, updateGoal, deleteGoal, onEdit }: GoalCardProps) {
   const notesValue = goal.notes ?? "";
 
   const handleTitleBlur = (event: FocusEvent<HTMLInputElement>) => {
@@ -206,83 +208,104 @@ function GoalCard({ goal, updateGoal, deleteGoal, onEdit, onEditMilestone }: Goa
     }
   };
 
-  const handleNotesBlur = (event: FocusEvent<HTMLTextAreaElement>) => {
-    const next = event.target.value.trim();
-    if ((goal.notes ?? "") !== next) {
-      updateGoal({ ...goal, notes: next });
-    }
-  };
-
-  const handleNotesKey = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-      event.preventDefault();
-      (event.currentTarget as HTMLTextAreaElement).blur();
-    }
-  };
-
   return (
-    <article className="goal-row">
-      <div className="goal-row__main">
-        <span className={["goal-row__status", `goal-row__status--${statusKey}`].join(" ")}>{statusLabel}</span>
+    <article
+      className="goal-row goal-row--lite"
+      onClick={() => onEdit(goal)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") onEdit(goal);
+      }}
+    >
+      <button
+        type="button"
+        className="goal-row__delete"
+        aria-label="Delete goal"
+        onClick={(event) => {
+          event.stopPropagation();
+          deleteGoal(goal.id);
+        }}
+      >
+        ×
+        <span className="goal-row__delete-tip">Delete goal</span>
+      </button>
+      <div className="goal-row__heading" onClick={(event) => event.stopPropagation()}>
         <input
           key={`${goal.id}-title-${goal.title}`}
-          className="goal-row__title"
+          className="goal-row__title-input"
           defaultValue={goal.title}
           onBlur={handleTitleBlur}
           onKeyDown={handleTitleKey}
           placeholder="Untitled goal"
         />
-        <span className="goal-row__category">{categoryLabel}</span>
-        <span className="goal-row__range">{prettyRange(goal)}</span>
+        <span className="goal-row__range-chip">{prettyRange(goal)}</span>
       </div>
 
-      <div className="goal-row__controls">
-        <textarea
-          key={`${goal.id}-notes-${notesValue}`}
-          className="goal-row__notes"
-          defaultValue={notesValue}
-          placeholder="Add note"
-          rows={notesValue ? 2 : 1}
-          onBlur={handleNotesBlur}
-          onKeyDown={handleNotesKey}
+      <div className="goal-row__meta">
+        <InlineSelect
+          value={goal.status}
+          onChange={(next) => updateGoal({ ...goal, status: next as Status })}
+          options={[
+            { value: "open", label: "Open", tone: "status-open" },
+            { value: "in-progress", label: "In progress", tone: "status-inprog" },
+            { value: "blocked", label: "Blocked", tone: "status-blocked" },
+            { value: "done", label: "Done", tone: "status-done" },
+          ]}
         />
-        <div className="goal-row__selects">
-          <select
-            className="goal-row__select"
-            value={goal.status}
-            onChange={(e) => updateGoal({ ...goal, status: e.target.value as Status })}
-          >
-            <option value="open">Open</option>
-            <option value="in-progress">In progress</option>
-            <option value="blocked">Blocked</option>
-            <option value="done">Done</option>
-          </select>
-          <select
-            className="goal-row__select"
-            value={goal.priority}
-            onChange={(e) => updateGoal({ ...goal, priority: e.target.value as Priority })}
-          >
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-            <option value="critical">Critical</option>
-          </select>
-          <select
-            className="goal-row__select"
-            value={goal.category}
-            onChange={(e) => updateGoal({ ...goal, category: e.target.value as Goal["category"] })}
-          >
-            {["STRATEGY", "VISION", "TACTICAL", "PROJECT", "DAILY"].map((cat) => (
-              <option key={cat} value={cat}>{cat.charAt(0) + cat.slice(1).toLowerCase()}</option>
-            ))}
-          </select>
-        </div>
-        <div className="goal-row__actions">
-          <button type="button" className="btn" onClick={() => onEdit(goal)}>Details</button>
-          <button type="button" className="btn" onClick={() => onEditMilestone(goal)}>Milestone</button>
-          <button type="button" className="btn btn--danger" onClick={() => deleteGoal(goal.id)}>Delete</button>
-        </div>
+        <InlineSelect
+          value={goal.priority}
+          onChange={(next) => updateGoal({ ...goal, priority: next as Priority })}
+          options={[
+            { value: "low", label: "Low", tone: "priority-low" },
+            { value: "medium", label: "Medium", tone: "priority-medium" },
+            { value: "high", label: "High", tone: "priority-high" },
+            { value: "critical", label: "Critical", tone: "priority-critical" },
+          ]}
+        />
+        <InlineSelect
+          value={goal.category}
+          onChange={(next) => updateGoal({ ...goal, category: next as Goal["category"] })}
+          options={[
+            { value: "STRATEGY", label: "Strategy", tone: "category-strategy" },
+            { value: "VISION", label: "Vision", tone: "category-vision" },
+            { value: "TACTICAL", label: "Tactical", tone: "category-tactical" },
+            { value: "PROJECT", label: "Project", tone: "category-project" },
+            { value: "DAILY", label: "Daily", tone: "category-daily" },
+          ]}
+        />
       </div>
+
+      {notesValue && <p className="goal-row__note-text">{notesValue}</p>}
     </article>
+  );
+}
+
+type MilestonesShelfProps = {
+  milestones: Goal[];
+  onEdit(goal: Goal): void;
+};
+
+function MilestonesShelf({ milestones, onEdit }: MilestonesShelfProps) {
+  return (
+    <div className="milestones-panel">
+      <h3 className="milestones-panel__title">Milestones</h3>
+      {milestones.length === 0 ? (
+        <p className="milestones-panel__hint">Create a milestone from the goal editor to see it here.</p>
+      ) : (
+        <ul className="milestones-panel__list">
+          {milestones.map((goal) => (
+            <li key={goal.id}>
+              <button type="button" className="milestones-panel__item" onClick={() => onEdit(goal)}>
+                <span className="milestones-panel__label">{goal.milestone?.label ?? goal.title}</span>
+                <span className="milestones-panel__date">
+                  {goal.milestone?.date ?? goal.milestone?.windowEnd ?? goal.endDate}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

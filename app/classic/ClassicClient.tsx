@@ -7,12 +7,8 @@ import Timeline from "@/components/Timeline";
 import { useGoals } from "@/components/GoalsContext";
 
 export default function ClassicClient() {
-  const { goals, visibleGoals, importJson, exportJson } = useGoals();
-  const activeGoals = visibleGoals ?? goals ?? [];
+  const { importJson, exportJson } = useGoals();
 
-  const scrollToLibrary = () => {
-    document.getElementById("goal-library")?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
   const openGlobalComposer = () => window.dispatchEvent(new Event("open-goal-composer"));
   const openDashboardSoon = () => window.alert("Dashboard view is coming soon.");
 
@@ -60,7 +56,6 @@ export default function ClassicClient() {
       <header className="workspace__masthead">
         <div className="workspace__brand">
           <span className="workspace__wordmark">Focus.One workspace</span>
-          <span className="workspace__badge">{activeGoals.length} intentions tracked</span>
         </div>
         <div className="workspace__account">
           <div className="workspace__account-meta">
@@ -106,7 +101,7 @@ export default function ClassicClient() {
 
       <div className="workspace__layout">
         <aside className="workspace__sidebar">
-          <GoalFilters onJumpToLibrary={scrollToLibrary} />
+          <GoalFilters />
         </aside>
 
         <div className="workspace__main">

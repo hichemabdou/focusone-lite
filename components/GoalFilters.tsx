@@ -3,63 +3,50 @@
 import { useMemo } from "react";
 import { Goal, useGoals } from "./GoalsContext";
 
-type Props = {
-  onJumpToLibrary?: () => void;
-};
-
 type Cat = "STRATEGY" | "VISION" | "TACTICAL" | "PROJECT" | "DAILY";
 type Pri = "low" | "medium" | "high" | "critical";
 type St  = "open" | "in-progress" | "blocked" | "done";
-type StatChip = "total" | "active" | "done";
-
 const CATEGORIES: Cat[] = ["STRATEGY", "VISION", "TACTICAL", "PROJECT", "DAILY"];
 const PRIORITIES: Pri[] = ["low", "medium", "high", "critical"];
-const STATUSES: St[]     = ["open", "in-progress", "blocked", "done"];
+const STATUSES: St[] = ["open", "in-progress", "blocked", "done"];
 
-export default function GoalFilters({ onJumpToLibrary }: Props = {}) {
+export default function GoalFilters() {
   const { goals = [], filters, setFilters } = useGoals();
   const all: Goal[] = goals;
 
   const counts = useMemo(() => {
-    const done = all.filter((g) => g.status === "done").length;
-    const active = all.length - done;
-    return { total: all.length, active, done };
+    return all.reduce(
+      (acc, goal) => {
+        acc.total += 1;
+        acc.status[goal.status] += 1;
+        acc.categories[goal.category] += 1;
+        acc.priorities[goal.priority] += 1;
+        return acc;
+      },
+      {
+        total: 0,
+        status: {
+          open: 0,
+          "in-progress": 0,
+          blocked: 0,
+          done: 0,
+        } as Record<St, number>,
+        categories: {
+          STRATEGY: 0,
+          VISION: 0,
+          TACTICAL: 0,
+          PROJECT: 0,
+          DAILY: 0,
+        } as Record<Cat, number>,
+        priorities: {
+          low: 0,
+          medium: 0,
+          high: 0,
+          critical: 0,
+        } as Record<Pri, number>,
+      }
+    );
   }, [all]);
-
-  const activeStatChip: StatChip | null = useMemo(() => {
-    const statuses = filters.statuses;
-    if (!statuses || statuses.size === 0) return "total";
-    const isDoneOnly = statuses.size === 1 && statuses.has("done");
-    if (isDoneOnly) return "done";
-
-    const activeSet: Set<St> = new Set(["open", "in-progress", "blocked"]);
-    if (statuses.size === activeSet.size && [...activeSet].every((s) => statuses.has(s))) {
-      return "active";
-    }
-    return null;
-  }, [filters.statuses]);
-
-  const applyStatChip = (chip: StatChip) => {
-    setFilters((prev) => {
-      if (chip === "total") {
-        return { ...prev, statuses: null };
-      }
-
-      if (chip === "active") {
-        const target = new Set<St>(["open", "in-progress", "blocked"]);
-        const alreadyActive =
-          prev.statuses?.size === target.size && [...target].every((s) => prev.statuses?.has(s));
-        return { ...prev, statuses: alreadyActive ? null : target };
-      }
-
-      if (chip === "done") {
-        const alreadyDone = prev.statuses?.size === 1 && prev.statuses.has("done");
-        return { ...prev, statuses: alreadyDone ? null : new Set<St>(["done"]) };
-      }
-
-      return prev;
-    });
-  };
 
   const toggleCategory = (value: Cat) => {
     setFilters((prev) => {
@@ -110,7 +97,14 @@ export default function GoalFilters({ onJumpToLibrary }: Props = {}) {
     onClick,
     children,
     className = "",
-  }: { active?: boolean; onClick?: () => void; children: React.ReactNode; className?: string }) => (
+    count,
+  }: {
+    active?: boolean;
+    onClick?: () => void;
+    children: React.ReactNode;
+    className?: string;
+    count?: number;
+  }) => (
     <button
       type="button"
       className={[
@@ -125,71 +119,45 @@ export default function GoalFilters({ onJumpToLibrary }: Props = {}) {
       <span className="chip__inner">
         {active && <span className="chip__indicator" aria-hidden />}
         <span className="chip__label">{children}</span>
+        {typeof count === "number" && <span className="chip__count">{count}</span>}
       </span>
     </button>
   );
 
   return (
     <div className="filters">
-      {/* Title & description */}
-      <div className="filters__header">
-        <h2 className="filters__title">Your goal control centre</h2>
-        <p className="filters__subtitle">
-          Filter by horizon, urgency, or progress to tailor the timeline to exactly what you want to see.
-        </p>
-        {onJumpToLibrary && (
-          <div className="filters__cta">
-            <button type="button" className="btn" onClick={onJumpToLibrary}>
-              Jump to library
-            </button>
-          </div>
-        )}
+      {/* Title */}
+      <div className="filters__header filters__header--compact">
+        <span className="filters__eyebrow">Control centre</span>
       </div>
 
-      {/* Elegant stats strip */}
-      <div className="stats-strip" role="group" aria-label="Goal statistics">
-        <button
-          type="button"
-          className={[
-            "stats-strip__item",
-            "stats-strip__item--total",
-            activeStatChip === "total" ? "is-active" : "",
-          ].join(" ")}
-          onClick={() => applyStatChip("total")}
-          aria-pressed={activeStatChip === "total"}
-        >
-          <span className="dot dot--total" />
-          <span className="stats-strip__label">Total</span>
-          <span className="stats-strip__value">{counts.total}</span>
-        </button>
-        <button
-          type="button"
-          className={[
-            "stats-strip__item",
-            "stats-strip__item--active",
-            activeStatChip === "active" ? "is-active" : "",
-          ].join(" ")}
-          onClick={() => applyStatChip("active")}
-          aria-pressed={activeStatChip === "active"}
-        >
-          <span className="dot dot--active" />
-          <span className="stats-strip__label">Active</span>
-          <span className="stats-strip__value">{counts.active}</span>
-        </button>
-        <button
-          type="button"
-          className={[
-            "stats-strip__item",
-            "stats-strip__item--done",
-            activeStatChip === "done" ? "is-active" : "",
-          ].join(" ")}
-          onClick={() => applyStatChip("done")}
-          aria-pressed={activeStatChip === "done"}
-        >
-          <span className="dot dot--done" />
-          <span className="stats-strip__label">Done</span>
-          <span className="stats-strip__value">{counts.done}</span>
-        </button>
+      {/* Compact stats */}
+      <div className="filters__stats" role="group" aria-label="Goal statistics">
+        <div className="filters__stat filters__stat--total">
+          <span className="filters__stat-label">Total</span>
+          <span className="filters__stat-value">{counts.total}</span>
+        </div>
+        <div className="filters__stat-grid">
+          {STATUSES.map((status) => (
+            <button
+              key={status}
+              type="button"
+              className={[
+                "filters__stat",
+                "filters__stat--status",
+                filters.statuses?.has(status) ? "is-active" : "",
+                `filters__stat--${status.replace("in-progress", "inprog")}`,
+              ].join(" ")}
+              onClick={() => toggleStatus(status)}
+              aria-pressed={filters.statuses?.has(status) ?? false}
+            >
+              <span className="filters__stat-label">
+                {status === "in-progress" ? "In progress" : status.charAt(0).toUpperCase() + status.slice(1)}
+              </span>
+              <span className="filters__stat-value">{counts.status[status]}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Categories */}
@@ -202,6 +170,7 @@ export default function GoalFilters({ onJumpToLibrary }: Props = {}) {
               active={filters.categories?.has(c) ?? false}
               onClick={() => toggleCategory(c)}
               className={`chip--cat-${c.toLowerCase()}`}
+              count={counts.categories[c]}
             >
               {c.charAt(0) + c.slice(1).toLowerCase()}
             </Chip>
@@ -219,6 +188,7 @@ export default function GoalFilters({ onJumpToLibrary }: Props = {}) {
               active={filters.priorities?.has(p) ?? false}
               onClick={() => togglePriority(p)}
               className={`chip--pri-${p}`}
+              count={counts.priorities[p]}
             >
               {p.charAt(0).toUpperCase() + p.slice(1)}
             </Chip>
@@ -226,22 +196,6 @@ export default function GoalFilters({ onJumpToLibrary }: Props = {}) {
         </div>
       </div>
 
-      {/* Status */}
-      <div className="filters__section">
-        <div className="eyebrow">Status</div>
-        <div className="filters__chips">
-          {STATUSES.map(s => (
-            <Chip
-              key={s}
-              active={filters.statuses?.has(s) ?? false}
-              onClick={() => toggleStatus(s)}
-              className={`chip--st-${s.replace("in-progress", "inprog")}`}
-            >
-              {s === "in-progress" ? "In progress" : s.charAt(0).toUpperCase() + s.slice(1)}
-            </Chip>
-          ))}
-        </div>
-      </div>
 
       {/* Search + Reset */}
       <div className="filters__section">
