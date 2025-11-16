@@ -181,7 +181,9 @@ export default function CustomizationPanel({ renderTrigger }: CustomizationPanel
               .join(" ")}
           >
             <h4 className="customization-section__title">Priorities</h4>
-            <p className="customization-section__hint">Customize priority colors</p>
+            <p className="customization-section__hint">
+              Customize the colors for each priority level. These are system-wide settings that apply to all your goals.
+            </p>
             
             <div className="customization-list">
               {priorities.map((pri) => (
@@ -194,10 +196,14 @@ export default function CustomizationPanel({ renderTrigger }: CustomizationPanel
                     className="customization-item__color"
                     value={pri.color}
                     onChange={(e) => updatePriority(pri.id, e.target.value)}
+                    title={`Change ${pri.name} priority color`}
                   />
                 </div>
               ))}
             </div>
+            <p className="customization-section__note">
+              💡 Tip: Priority colors affect how goals appear on your timeline and in lists across the entire app.
+            </p>
           </section>
 
           {/* Statuses */}
@@ -208,7 +214,9 @@ export default function CustomizationPanel({ renderTrigger }: CustomizationPanel
               .join(" ")}
           >
             <h4 className="customization-section__title">Statuses</h4>
-            <p className="customization-section__hint">Customize status colors</p>
+            <p className="customization-section__hint">
+              Customize the colors for each status type. These colors are used consistently throughout your workspace.
+            </p>
             
             <div className="customization-list">
               {statuses.map((st) => (
@@ -221,10 +229,14 @@ export default function CustomizationPanel({ renderTrigger }: CustomizationPanel
                     className="customization-item__color"
                     value={st.color}
                     onChange={(e) => updateStatus(st.id, e.target.value)}
+                    title={`Change ${st.name} status color`}
                   />
                 </div>
               ))}
             </div>
+            <p className="customization-section__note">
+              💡 Tip: Status colors help you quickly identify goal states on your timeline and in your goal library.
+            </p>
           </section>
 
           <section className="customization-section">

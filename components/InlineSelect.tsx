@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import QuickAddModal from "./QuickAddModal";
 
 type Option = { value: string; label: string; tone?: string };
 
@@ -10,10 +11,13 @@ type InlineSelectProps = {
   onChange: (value: string) => void;
   addLabel?: string;
   onAdd?: () => void;
+  quickAddType?: "category" | "priority" | "status";
+  onQuickAdd?: (name: string, color: string) => void;
 };
 
-export default function InlineSelect({ value, options, onChange, addLabel, onAdd }: InlineSelectProps) {
+export default function InlineSelect({ value, options, onChange, addLabel, onAdd, quickAddType, onQuickAdd }: InlineSelectProps) {
   const [open, setOpen] = useState(false);
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const activeOption = useMemo(() => options.find((opt) => opt.value === value), [options, value]);
 
@@ -82,15 +86,37 @@ export default function InlineSelect({ value, options, onChange, addLabel, onAdd
               type="button"
               className="inline-select__option inline-select__option--add"
               onClick={(event) => {
+                event.preventDefault();
                 event.stopPropagation();
-                onAdd();
                 setOpen(false);
+                if (quickAddType && onQuickAdd) {
+                  // Use quick add modal
+                  setTimeout(() => setShowQuickAdd(true), 100);
+                } else {
+                  // Fallback to settings panel
+                  setTimeout(() => onAdd(), 100);
+                }
               }}
+              title={quickAddType ? "Quick add" : "Open customization settings"}
             >
-              + {addLabel ?? "Add option"}
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ marginRight: "6px" }}>
+                <path d="M6 1V11M1 6H11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+              {addLabel ?? "Add option"}
             </button>
           )}
         </div>
+      )}
+      {quickAddType && onQuickAdd && (
+        <QuickAddModal
+          type={quickAddType}
+          open={showQuickAdd}
+          onClose={() => setShowQuickAdd(false)}
+          onAdd={(name, color) => {
+            onQuickAdd(name, color);
+            setShowQuickAdd(false);
+          }}
+        />
       )}
     </div>
   );

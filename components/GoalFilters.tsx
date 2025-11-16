@@ -54,6 +54,13 @@ export default function GoalFilters() {
     return { counts: accumulator, yearStats };
   }, [all]);
 
+  const currentYear = new Date().getFullYear();
+  const nextYear = currentYear + 1;
+  const currentYearInfo =
+    yearStats.find((entry) => entry.year === currentYear) ?? { year: currentYear, percent: 0, total: 0, done: 0 };
+  const nextYearInfo =
+    yearStats.find((entry) => entry.year === nextYear) ?? { year: nextYear, percent: 0, total: 0, done: 0 };
+  
   const currentYearTotal = currentYearInfo.total || counts.total;
   const currentYearDone = currentYearInfo.done || counts.status.done;
   const completionPct = currentYearTotal ? Math.round((currentYearDone / currentYearTotal) * 100) : 0;
@@ -63,12 +70,6 @@ export default function GoalFilters() {
     { key: "blocked", label: "Blocked", className: "filters__status-pill--blocked" },
     { key: "done", label: "Done", className: "filters__status-pill--done" },
   ];
-  const currentYear = new Date().getFullYear();
-  const nextYear = currentYear + 1;
-  const currentYearInfo =
-    yearStats.find((entry) => entry.year === currentYear) ?? { year: currentYear, percent: 0, total: 0, done: 0 };
-  const nextYearInfo =
-    yearStats.find((entry) => entry.year === nextYear) ?? { year: nextYear, percent: 0, total: 0, done: 0 };
 
   const toggleCategory = (value: string) => {
     setFilters((prev) => {
@@ -227,15 +228,6 @@ export default function GoalFilters() {
               {p.charAt(0).toUpperCase() + p.slice(1)}
             </Chip>
           ))}
-        </div>
-      </div>
-
-      <div className="filters__section filters__integrations">
-        <div className="filters__integrations-card">
-          <p className="filters__integrations-title">Notifications & calendar</p>
-          <p className="filters__integrations-copy">
-            Manage email nudges and calendar sync from the customization panel next to the timeline.
-          </p>
         </div>
       </div>
 

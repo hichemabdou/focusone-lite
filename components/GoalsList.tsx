@@ -246,7 +246,11 @@ export default function GoalsList() {
       {canUndo && (
         <div className="undo-toast">
           <span>{undoMessage ?? "Change saved"}</span>
-          <button type="button" onClick={undoLastChange}>
+          <button type="button" onClick={undoLastChange} className="undo-toast__btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 7v6h6"/>
+              <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/>
+            </svg>
             Undo
           </button>
         </div>
@@ -262,7 +266,7 @@ type CategorySelectProps = {
 };
 
 function CategorySelect({ goal, updateGoal, onStageUndo }: CategorySelectProps) {
-  const { categories } = useCustomization();
+  const { categories, addCategory } = useCustomization();
   return (
     <InlineSelect
       value={goal.category}
@@ -277,6 +281,13 @@ function CategorySelect({ goal, updateGoal, onStageUndo }: CategorySelectProps) 
         tone: `category-${cat.name.toLowerCase()}`,
       }))}
       addLabel="Add category"
+      quickAddType="category"
+      onQuickAdd={(name, color) => {
+        addCategory(name, color);
+        const categoryName = name.toUpperCase();
+        onStageUndo(goal);
+        updateGoal({ ...goal, category: categoryName as Goal["category"] });
+      }}
       onAdd={() => openCustomizationPanel("categories")}
     />
   );

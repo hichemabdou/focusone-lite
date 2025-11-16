@@ -7,6 +7,7 @@ import { useCustomization } from "./CustomizationContext";
 import GoalEditor from "./GoalEditor";
 import MilestoneEditor from "./MilestoneEditor";
 import MilestonesPanel from "./MilestonesPanel";
+import MilestonesList, { StandaloneMilestone } from "./MilestonesList";
 
 /* -------- utilities -------- */
 const clampNum = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
@@ -168,13 +169,13 @@ export default function Timeline() {
 
   type PresetKey = "fit" | "month" | "6m" | "ytd" | "next-ytd" | "5y";
   const [activePreset, setActivePreset] = useState<PresetKey>("fit");
-  const [density, setDensity] = useState<Density>("balanced");
+  const [density, setDensity] = useState<Density>("compact");
   const [focusMode, setFocusMode] = useState(false);
   const [milestonesOpen, setMilestonesOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [viewportWidth, setViewportWidth] = useState<number | null>(null);
-  const [showMonthGrid, setShowMonthGrid] = useState(false);
-  const [showQuarterGrid, setShowQuarterGrid] = useState(false);
+  const [showMonthGrid, setShowMonthGrid] = useState(true);
+  const [showQuarterGrid, setShowQuarterGrid] = useState(true);
   const [gridMenuOpen, setGridMenuOpen] = useState(false);
   const gridToggleRef = useRef<HTMLDivElement>(null);
 
@@ -303,6 +304,7 @@ export default function Timeline() {
   const [inlineEditor, setInlineEditor] = useState<{ goalId: string; left: number; top: number } | null>(null);
   const [undoStack, setUndoStack] = useState<Goal[]>([]);
   const [milestoneGoal, setMilestoneGoal] = useState<Goal | null>(null);
+  const [standaloneMilestones, setStandaloneMilestones] = useState<StandaloneMilestone[]>([]);
 
   const formatRange = (start: Date, end: Date) => {
     const startText = start.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
@@ -702,33 +704,27 @@ export default function Timeline() {
             ))}
           </div>
           <div className="timeline__toolbar-actions">
-            <button
-              type="button"
-              className={[
-                "chip",
-                "chip--interactive",
-                "timeline__action-chip",
-                milestonesOpen ? "chip--on" : "",
-              ].join(" ")}
-              onClick={() => setMilestonesOpen((prev) => !prev)}
-            >
-              Milestones
-            </button>
             <button type="button" className="chip chip--interactive timeline__action-chip" onClick={() => centerOnToday("smooth")}>
               Jump to today
             </button>
             <div className="timeline__grid-toggle" ref={gridToggleRef}>
               <button
                 type="button"
-                className="timeline__grid-trigger"
+                className={`timeline__grid-trigger ${gridMenuOpen ? 'is-active' : ''}`}
                 onClick={(event) => {
                   event.stopPropagation();
                   setGridMenuOpen((prev) => !prev);
                 }}
                 onMouseDown={(event) => event.stopPropagation()}
                 aria-label="Grid settings"
+                title="Toggle grid visibility"
               >
-                <span />
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="7" height="7"/>
+                  <rect x="14" y="3" width="7" height="7"/>
+                  <rect x="14" y="14" width="7" height="7"/>
+                  <rect x="3" y="14" width="7" height="7"/>
+                </svg>
               </button>
               {gridMenuOpen && (
                 <div className="timeline__grid-menu">
@@ -793,12 +789,18 @@ export default function Timeline() {
                 "chip",
                 "chip--interactive",
                 "timeline__action-chip",
+                "timeline__undo-btn",
                 canUndo ? "" : "timeline__action-chip--disabled",
               ].filter(Boolean).join(" ")}
               disabled={!canUndo}
               onClick={handleUndo}
+              title="Undo last change"
             >
-              Undo last change
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 7v6h6"/>
+                <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/>
+              </svg>
+              Undo
             </button>
           </div>
         </div>
@@ -1027,6 +1029,18 @@ export default function Timeline() {
           )}
         </div>
       </div>
+      <MilestonesList
+        milestones={standaloneMilestones}
+        onAdd={(milestone) => {
+          setStandaloneMilestones((prev) => [...prev, { ...milestone, id: crypto.randomUUID() }]);
+        }}
+        onEdit={(milestone) => {
+          setStandaloneMilestones((prev) => prev.map((m) => (m.id === milestone.id ? milestone : m)));
+        }}
+        onDelete={(id) => {
+          setStandaloneMilestones((prev) => prev.filter((m) => m.id !== id));
+        }}
+      />
     </div>
       <GoalEditor
         open={Boolean(editingGoal)}
