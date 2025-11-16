@@ -6,13 +6,14 @@ import { usePathname } from "next/navigation";
 import GoalsList from "@/components/GoalsList";
 import GoalFilters from "@/components/GoalFilters";
 import Timeline from "@/components/Timeline";
-import CustomizationPanel from "@/components/CustomizationPanel";
 import { useGoals } from "@/components/GoalsContext";
 import { useTheme } from "@/components/ThemeContext";
 import IntegrationsModal from "@/components/IntegrationsModal";
+import CustomizationPanel from "@/components/CustomizationPanel";
+import { openCustomizationPanel } from "@/components/customizationEvents";
 
 export default function ClassicClient() {
-  const { importJson, exportJson } = useGoals();
+  const { importJson, exportJson, filters, setFilters } = useGoals();
   const { theme, toggleTheme } = useTheme();
 
   const openGlobalComposer = () => window.dispatchEvent(new Event("open-goal-composer"));
@@ -66,24 +67,38 @@ export default function ClassicClient() {
     <div className="workspace">
       <header className="workspace__masthead">
         <div className="workspace__brand">
-          <span className="workspace__wordmark">Focus.One workspace</span>
-          <nav className="workspace__nav">
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={[
-                  "workspace__nav-btn",
-                  pathname === item.href ? "is-active" : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                aria-current={pathname === item.href ? "page" : undefined}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
+          <div className="workspace__brand-left">
+            <span className="workspace__wordmark">Focus.One workspace</span>
+            <nav className="workspace__nav">
+              {navItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={[
+                    "workspace__nav-btn",
+                    pathname === item.href ? "is-active" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  aria-current={pathname === item.href ? "page" : undefined}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+          </div>
+          <div className="workspace__search">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8" />
+              <path d="M21 21l-4.3-4.3" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search goals..."
+              value={filters.query}
+              onChange={(event) => setFilters((prev) => ({ ...prev, query: event.target.value }))}
+            />
+          </div>
         </div>
         <div className="workspace__account">
           <div className="workspace__avatar" aria-hidden>FO</div>
@@ -144,13 +159,13 @@ export default function ClassicClient() {
                   </div>
                   <div className="workspace__tools-group">
                     <p className="workspace__tools-label">Customization</p>
-                    <CustomizationPanel
-                      renderTrigger={(openPanel) => (
-                        <button type="button" className="btn w-full" onClick={openPanel}>
-                          Categories & colors
-                        </button>
-                      )}
-                    />
+                    <button
+                      type="button"
+                      className="btn w-full"
+                      onClick={() => openCustomizationPanel("categories")}
+                    >
+                      Categories & colors
+                    </button>
                   </div>
                   <div className="workspace__tools-group">
                     <p className="workspace__tools-label">Integrations</p>
@@ -194,6 +209,7 @@ export default function ClassicClient() {
       </div>
 
       <IntegrationsModal open={integrationsOpen} onClose={() => setIntegrationsOpen(false)} />
+      <CustomizationPanel renderTrigger={() => null} />
     </div>
   );
 }

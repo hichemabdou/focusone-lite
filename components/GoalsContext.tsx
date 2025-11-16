@@ -29,6 +29,12 @@ export type GoalComment = {
   createdAt: string;
 };
 
+type AddCommentInput = {
+  id?: string;
+  body: string;
+  createdAt?: string;
+};
+
 export type Goal = {
   id: string;
   title: string;
@@ -68,7 +74,8 @@ type Ctx = {
   addGoal(g: Omit<Goal, "id">): void;
   updateGoal(g: Goal): void;
   deleteGoal(id: string): void;
-  addComment(goalId: string, body: string): void;
+  addComment(goalId: string, input: AddCommentInput): void;
+  updateComment(goalId: string, commentId: string, body: string): void;
   deleteComment(goalId: string, commentId: string): void;
   importJson(input: Goal[]): void;
   exportJson(): string;
@@ -229,8 +236,8 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
     setGoals((s) => [...s, sanitizeGoal({ ...g, id: crypto.randomUUID() })]);
   const updateGoal = (g: Goal) => setGoals((s) => s.map((x) => (x.id === g.id ? sanitizeGoal(g) : x)));
   const deleteGoal = (id: string) => setGoals((s) => s.filter((x) => x.id !== id));
-  const addComment = (goalId: string, body: string) => {
-    const trimmed = body.trim();
+  const addComment = (goalId: string, input: AddCommentInput) => {
+    const trimmed = input.body.trim();
     if (!trimmed) return;
     setGoals((s) =>
       s.map((goal) =>
@@ -239,8 +246,28 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
               ...goal,
               comments: [
                 ...goal.comments,
-                { id: crypto.randomUUID(), body: trimmed, createdAt: new Date().toISOString() },
+                {
+                  id: input.id ?? crypto.randomUUID(),
+                  body: trimmed,
+                  createdAt: input.createdAt ?? new Date().toISOString(),
+                },
               ],
+            }
+          : goal
+      )
+    );
+  };
+  const updateComment = (goalId: string, commentId: string, body: string) => {
+    const trimmed = body.trim();
+    if (!trimmed) return;
+    setGoals((s) =>
+      s.map((goal) =>
+        goal.id === goalId
+          ? {
+              ...goal,
+              comments: goal.comments.map((comment) =>
+                comment.id === commentId ? { ...comment, body: trimmed } : comment
+              ),
             }
           : goal
       )
@@ -264,6 +291,7 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
     updateGoal,
     deleteGoal,
     addComment,
+    updateComment,
     deleteComment,
     importJson,
     exportJson,

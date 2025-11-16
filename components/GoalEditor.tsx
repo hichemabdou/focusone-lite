@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ChangeEvent } from "react";
 import { Goal, Priority, Status, Category, useGoals } from "./GoalsContext";
 import { useCustomization } from "./CustomizationContext";
 import Modal from "./Modal";
@@ -50,7 +50,7 @@ type FormProps = {
 };
 
 function GoalEditorForm({ mode, initialDraft, goal, onCancel, onSave }: FormProps) {
-  const { addComment, deleteComment } = useGoals();
+  const { addComment, deleteComment, updateComment } = useGoals();
   const { categories, addCategory } = useCustomization();
   const [draft, setDraft] = useState<GoalDraft>(initialDraft);
   const [error, setError] = useState<string | null>(null);
@@ -101,6 +101,11 @@ function GoalEditorForm({ mode, initialDraft, goal, onCancel, onSave }: FormProp
     onSave(mode === "edit" ? (payload as Goal) : payload);
   };
 
+  const handleDateChange = (field: "startDate" | "endDate") => (event: ChangeEvent<HTMLInputElement>) => {
+    updateField(field, event.target.value);
+    event.currentTarget.blur();
+  };
+
   return (
     <form
       className="goal-editor"
@@ -122,14 +127,14 @@ function GoalEditorForm({ mode, initialDraft, goal, onCancel, onSave }: FormProp
         />
       </label>
 
-      <div className="goal-editor__grid">
+      <div className="goal-editor__grid goal-editor__grid--dates">
         <label className="goal-editor__field">
           <span>Start</span>
           <input
             type="date"
             className="field"
             value={draft.startDate}
-            onChange={(e) => updateField("startDate", e.target.value)}
+            onChange={handleDateChange("startDate")}
           />
         </label>
         <label className="goal-editor__field">
@@ -138,12 +143,12 @@ function GoalEditorForm({ mode, initialDraft, goal, onCancel, onSave }: FormProp
             type="date"
             className="field"
             value={draft.endDate}
-            onChange={(e) => updateField("endDate", e.target.value)}
+            onChange={handleDateChange("endDate")}
           />
         </label>
       </div>
 
-      <div className="goal-editor__grid">
+      <div className="goal-editor__grid goal-editor__grid--meta">
         <label className="goal-editor__field goal-editor__field--inline">
           <span>Category</span>
           <InlineSelect
@@ -183,33 +188,48 @@ function GoalEditorForm({ mode, initialDraft, goal, onCancel, onSave }: FormProp
         </label>
       </div>
 
-      {mode === "edit" && goal?.id && (
-        <GoalCommentsSection
-          goalId={goal.id}
-          comments={draft.comments ?? []}
-          addComment={(goalId, body) => {
-            addComment(goalId, body);
-            // Update draft to show new comment immediately
-            const newComment = {
-              id: crypto.randomUUID(),
-              body: body.trim(),
-              createdAt: new Date().toISOString(),
-            };
-            setDraft((prev) => ({
-              ...prev,
-              comments: [...(prev.comments || []), newComment],
-            }));
-          }}
-          deleteComment={(goalId, commentId) => {
-            deleteComment(goalId, commentId);
-            // Update draft to remove comment immediately
-            setDraft((prev) => ({
-              ...prev,
-              comments: (prev.comments || []).filter((c) => c.id !== commentId),
-            }));
-          }}
-        />
-      )}
+      <GoalCommentsSection
+        mode={mode}
+        comments={draft.comments ?? []}
+        onAdd={(body) => {
+          const trimmed = body.trim();
+          if (!trimmed) return;
+          const nextComment = {
+            id: crypto.randomUUID(),
+            body: trimmed,
+            createdAt: new Date().toISOString(),
+          };
+          setDraft((prev) => ({
+            ...prev,
+            comments: [...(prev.comments ?? []), nextComment],
+          }));
+          if (mode === "edit" && goal?.id) {
+            addComment(goal.id, nextComment);
+          }
+        }}
+        onDelete={(commentId) => {
+          setDraft((prev) => ({
+            ...prev,
+            comments: (prev.comments ?? []).filter((comment) => comment.id !== commentId),
+          }));
+          if (mode === "edit" && goal?.id) {
+            deleteComment(goal.id, commentId);
+          }
+        }}
+        onUpdate={(commentId, body) => {
+          const trimmed = body.trim();
+          if (!trimmed) return;
+          setDraft((prev) => ({
+            ...prev,
+            comments: (prev.comments ?? []).map((comment) =>
+              comment.id === commentId ? { ...comment, body: trimmed } : comment
+            ),
+          }));
+          if (mode === "edit" && goal?.id) {
+            updateComment(goal.id, commentId, trimmed);
+          }
+        }}
+      />
 
       <div className="goal-editor__actions">
         <button type="button" className="btn" onClick={onCancel}>Cancel</button>
@@ -222,15 +242,15 @@ function GoalEditorForm({ mode, initialDraft, goal, onCancel, onSave }: FormProp
 }
 
 type GoalCommentsSectionProps = {
-  goalId: string;
+  mode: "create" | "edit";
   comments: Goal["comments"];
-  addComment(goalId: string, body: string): void;
-  deleteComment(goalId: string, commentId: string): void;
+  onAdd(body: string): void;
+  onDelete(commentId: string): void;
+  onUpdate(commentId: string, body: string): void;
 };
 
-function GoalCommentsSection({ goalId, comments, addComment, deleteComment }: GoalCommentsSectionProps) {
+function GoalCommentsSection({ mode, comments, onAdd, onDelete, onUpdate }: GoalCommentsSectionProps) {
   const [body, setBody] = useState("");
-  const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editBody, setEditBody] = useState("");
 
@@ -242,32 +262,35 @@ function GoalCommentsSection({ goalId, comments, addComment, deleteComment }: Go
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    // Show relative time for recent comments
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
-    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    let label = "";
+    if (diffMins < 1) label = "Just now";
+    else if (diffMins < 60) label = `${diffMins} min${diffMins > 1 ? "s" : ""} ago`;
+    else if (diffHours < 24) label = `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+    else if (diffDays < 7) label = `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
+    else {
+      label = date.toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
+      });
+    }
 
-    // Show full date for older comments
-    return date.toLocaleDateString(undefined, { 
-      month: "short", 
-      day: "numeric", 
-      year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
+    const absolute = date.toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
       hour: "numeric",
-      minute: "2-digit"
+      minute: "2-digit",
     });
+    return `${label} • ${absolute}`;
   };
 
-  const handleAddComment = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleAddComment = () => {
     const trimmed = body.trim();
     if (!trimmed) return;
     
-    setIsAdding(true);
-    addComment(goalId, trimmed);
+    onAdd(trimmed);
     setBody("");
-    setTimeout(() => setIsAdding(false), 300);
   };
 
   const startEdit = (comment: Goal["comments"][0]) => {
@@ -283,21 +306,19 @@ function GoalCommentsSection({ goalId, comments, addComment, deleteComment }: Go
   const saveEdit = (commentId: string) => {
     const trimmed = editBody.trim();
     if (!trimmed) return;
-    // For now, we'll simulate edit by deleting and re-adding
-    // In a real app, you'd have an updateComment function
-    deleteComment(goalId, commentId);
-    addComment(goalId, trimmed);
+    onUpdate(commentId, trimmed);
     setEditingId(null);
     setEditBody("");
   };
 
-  // Reverse comments to show newest first
-  const sortedComments = [...comments].reverse();
+  const sortedComments = [...comments].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
 
   return (
     <section className="goal-comments">
       <header className="goal-comments__header">
-        <span>Comments</span>
+        <span>{mode === "create" ? "Add context" : "Comments"}</span>
         <span className="goal-comments__count">{comments.length}</span>
       </header>
       <div className="goal-comments__content">
@@ -350,7 +371,7 @@ function GoalCommentsSection({ goalId, comments, addComment, deleteComment }: Go
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        deleteComment(goalId, comment.id);
+                        onDelete(comment.id);
                       }}
                       aria-label="Delete comment"
                     >
@@ -395,19 +416,13 @@ function GoalCommentsSection({ goalId, comments, addComment, deleteComment }: Go
           rows={3}
           className="field"
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-              handleAddComment(e as any);
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              handleAddComment();
             }
           }}
         />
-        <button 
-          type="button" 
-          className="btn btn--primary"
-          disabled={!body.trim() || isAdding}
-          onClick={handleAddComment}
-        >
-          {isAdding ? "Adding..." : "Add comment"}
-        </button>
+        <span className="goal-comments__composer-hint">Press Enter to submit • Shift + Enter for a new line</span>
       </div>
     </section>
   );

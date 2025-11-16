@@ -303,6 +303,7 @@ export default function Timeline() {
   const [showTodayDetail, setShowTodayDetail] = useState(false);
   const [inlineEditor, setInlineEditor] = useState<{ goalId: string; left: number; top: number } | null>(null);
   const [undoStack, setUndoStack] = useState<Goal[]>([]);
+  const [redoStack, setRedoStack] = useState<Goal[]>([]);
   const [milestoneGoal, setMilestoneGoal] = useState<Goal | null>(null);
   const [standaloneMilestones, setStandaloneMilestones] = useState<StandaloneMilestone[]>([]);
 
@@ -315,16 +316,34 @@ export default function Timeline() {
 
   const stageUndo = useCallback((snapshot: Goal) => {
     setUndoStack((prev) => [snapshot, ...prev].slice(0, 25));
+    setRedoStack([]);
   }, []);
 
   const handleUndo = useCallback(() => {
     setUndoStack((prev) => {
       if (!prev.length) return prev;
       const [latest, ...rest] = prev;
+      const current = goals.find((goal) => goal.id === latest.id);
+      if (current) {
+        setRedoStack((redoPrev) => [cloneGoal(current), ...redoPrev].slice(0, 25));
+      }
       updateGoal(latest);
       return rest;
     });
-  }, [updateGoal]);
+  }, [goals, updateGoal]);
+
+  const handleRedo = useCallback(() => {
+    setRedoStack((prev) => {
+      if (!prev.length) return prev;
+      const [latest, ...rest] = prev;
+      const current = goals.find((goal) => goal.id === latest.id);
+      if (current) {
+        setUndoStack((undoPrev) => [cloneGoal(current), ...undoPrev].slice(0, 25));
+      }
+      updateGoal(latest);
+      return rest;
+    });
+  }, [goals, updateGoal]);
 
   const activeInlineSpan = useMemo(() => {
     if (!inlineEditor) return null;
@@ -333,6 +352,7 @@ export default function Timeline() {
   const inlineRangeSummary = activeInlineSpan ? formatRange(activeInlineSpan.start, activeInlineSpan.end) : "";
   const inlineGoal = activeInlineSpan?.g;
   const canUndo = undoStack.length > 0;
+  const canRedo = redoStack.length > 0;
 
   const quickUpdateStatus = useCallback(
     (goal: Goal, nextStatus: Status) => {
@@ -777,31 +797,54 @@ export default function Timeline() {
                 "chip",
                 "chip--interactive",
                 "timeline__action-chip",
+                "timeline__action-chip--focus",
                 focusMode ? "chip--on" : "",
               ].join(" ")}
               onClick={() => setFocusMode((prev) => !prev)}
             >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
               {focusMode ? "Exit focus" : "Focus view"}
             </button>
-            <button
-              type="button"
-              className={[
-                "chip",
-                "chip--interactive",
-                "timeline__action-chip",
-                "timeline__undo-btn",
-                canUndo ? "" : "timeline__action-chip--disabled",
-              ].filter(Boolean).join(" ")}
-              disabled={!canUndo}
-              onClick={handleUndo}
-              title="Undo last change"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 7v6h6"/>
-                <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/>
-              </svg>
-              Undo
-            </button>
+            <div className="timeline__history-buttons">
+              <button
+                type="button"
+                className={[
+                  "chip",
+                  "chip--interactive",
+                  "timeline__action-chip",
+                  "timeline__undo-btn",
+                  canUndo ? "" : "timeline__action-chip--disabled",
+                ].filter(Boolean).join(" ")}
+                disabled={!canUndo}
+                onClick={handleUndo}
+                title="Undo last change"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 7v6h6"/>
+                  <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/>
+                </svg>
+              </button>
+              <button
+                type="button"
+                className={[
+                  "chip",
+                  "chip--interactive",
+                  "timeline__action-chip",
+                  "timeline__undo-btn",
+                  canRedo ? "" : "timeline__action-chip--disabled",
+                ].filter(Boolean).join(" ")}
+                disabled={!canRedo}
+                onClick={handleRedo}
+                title="Redo change"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 7v6h-6"/>
+                  <path d="M3 17a9 9 0 019-9 9 9 0 016 2.3L21 13"/>
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1021,9 +1064,14 @@ export default function Timeline() {
                 <button type="button" className="timeline__inline-button" onClick={() => handleOpenGoal(inlineGoal)}>
                   Edit goal
                 </button>
-                <button type="button" className="timeline__inline-button" onClick={handleUndo} disabled={!canUndo}>
-                  Undo
-                </button>
+                <div className="timeline__inline-history">
+                  <button type="button" className="timeline__inline-button" onClick={handleUndo} disabled={!canUndo}>
+                    Undo
+                  </button>
+                  <button type="button" className="timeline__inline-button" onClick={handleRedo} disabled={!canRedo}>
+                    Redo
+                  </button>
+                </div>
               </div>
             </div>
           )}

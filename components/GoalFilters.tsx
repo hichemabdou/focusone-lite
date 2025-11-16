@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { Goal, useGoals } from "./GoalsContext";
 import { useCustomization } from "./CustomizationContext";
+import { openCustomizationPanel } from "./customizationEvents";
 
 type Pri = "low" | "medium" | "high" | "critical";
 type St  = "open" | "in-progress" | "blocked" | "done";
@@ -231,19 +232,37 @@ export default function GoalFilters() {
         </div>
       </div>
 
-      {/* Search + Reset */}
-      <div className="filters__section">
-        <div className="eyebrow">Quick search</div>
-        <div className="filters__actions">
-          <input
-            className="field filters__search"
-            placeholder="Find a goal by title or notes"
-            value={filters.query}
-            onChange={(e) => setFilters((prev) => ({ ...prev, query: e.target.value }))}
-          />
-          <button type="button" className="btn" onClick={reset}>Reset</button>
+      <section className="filters__kit">
+        <div className="filters__kit-head">
+          <div>
+            <p>Workspace kit</p>
+            <strong>Customize Focus.One</strong>
+          </div>
+          <button
+            type="button"
+            className="btn btn--ghost"
+            onClick={() => openCustomizationPanel("categories")}
+          >
+            Open kit
+          </button>
         </div>
-      </div>
+        <div className="filters__kit-swatches">
+          {categories.slice(0, 4).map((cat) => (
+            <div key={cat.id} className="filters__kit-swatch">
+              <span style={{ background: cat.color }} />
+              <strong>{cat.name}</strong>
+            </div>
+          ))}
+        </div>
+        <div className="filters__kit-actions">
+          <button type="button" className="btn btn--primary" onClick={() => openCustomizationPanel("categories")}>
+            Customize palette
+          </button>
+          <button type="button" className="btn" onClick={reset}>
+            Reset filters
+          </button>
+        </div>
+      </section>
     </div>
   );
 }

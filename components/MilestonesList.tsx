@@ -34,7 +34,7 @@ export default function MilestonesList({ milestones, onAdd, onEdit, onDelete }: 
     icon: DEFAULT_ICONS[0],
   });
 
-  const handleAdd = () => {
+  const handleSave = () => {
     if (!draft.label?.trim()) return;
     
     const newMilestone: Omit<StandaloneMilestone, "id"> = {
@@ -51,13 +51,19 @@ export default function MilestonesList({ milestones, onAdd, onEdit, onDelete }: 
       ),
     };
 
-    onAdd(newMilestone);
+    if (editingId) {
+      const payload: StandaloneMilestone = { id: editingId, ...newMilestone };
+      onEdit(payload);
+    } else {
+      onAdd(newMilestone);
+    }
     setDraft({
       type: "point",
       label: "",
       color: DEFAULT_COLORS[0],
       icon: DEFAULT_ICONS[0],
     });
+    setEditingId(null);
     setIsAdding(false);
   };
 
@@ -88,9 +94,27 @@ export default function MilestonesList({ milestones, onAdd, onEdit, onDelete }: 
           <button
             type="button"
             className="btn btn--sm"
-            onClick={() => setIsAdding(!isAdding)}
+            onClick={() => {
+              if (isAdding && !editingId) {
+                setIsAdding(false);
+                return;
+              }
+              if (isAdding && editingId) {
+                setEditingId(null);
+                setIsAdding(false);
+              } else {
+                setDraft({
+                  type: "point",
+                  label: "",
+                  color: DEFAULT_COLORS[0],
+                  icon: DEFAULT_ICONS[0],
+                });
+                setEditingId(null);
+                setIsAdding((prev) => !prev);
+              }
+            }}
           >
-            {isAdding ? "Cancel" : "+ Add"}
+            {isAdding ? "Close" : "+ Add"}
           </button>
         )}
       </div>
@@ -195,19 +219,34 @@ export default function MilestonesList({ milestones, onAdd, onEdit, onDelete }: 
                 </div>
               </div>
 
-              <button
-                type="button"
-                className="btn btn--primary"
-                onClick={handleAdd}
-                disabled={!draft.label?.trim()}
-              >
-                Add Milestone
-              </button>
+              <div className="milestone-form__actions">
+                {editingId && (
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => {
+                      setEditingId(null);
+                      setIsAdding(false);
+                      setDraft({ type: "point", label: "", color: DEFAULT_COLORS[0], icon: DEFAULT_ICONS[0] });
+                    }}
+                  >
+                    Cancel edit
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="btn btn--primary"
+                  onClick={handleSave}
+                  disabled={!draft.label?.trim()}
+                >
+                  {editingId ? "Save milestone" : "Add milestone"}
+                </button>
+              </div>
             </div>
           )}
 
           {milestones.length === 0 && !isAdding ? (
-            <p className="milestones-list__empty">No milestones yet. Click "+ Add" to create one.</p>
+            <p className="milestones-list__empty">No milestones yet. Click &quot;+ Add&quot; to create one.</p>
           ) : (
             <ul className="milestones-list__items">
               {milestones.map((milestone) => (
@@ -224,6 +263,24 @@ export default function MilestonesList({ milestones, onAdd, onEdit, onDelete }: 
                       }
                     </span>
                   </div>
+                  <div className="milestone-item__actions">
+                    <button
+                      type="button"
+                      className="milestone-item__edit"
+                      onClick={() => {
+                        setIsAdding(true);
+                        setEditingId(milestone.id);
+                        setDraft({
+                          ...milestone,
+                        });
+                      }}
+                      aria-label="Edit milestone"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4 12.5-12.5z" />
+                      </svg>
+                    </button>
                   <button
                     type="button"
                     className="milestone-item__delete"
@@ -234,6 +291,7 @@ export default function MilestonesList({ milestones, onAdd, onEdit, onDelete }: 
                       <path d="M2 2L10 10M10 2L2 10"/>
                     </svg>
                   </button>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -243,4 +301,3 @@ export default function MilestonesList({ milestones, onAdd, onEdit, onDelete }: 
     </div>
   );
 }
-
