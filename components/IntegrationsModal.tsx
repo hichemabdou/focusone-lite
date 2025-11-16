@@ -49,6 +49,12 @@ export default function IntegrationsModal({ open, onClose }: Props) {
     );
   }, [rememberSender, gmailUser, fromEmail]);
 
+  useEffect(() => {
+    if (!testResult) return;
+    const timer = window.setTimeout(() => setTestResult(null), 5000);
+    return () => window.clearTimeout(timer);
+  }, [testResult]);
+
   const sendTestReminder = async () => {
     if (!testEmail.trim()) {
       setTestResult({ status: "error", message: "Add an email address first." });
@@ -170,14 +176,16 @@ export default function IntegrationsModal({ open, onClose }: Props) {
             </button>
           </div>
           {testResult && (
-            <p
+            <div
+              role="status"
+              aria-live="assertive"
               className={[
-                "integrations__result",
+                "integrations__toast",
                 testResult.status === "error" ? "is-error" : "is-success",
               ].join(" ")}
             >
               {testResult.message}
-            </p>
+            </div>
           )}
           <p className="integrations__hint">
             Optionally define <code>GMAIL_USER</code>, <code>GMAIL_APP_PASSWORD</code>, and <code>NOTIFICATIONS_FROM_EMAIL</code>{" "}

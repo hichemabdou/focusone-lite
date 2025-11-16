@@ -58,11 +58,9 @@ export default function CustomizationPanel({ renderTrigger }: CustomizationPanel
     } catch {}
   }, [prefs]);
 
-  const sectionRefs: Record<CustomizationFocus, React.RefObject<HTMLDivElement>> = {
-    categories: useRef(null),
-    priorities: useRef(null),
-    statuses: useRef(null),
-  };
+  const categoriesRef = useRef<HTMLDivElement>(null);
+  const prioritiesRef = useRef<HTMLDivElement>(null);
+  const statusesRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleOpen = (event: Event) => {
@@ -72,13 +70,15 @@ export default function CustomizationPanel({ renderTrigger }: CustomizationPanel
       setOpen(true);
       if (focus) {
         requestAnimationFrame(() => {
-          sectionRefs[focus].current?.scrollIntoView({ behavior: "smooth", block: "start" });
+          const target =
+            focus === "categories" ? categoriesRef.current : focus === "priorities" ? prioritiesRef.current : statusesRef.current;
+          target?.scrollIntoView({ behavior: "smooth", block: "start" });
         });
       }
     };
     window.addEventListener(CUSTOMIZATION_PANEL_EVENT, handleOpen as EventListener);
     return () => window.removeEventListener(CUSTOMIZATION_PANEL_EVENT, handleOpen as EventListener);
-  }, [sectionRefs.categories, sectionRefs.priorities, sectionRefs.statuses]);
+  }, []);
 
   const handleAddCategory = () => {
     if (newCategoryName.trim()) {
@@ -117,7 +117,7 @@ export default function CustomizationPanel({ renderTrigger }: CustomizationPanel
         <div className="customization-panel">
           {/* Categories */}
           <section
-            ref={sectionRefs.categories}
+            ref={categoriesRef}
             className={["customization-section", focusSection === "categories" ? "customization-section--focus" : ""]
               .filter(Boolean)
               .join(" ")}
@@ -175,7 +175,7 @@ export default function CustomizationPanel({ renderTrigger }: CustomizationPanel
 
           {/* Priorities */}
           <section
-            ref={sectionRefs.priorities}
+            ref={prioritiesRef}
             className={["customization-section", focusSection === "priorities" ? "customization-section--focus" : ""]
               .filter(Boolean)
               .join(" ")}
@@ -202,7 +202,7 @@ export default function CustomizationPanel({ renderTrigger }: CustomizationPanel
 
           {/* Statuses */}
           <section
-            ref={sectionRefs.statuses}
+            ref={statusesRef}
             className={["customization-section", focusSection === "statuses" ? "customization-section--focus" : ""]
               .filter(Boolean)
               .join(" ")}

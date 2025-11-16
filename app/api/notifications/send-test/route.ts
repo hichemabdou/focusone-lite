@@ -28,8 +28,17 @@ export async function POST(req: NextRequest) {
     const pass = process.env.GMAIL_APP_PASSWORD || body.gmailAppPassword?.trim();
     const from = process.env.NOTIFICATIONS_FROM_EMAIL || body.fromEmail?.trim() || user;
 
-    if (!user || !pass || !from) {
-      return NextResponse.json({ error: missingEnvMessage }, { status: 500 });
+    if (!user || !pass) {
+      return NextResponse.json(
+        { error: missingEnvMessage, code: "MISSING_CREDENTIALS" },
+        { status: 422 }
+      );
+    }
+    if (!from) {
+      return NextResponse.json(
+        { error: "Missing sender email. Define NOTIFICATIONS_FROM_EMAIL or include fromEmail.", code: "MISSING_SENDER" },
+        { status: 422 }
+      );
     }
 
     const transporter = nodemailer.createTransport({
@@ -40,7 +49,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    await transporter.sendMail({
+    const info = await transporter.sendMail({
       from: `Focus.One Alerts <${from}>`,
       to: recipient,
       subject,
@@ -48,7 +57,7 @@ export async function POST(req: NextRequest) {
       html: `<p>${note}</p><p style="margin-top:16px;">Stay focused,<br/>Focus.One</p>`,
     });
 
-    return NextResponse.json({ ok: true, message: `Reminder sent to ${recipient}` });
+    return NextResponse.json({ ok: true, message: `Reminder sent to ${recipient}`, id: info.messageId });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to send the reminder.";
     return NextResponse.json({ error: message }, { status: 500 });

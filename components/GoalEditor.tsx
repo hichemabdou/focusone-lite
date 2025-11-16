@@ -97,7 +97,7 @@ function GoalEditorForm({ mode, initialDraft, goal, onCancel, onSave }: FormProp
       return;
     }
 
-    const payload = { ...draft, milestone: null };
+    const payload = { ...draft };
     onSave(mode === "edit" ? (payload as Goal) : payload);
   };
 

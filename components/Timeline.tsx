@@ -589,7 +589,8 @@ export default function Timeline() {
       if (event.ctrlKey) return;
       const canScroll = viewportEl.scrollWidth > viewportEl.clientWidth;
       if (!canScroll) return;
-      const horizontalDelta = event.deltaX || (event.shiftKey ? event.deltaY : 0);
+      const mostlyHorizontal = Math.abs(event.deltaX) > Math.abs(event.deltaY);
+      const horizontalDelta = mostlyHorizontal ? event.deltaX : event.shiftKey ? event.deltaY : 0;
       if (!horizontalDelta) return;
       event.preventDefault();
       viewportEl.scrollLeft += horizontalDelta;
@@ -684,7 +685,7 @@ export default function Timeline() {
   return (
     <>
       {focusMode && <div className="timeline__focus-backdrop" onClick={() => setFocusMode(false)} />}
-      <div className={["timeline", focusMode ? "timeline--focus" : ""].join(" ")} style={timelineStyle}>
+      <div className={["timeline", focusMode ? "timeline--focus" : "", milestonesOpen ? "timeline--milestones" : ""].filter(Boolean).join(" ")} style={timelineStyle}>
         <div className="timeline__toolbar">
           <div className="timeline__preset-group">
             {buttons.map((button) => (
@@ -703,8 +704,13 @@ export default function Timeline() {
           <div className="timeline__toolbar-actions">
             <button
               type="button"
-              className="chip chip--interactive timeline__action-chip"
-              onClick={() => setMilestonesOpen(true)}
+              className={[
+                "chip",
+                "chip--interactive",
+                "timeline__action-chip",
+                milestonesOpen ? "chip--on" : "",
+              ].join(" ")}
+              onClick={() => setMilestonesOpen((prev) => !prev)}
             >
               Milestones
             </button>
@@ -801,28 +807,6 @@ export default function Timeline() {
           <div className="timeline__shell">
             <div className="timeline__viewport" ref={viewportRef}>
               <div className="timeline__content" style={contentWidth ? { width: `${contentWidth}px` } : undefined}>
-                <div className="timeline__head">
-                  <div className="timeline__header">
-                    {months.map((month) => (
-                      <div key={month.toISOString()} className="timeline__month">
-                        {fmtMonth(month)}
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="timeline__quarters" aria-hidden>
-                    {quarters.map((quarter) => (
-                      <span
-                        key={`${quarter.label}-${quarter.start.toISOString()}`}
-                        className="timeline__quarter"
-                        style={{ left: `${quarter.leftPct}%`, width: `${quarter.widthPct}%` }}
-                      >
-                        {quarter.label}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
                 <div className="timeline__canvas">
                   {(showMonthGrid || showQuarterGrid) && (
                     <div className="timeline__gridlines">
@@ -837,29 +821,54 @@ export default function Timeline() {
                     </div>
                   )}
                   {showToday && (
-                    <div
+                    <button
+                      type="button"
                       className="timeline__today"
                       style={{ left: `${todayPct}%` }}
                       aria-label={todayLabel}
-                      role="button"
-                      tabIndex={0}
                       onMouseEnter={() => setShowTodayDetail(true)}
                       onFocus={() => setShowTodayDetail(true)}
                       onMouseLeave={() => setShowTodayDetail(false)}
                       onBlur={() => setShowTodayDetail(false)}
+                      onClick={() => centerOnToday("smooth")}
                     >
-                      <span className="timeline__today-label" data-align={todayAlign}>
+                      <span className="timeline__today-beam" aria-hidden />
+                      <span className="timeline__today-dot" aria-hidden />
+                      <span className="timeline__today-pill" data-align={todayAlign}>
                         Today
                       </span>
                       <span
                         className={["timeline__today-detail", showTodayDetail ? "is-visible" : ""].join(" ")}
                         data-align={todayAlign}
+                        aria-hidden={!showTodayDetail}
                       >
                         {todayReadable}
                       </span>
-                    </div>
+                    </button>
                   )}
                 <div className="timeline__rows-viewport" ref={rowsScrollRef}>
+                  <div className="timeline__head">
+                    <div className="timeline__header">
+                      {months.map((month) => (
+                        <div key={month.toISOString()} className="timeline__month">
+                          {fmtMonth(month)}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="timeline__quarters" aria-hidden>
+                      {quarters.map((quarter) => (
+                        <span
+                          key={`${quarter.label}-${quarter.start.toISOString()}`}
+                          className="timeline__quarter"
+                          style={{ left: `${quarter.leftPct}%`, width: `${quarter.widthPct}%` }}
+                        >
+                          {quarter.label}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
                   <div className="timeline__rows">
                     {spans.map((span) => {
                       const statusText = statusLabel[span.stKey] ?? "Open";

@@ -43,10 +43,13 @@ export default function GoalsList() {
   const [undoHistory, setUndoHistory] = useState<Goal[]>([]);
   const [undoMessage, setUndoMessage] = useState<string | null>(null);
 
+  const chronologicalItems = useMemo(() => {
+    return [...items].sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+  }, [items]);
   const sortedItems = useMemo(() => {
-    if (sortDirection === "asc") return items;
-    return [...items].reverse();
-  }, [items, sortDirection]);
+    if (sortDirection === "asc") return chronologicalItems;
+    return [...chronologicalItems].reverse();
+  }, [chronologicalItems, sortDirection]);
 
   useEffect(() => {
     const handler = () => setEditorState({ mode: "create" });
@@ -130,7 +133,6 @@ export default function GoalsList() {
 
   return (
     <div className="goal-layout">
-      <div className="goal-layout__main">
       {/* Header & global actions */}
       <div className="goal-library__intro" />
 
@@ -232,7 +234,6 @@ export default function GoalsList() {
             No goals yet. Use the <span className="chip">+ Add goal</span> button in the header to capture one.
           </div>
         )}
-      </div>
       </div>
       <GoalEditor
         open={Boolean(editorState)}
@@ -425,14 +426,6 @@ function GoalDateEditor({ goal, updateGoal, onStageUndo }: GoalDateEditorProps) 
     };
   }, [open]);
 
-  useEffect(() => {
-    if (!open) {
-      setDraftStart(goal.startDate);
-      setDraftEnd(goal.endDate);
-      setError(null);
-    }
-  }, [open, goal.startDate, goal.endDate]);
-
   const handleSave = () => {
     if (draftStart > draftEnd) {
       setError("End date must be after start date.");
@@ -455,7 +448,15 @@ function GoalDateEditor({ goal, updateGoal, onStageUndo }: GoalDateEditorProps) 
         className="goal-date__chip"
         onClick={(event) => {
           event.stopPropagation();
-          setOpen((prev) => !prev);
+          setOpen((prev) => {
+            const next = !prev;
+            if (next) {
+              setDraftStart(goal.startDate);
+              setDraftEnd(goal.endDate);
+              setError(null);
+            }
+            return next;
+          });
         }}
       >
         {prettyRange(goal)}
@@ -477,7 +478,14 @@ function GoalDateEditor({ goal, updateGoal, onStageUndo }: GoalDateEditorProps) 
           </div>
           {error && <p className="goal-date__error">{error}</p>}
           <div className="goal-date__actions">
-            <button type="button" className="btn" onClick={() => setOpen(false)}>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => {
+                setOpen(false);
+                setError(null);
+              }}
+            >
               Cancel
             </button>
             <button type="button" className="btn btn--primary" onClick={handleSave}>

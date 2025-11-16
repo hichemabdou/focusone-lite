@@ -7,40 +7,68 @@ import { useCustomization } from "./CustomizationContext";
 type Pri = "low" | "medium" | "high" | "critical";
 type St  = "open" | "in-progress" | "blocked" | "done";
 const PRIORITIES: Pri[] = ["low", "medium", "high", "critical"];
-const STATUSES: St[] = ["open", "in-progress", "blocked", "done"];
 
 export default function GoalFilters() {
   const { goals = [], filters, setFilters } = useGoals();
   const { categories } = useCustomization();
   const all: Goal[] = goals;
 
-  const counts = useMemo(() => {
-    return all.reduce(
-      (acc, goal) => {
-        acc.total += 1;
-        acc.status[goal.status] += 1;
-        acc.categories[goal.category] = (acc.categories[goal.category] ?? 0) + 1;
-        acc.priorities[goal.priority] += 1;
-        return acc;
-      },
-      {
-        total: 0,
-        status: {
-          open: 0,
-          "in-progress": 0,
-          blocked: 0,
-          done: 0,
-        } as Record<St, number>,
-        categories: {} as Record<string, number>,
-        priorities: {
-          low: 0,
-          medium: 0,
-          high: 0,
-          critical: 0,
-        } as Record<Pri, number>,
+  const { counts, yearStats } = useMemo(() => {
+    const accumulator = {
+      total: 0,
+      status: {
+        open: 0,
+        "in-progress": 0,
+        blocked: 0,
+        done: 0,
+      } as Record<St, number>,
+      categories: {} as Record<string, number>,
+      priorities: {
+        low: 0,
+        medium: 0,
+        high: 0,
+        critical: 0,
+      } as Record<Pri, number>,
+    };
+    const years: Record<number, { total: number; done: number }> = {};
+    all.forEach((goal) => {
+      accumulator.total += 1;
+      accumulator.status[goal.status] += 1;
+      accumulator.categories[goal.category] = (accumulator.categories[goal.category] ?? 0) + 1;
+      accumulator.priorities[goal.priority] += 1;
+      const year = new Date(goal.endDate).getFullYear();
+      if (!Number.isNaN(year)) {
+        if (!years[year]) years[year] = { total: 0, done: 0 };
+        years[year].total += 1;
+        if (goal.status === "done") years[year].done += 1;
       }
-    );
+    });
+    const yearStats = Object.entries(years)
+      .map(([year, info]) => ({
+        year: Number(year),
+        percent: info.total ? Math.round((info.done / info.total) * 100) : 0,
+        total: info.total,
+        done: info.done,
+      }))
+      .sort((a, b) => a.year - b.year);
+    return { counts: accumulator, yearStats };
   }, [all]);
+
+  const currentYearTotal = currentYearInfo.total || counts.total;
+  const currentYearDone = currentYearInfo.done || counts.status.done;
+  const completionPct = currentYearTotal ? Math.round((currentYearDone / currentYearTotal) * 100) : 0;
+  const statusPills: Array<{ key: St; label: string; className: string }> = [
+    { key: "open", label: "Open", className: "filters__status-pill--open" },
+    { key: "in-progress", label: "In progress", className: "filters__status-pill--inprog" },
+    { key: "blocked", label: "Blocked", className: "filters__status-pill--blocked" },
+    { key: "done", label: "Done", className: "filters__status-pill--done" },
+  ];
+  const currentYear = new Date().getFullYear();
+  const nextYear = currentYear + 1;
+  const currentYearInfo =
+    yearStats.find((entry) => entry.year === currentYear) ?? { year: currentYear, percent: 0, total: 0, done: 0 };
+  const nextYearInfo =
+    yearStats.find((entry) => entry.year === nextYear) ?? { year: nextYear, percent: 0, total: 0, done: 0 };
 
   const toggleCategory = (value: string) => {
     setFilters((prev) => {
@@ -125,34 +153,42 @@ export default function GoalFilters() {
         <span className="filters__eyebrow">Control centre</span>
       </div>
 
-      {/* Compact stats */}
-      <div className="filters__stats" role="group" aria-label="Goal statistics">
-        <div className="filters__stat filters__stat--total">
-          <span className="filters__stat-label">Total</span>
-          <span className="filters__stat-value">{counts.total}</span>
+      <section className="filters__pulse" aria-label="Workspace pulse">
+        <div className="filters__pulse-head">
+          <div>
+            <p className="filters__pulse-meta">Workspace pulse · {currentYear}</p>
+            <span className="filters__pulse-total">
+              {currentYearTotal} goals · {currentYearDone} done
+            </span>
+          </div>
+          <div className="filters__pulse-score">
+            <span>Done</span>
+            <strong>{completionPct}%</strong>
+          </div>
         </div>
-        <div className="filters__stat-grid">
-          {STATUSES.map((status) => (
+        <div className="filters__pulse-bar" aria-hidden>
+          <span style={{ width: `${completionPct}%` }} />
+        </div>
+        <div className="filters__status-pills">
+          {statusPills.map(({ key, label, className }) => (
             <button
-              key={status}
+              key={key}
               type="button"
-              className={[
-                "filters__stat",
-                "filters__stat--status",
-                filters.statuses?.has(status) ? "is-active" : "",
-                `filters__stat--${status.replace("in-progress", "inprog")}`,
-              ].join(" ")}
-              onClick={() => toggleStatus(status)}
-              aria-pressed={filters.statuses?.has(status) ?? false}
+              className={["filters__status-pill", className].join(" ")}
+              onClick={() => toggleStatus(key)}
+              aria-pressed={filters.statuses?.has(key) ?? false}
             >
-              <span className="filters__stat-label">
-                {status === "in-progress" ? "In progress" : status.charAt(0).toUpperCase() + status.slice(1)}
-              </span>
-              <span className="filters__stat-value">{counts.status[status]}</span>
+              <span>{label}</span>
+              <strong>{counts.status[key]}</strong>
             </button>
           ))}
         </div>
-      </div>
+        <div className="filters__year-card filters__year-card--next">
+          <p>{nextYear} · Next year</p>
+          <strong>{nextYearInfo.total} goals planned</strong>
+          <small>{nextYearInfo.done ? `${nextYearInfo.done} pre-completed` : "Preview your upcoming focus"}</small>
+        </div>
+      </section>
 
       {/* Categories */}
       <div className="filters__section">
