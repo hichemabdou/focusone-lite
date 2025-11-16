@@ -1,9 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { Goal, Priority, Status, Category } from "./GoalsContext";
+import { useMemo, useState } from "react";
+import { Goal, Priority, Status, Category, useGoals } from "./GoalsContext";
+import { useCustomization } from "./CustomizationContext";
 import Modal from "./Modal";
 import { createDefaultGoal } from "./goalHelpers";
+import InlineSelect from "./InlineSelect";
+import { openCustomizationPanel } from "./customizationEvents";
 
 type GoalDraft = Omit<Goal, "id"> & { id?: string };
 
@@ -15,7 +18,6 @@ type Props = {
   onSave(goal: Goal | Omit<Goal, "id">): void;
 };
 
-const CATEGORY_OPTIONS: Category[] = ["STRATEGY", "VISION", "TACTICAL", "PROJECT", "DAILY"];
 const PRIORITY_OPTIONS: Priority[] = ["low", "medium", "high", "critical"];
 const STATUS_OPTIONS: Status[] = ["open", "in-progress", "blocked", "done"];
 
@@ -31,6 +33,7 @@ export default function GoalEditor({ mode, open, goal, onCancel, onSave }: Props
         key={formKey}
         mode={mode}
         initialDraft={initialDraft}
+        goal={goal ?? undefined}
         onCancel={onCancel}
         onSave={onSave}
       />
@@ -41,13 +44,43 @@ export default function GoalEditor({ mode, open, goal, onCancel, onSave }: Props
 type FormProps = {
   mode: "create" | "edit";
   initialDraft: GoalDraft;
+  goal?: Goal | null;
   onCancel(): void;
   onSave(goal: Goal | Omit<Goal, "id">): void;
 };
 
-function GoalEditorForm({ mode, initialDraft, onCancel, onSave }: FormProps) {
+function GoalEditorForm({ mode, initialDraft, goal, onCancel, onSave }: FormProps) {
+  const { addComment, deleteComment } = useGoals();
+  const { categories } = useCustomization();
   const [draft, setDraft] = useState<GoalDraft>(initialDraft);
   const [error, setError] = useState<string | null>(null);
+  const categoryOptions = useMemo(
+    () =>
+      categories.map((cat) => ({
+        value: cat.name,
+        label: cat.name.charAt(0) + cat.name.slice(1).toLowerCase(),
+        tone: `category-${cat.name.toLowerCase()}`,
+      })),
+    [categories]
+  );
+  const priorityOptions = useMemo(
+    () =>
+      PRIORITY_OPTIONS.map((opt) => ({
+        value: opt,
+        label: opt.charAt(0).toUpperCase() + opt.slice(1),
+        tone: `priority-${opt}`,
+      })),
+    []
+  );
+  const statusOptions = useMemo(
+    () =>
+      STATUS_OPTIONS.map((opt) => ({
+        value: opt,
+        label: opt === "in-progress" ? "In progress" : opt.charAt(0).toUpperCase() + opt.slice(1),
+        tone: opt === "in-progress" ? "status-inprog" : `status-${opt}`,
+      })),
+    []
+  );
 
   const updateField = (field: keyof GoalDraft, value: string) => {
     setError(null);
@@ -121,51 +154,52 @@ function GoalEditorForm({ mode, initialDraft, onCancel, onSave }: FormProps) {
       </div>
 
       <div className="goal-editor__grid">
-        <label className="goal-editor__field">
+        <label className="goal-editor__field goal-editor__field--inline">
           <span>Category</span>
-          <select
-            className="field select"
+          <InlineSelect
             value={draft.category}
-            onChange={(e) => updateField("category", e.target.value as Category)}
-          >
-            {CATEGORY_OPTIONS.map((opt) => (
-              <option key={opt} value={opt}>{opt.charAt(0) + opt.slice(1).toLowerCase()}</option>
-            ))}
-          </select>
+            options={categoryOptions}
+            onChange={(next) => updateField("category", next as Category)}
+            addLabel="Add category"
+            onAdd={() => openCustomizationPanel("categories")}
+          />
         </label>
 
-        <label className="goal-editor__field">
+        <label className="goal-editor__field goal-editor__field--inline">
           <span>Priority</span>
-          <select
-            className="field select"
+          <InlineSelect
             value={draft.priority}
-            onChange={(e) => updateField("priority", e.target.value as Priority)}
-          >
-            {PRIORITY_OPTIONS.map((opt) => (
-              <option key={opt} value={opt}>{opt.charAt(0).toUpperCase() + opt.slice(1)}</option>
-            ))}
-          </select>
+            options={priorityOptions}
+            onChange={(next) => updateField("priority", next as Priority)}
+            addLabel="Add priority"
+            onAdd={() => openCustomizationPanel("priorities")}
+          />
         </label>
 
-        <label className="goal-editor__field">
+        <label className="goal-editor__field goal-editor__field--inline">
           <span>Status</span>
-          <select
-            className="field select"
+          <InlineSelect
             value={draft.status}
-            onChange={(e) => updateField("status", e.target.value as Status)}
-          >
-            {STATUS_OPTIONS.map((opt) => (
-              <option key={opt} value={opt}>
-                {opt === "in-progress" ? "In progress" : opt.charAt(0).toUpperCase() + opt.slice(1)}
-              </option>
-            ))}
-          </select>
+            options={statusOptions}
+            onChange={(next) => updateField("status", next as Status)}
+            addLabel="Add status"
+            onAdd={() => openCustomizationPanel("statuses")}
+          />
         </label>
       </div>
 
       <p className="goal-editor__hint">
         Need checkpoints? Add milestones from the timeline after the goal is created.
       </p>
+
+      {mode === "edit" && goal?.id && (
+        <GoalCommentsSection
+          goalId={goal.id}
+          comments={goal.comments ?? []}
+          addComment={addComment}
+          deleteComment={deleteComment}
+        />
+      )}
 
       <div className="goal-editor__actions">
         <button type="button" className="btn" onClick={onCancel}>Cancel</button>
@@ -174,5 +208,61 @@ function GoalEditorForm({ mode, initialDraft, onCancel, onSave }: FormProps) {
         </button>
       </div>
     </form>
+  );
+}
+
+type GoalCommentsSectionProps = {
+  goalId: string;
+  comments: Goal["comments"];
+  addComment(goalId: string, body: string): void;
+  deleteComment(goalId: string, commentId: string): void;
+};
+
+function GoalCommentsSection({ goalId, comments, addComment, deleteComment }: GoalCommentsSectionProps) {
+  const [body, setBody] = useState("");
+  const formatter = useMemo(
+    () => new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }),
+    []
+  );
+
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!body.trim()) return;
+    addComment(goalId, body.trim());
+    setBody("");
+  };
+
+  return (
+    <section className="goal-comments">
+      <header className="goal-comments__header">
+        <span>Comments</span>
+        <span className="goal-comments__count">{comments.length}</span>
+      </header>
+      <ul className="goal-comments__list">
+        {comments.length === 0 && <li className="goal-comments__empty">No comments yet.</li>}
+        {comments.map((comment) => (
+          <li key={comment.id} className="goal-comments__item">
+            <p>{comment.body}</p>
+            <div className="goal-comments__meta">
+              <span>{formatter.format(new Date(comment.createdAt))}</span>
+              <button type="button" onClick={() => deleteComment(goalId, comment.id)}>
+                Delete
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <form className="goal-comments__composer" onSubmit={handleSubmit}>
+        <textarea
+          value={body}
+          onChange={(event) => setBody(event.target.value)}
+          placeholder="Leave a reflection or progress note"
+          rows={2}
+        />
+        <button type="submit" className="btn">
+          Add comment
+        </button>
+      </form>
+    </section>
   );
 }

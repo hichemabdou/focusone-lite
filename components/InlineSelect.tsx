@@ -8,23 +8,25 @@ type InlineSelectProps = {
   value: string;
   options: Option[];
   onChange: (value: string) => void;
+  addLabel?: string;
+  onAdd?: () => void;
 };
 
-export default function InlineSelect({ value, options, onChange }: InlineSelectProps) {
+export default function InlineSelect({ value, options, onChange, addLabel, onAdd }: InlineSelectProps) {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const activeOption = useMemo(() => options.find((opt) => opt.value === value), [options, value]);
 
   useEffect(() => {
     if (!open) return;
-    const handleClick = (event: MouseEvent) => {
+    const handleClick = (event: globalThis.MouseEvent) => {
       if (!wrapperRef.current) return;
       if (!wrapperRef.current.contains(event.target as Node)) {
         setOpen(false);
       }
     };
-    window.addEventListener("mousedown", handleClick);
-    return () => window.removeEventListener("mousedown", handleClick);
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
   }, [open]);
 
   const buttonClasses = [
@@ -75,6 +77,19 @@ export default function InlineSelect({ value, options, onChange }: InlineSelectP
               {option.label}
             </button>
           ))}
+          {onAdd && (
+            <button
+              type="button"
+              className="inline-select__option inline-select__option--add"
+              onClick={(event) => {
+                event.stopPropagation();
+                onAdd();
+                setOpen(false);
+              }}
+            >
+              + {addLabel ?? "Add option"}
+            </button>
+          )}
         </div>
       )}
     </div>

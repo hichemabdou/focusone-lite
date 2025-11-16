@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, FocusEvent } from "react";
 import { Goal, Priority, Status, useGoals } from "./GoalsContext";
+import { useCustomization } from "./CustomizationContext";
 import GoalEditor from "./GoalEditor";
-import MilestoneEditor from "./MilestoneEditor";
 import InlineSelect from "./InlineSelect";
+import { openCustomizationPanel } from "./customizationEvents";
 
 /* ---------- helpers ---------- */
 function prettyRange(g: Goal) {
@@ -13,6 +14,14 @@ function prettyRange(g: Goal) {
   const e = new Date(g.endDate);
   const fmt = (d: Date) => d.toLocaleString(undefined, { month: "short", day: "2-digit" });
   return `${fmt(s)} — ${fmt(e)}`;
+}
+
+function cloneGoalForUndo(goal: Goal): Goal {
+  return {
+    ...goal,
+    comments: goal.comments.map((comment) => ({ ...comment })),
+    milestone: goal.milestone ? { ...goal.milestone } : null,
+  };
 }
 
 const STATUS_LABELS: Record<Status, string> = {
@@ -27,12 +36,17 @@ type GroupMode = "status" | "priority" | "flow";
 export default function GoalsList() {
   const { visibleGoals, goals, deleteGoal, addGoal, updateGoal } = useGoals();
   const items = useMemo(() => (visibleGoals ?? goals ?? []) as Goal[], [visibleGoals, goals]);
-  const milestones = useMemo(() => items.filter((goal) => goal.milestone), [items]);
-
-  const [groupMode, setGroupMode] = useState<GroupMode>("status");
+  const [groupMode, setGroupMode] = useState<GroupMode>("flow");
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [editorState, setEditorState] = useState<{ mode: "create" | "edit"; goal?: Goal | null } | null>(null);
-  const [milestoneGoal, setMilestoneGoal] = useState<Goal | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [undoHistory, setUndoHistory] = useState<Goal[]>([]);
+  const [undoMessage, setUndoMessage] = useState<string | null>(null);
+
+  const sortedItems = useMemo(() => {
+    if (sortDirection === "asc") return items;
+    return [...items].reverse();
+  }, [items, sortDirection]);
 
   useEffect(() => {
     const handler = () => setEditorState({ mode: "create" });
@@ -42,7 +56,7 @@ export default function GoalsList() {
 
   const grouped = useMemo(() => {
     if (groupMode === "flow") {
-      return [{ key: "all", label: "All goals", items }];
+      return [{ key: "all", label: "All goals", items: sortedItems }];
     }
 
     if (groupMode === "priority") {
@@ -51,7 +65,7 @@ export default function GoalsList() {
         .map((pri) => ({
           key: `priority-${pri}`,
           label: pri.charAt(0).toUpperCase() + pri.slice(1),
-          items: items.filter((goal) => goal.priority === pri),
+          items: sortedItems.filter((goal) => goal.priority === pri),
         }))
         .filter((section) => section.items.length > 0);
     }
@@ -61,10 +75,10 @@ export default function GoalsList() {
       .map((status) => ({
         key: `status-${status}`,
         label: STATUS_LABELS[status],
-        items: items.filter((goal) => goal.status === status),
+        items: sortedItems.filter((goal) => goal.status === status),
       }))
       .filter((section) => section.items.length > 0);
-  }, [groupMode, items]);
+  }, [groupMode, sortedItems]);
 
   const toggleSection = (key: string) => {
     setCollapsedSections((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -82,31 +96,93 @@ export default function GoalsList() {
     closeEditor();
   };
 
+  const collapseAll = (shouldCollapse: boolean) => {
+    const next: Record<string, boolean> = {};
+    grouped.forEach((section) => {
+      next[section.key] = shouldCollapse;
+    });
+    setCollapsedSections(next);
+  };
+
+  const totalGoals = goals.length;
+  const filteredCount = items.length;
+  const filtersActive = filteredCount !== totalGoals;
+  const stageUndo = (snapshot: Goal) => {
+    setUndoHistory((prev) => [cloneGoalForUndo(snapshot), ...prev].slice(0, 15));
+    setUndoMessage(`Updated “${snapshot.title || "goal"}”`);
+  };
+  const undoLastChange = () => {
+    setUndoHistory((prev) => {
+      if (!prev.length) return prev;
+      const [latest, ...rest] = prev;
+      updateGoal(latest);
+      setUndoMessage(`Restored “${latest.title || "goal"}”`);
+      return rest;
+    });
+  };
+  const canUndo = undoHistory.length > 0;
+
+  useEffect(() => {
+    if (!undoMessage) return;
+    const timer = window.setTimeout(() => setUndoMessage(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [undoMessage]);
+
   return (
     <div className="goal-layout">
       <div className="goal-layout__main">
       {/* Header & global actions */}
       <div className="goal-library__intro" />
 
-      <div className="goal-library__view-toggle">
-        {([
-          { key: "status", label: "Status lanes" },
-          { key: "priority", label: "Priority lanes" },
-          { key: "flow", label: "Chronological" },
-        ] as { key: GroupMode; label: string }[]).map((option) => (
-          <button
-            key={option.key}
-            type="button"
-            className={[
-              "chip",
-              "chip--interactive",
-              groupMode === option.key ? "chip--on" : "",
-            ].join(" ")}
-            onClick={() => setGroupMode(option.key)}
-          >
-            {option.label}
-          </button>
-        ))}
+      <div className="goal-list__toolbar">
+        <div className="goal-list__toolbar-left">
+          {([
+            { key: "status", label: "Status lanes" },
+            { key: "priority", label: "Priority lanes" },
+            { key: "flow", label: "Chronological" },
+          ] as { key: GroupMode; label: string }[]).map((option) => (
+            <button
+              key={option.key}
+              type="button"
+              className={[
+                "chip",
+                "chip--interactive",
+                groupMode === option.key ? "chip--on" : "",
+              ].join(" ")}
+              onClick={() => setGroupMode(option.key)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+        <div className="goal-list__toolbar-right">
+          <div className="goal-list__summary">
+            <span>{filteredCount} / {totalGoals} goals</span>
+            {filtersActive && <span className="goal-list__summary-pill">Filters active</span>}
+          </div>
+          <div className="goal-list__toolbar-chips">
+            <button
+              type="button"
+              className={["chip", "chip--interactive", sortDirection === "asc" ? "chip--on" : ""].join(" ")}
+              onClick={() => setSortDirection("asc")}
+            >
+              Earliest first
+            </button>
+            <button
+              type="button"
+              className={["chip", "chip--interactive", sortDirection === "desc" ? "chip--on" : ""].join(" ")}
+              onClick={() => setSortDirection("desc")}
+            >
+              Latest first
+            </button>
+            <button type="button" className="chip chip--interactive" onClick={() => collapseAll(true)}>
+              Collapse all
+            </button>
+            <button type="button" className="chip chip--interactive" onClick={() => collapseAll(false)}>
+              Expand all
+            </button>
+          </div>
+        </div>
       </div>
 
       <div className="goal-section-list">
@@ -142,6 +218,7 @@ export default function GoalsList() {
                       updateGoal={updateGoal}
                       deleteGoal={deleteGoal}
                       onEdit={openEdit}
+                    onStageUndo={stageUndo}
                     />
                   ))}
                 </div>
@@ -157,10 +234,6 @@ export default function GoalsList() {
         )}
       </div>
       </div>
-      <aside className="goal-layout__milestones">
-        <MilestonesShelf milestones={milestones} onEdit={setMilestoneGoal} />
-      </aside>
-
       <GoalEditor
         open={Boolean(editorState)}
         mode={editorState?.mode ?? "create"}
@@ -169,16 +242,42 @@ export default function GoalsList() {
         onSave={handleSave}
       />
 
-      <MilestoneEditor
-        open={Boolean(milestoneGoal)}
-        goal={milestoneGoal}
-        onClose={() => setMilestoneGoal(null)}
-        onSave={(next) => {
-          updateGoal(next);
-          setMilestoneGoal(null);
-        }}
-      />
+      {canUndo && (
+        <div className="undo-toast">
+          <span>{undoMessage ?? "Change saved"}</span>
+          <button type="button" onClick={undoLastChange}>
+            Undo
+          </button>
+        </div>
+      )}
     </div>
+  );
+}
+
+type CategorySelectProps = {
+  goal: Goal;
+  updateGoal: (goal: Goal) => void;
+  onStageUndo(goal: Goal): void;
+};
+
+function CategorySelect({ goal, updateGoal, onStageUndo }: CategorySelectProps) {
+  const { categories } = useCustomization();
+  return (
+    <InlineSelect
+      value={goal.category}
+      onChange={(next) => {
+        if (goal.category === next) return;
+        onStageUndo(goal);
+        updateGoal({ ...goal, category: next as Goal["category"] });
+      }}
+      options={categories.map((cat) => ({
+        value: cat.name,
+        label: cat.name.charAt(0) + cat.name.slice(1).toLowerCase(),
+        tone: `category-${cat.name.toLowerCase()}`,
+      }))}
+      addLabel="Add category"
+      onAdd={() => openCustomizationPanel("categories")}
+    />
   );
 }
 
@@ -187,9 +286,10 @@ type GoalCardProps = {
   updateGoal: (goal: Goal) => void;
   deleteGoal: (id: string) => void;
   onEdit(goal: Goal): void;
+  onStageUndo(goal: Goal): void;
 };
 
-function GoalCard({ goal, updateGoal, deleteGoal, onEdit }: GoalCardProps) {
+function GoalCard({ goal, updateGoal, deleteGoal, onEdit, onStageUndo }: GoalCardProps) {
   const notesValue = goal.notes ?? "";
 
   const handleTitleBlur = (event: FocusEvent<HTMLInputElement>) => {
@@ -198,7 +298,10 @@ function GoalCard({ goal, updateGoal, deleteGoal, onEdit }: GoalCardProps) {
       event.target.value = goal.title;
       return;
     }
-    if (next !== goal.title) updateGoal({ ...goal, title: next });
+    if (next !== goal.title) {
+      onStageUndo(goal);
+      updateGoal({ ...goal, title: next });
+    }
   };
 
   const handleTitleKey = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -210,7 +313,7 @@ function GoalCard({ goal, updateGoal, deleteGoal, onEdit }: GoalCardProps) {
 
   return (
     <article
-      className="goal-row goal-row--lite"
+      className="goal-row goal-row--lite goal-row--compact"
       onClick={() => onEdit(goal)}
       role="button"
       tabIndex={0}
@@ -239,41 +342,46 @@ function GoalCard({ goal, updateGoal, deleteGoal, onEdit }: GoalCardProps) {
           onKeyDown={handleTitleKey}
           placeholder="Untitled goal"
         />
-        <span className="goal-row__range-chip">{prettyRange(goal)}</span>
+        <GoalDateEditor goal={goal} updateGoal={updateGoal} onStageUndo={onStageUndo} />
       </div>
 
       <div className="goal-row__meta">
         <InlineSelect
           value={goal.status}
-          onChange={(next) => updateGoal({ ...goal, status: next as Status })}
+          onChange={(next) => {
+            if (goal.status === next) return;
+            onStageUndo(goal);
+            updateGoal({ ...goal, status: next as Status });
+          }}
           options={[
             { value: "open", label: "Open", tone: "status-open" },
             { value: "in-progress", label: "In progress", tone: "status-inprog" },
             { value: "blocked", label: "Blocked", tone: "status-blocked" },
             { value: "done", label: "Done", tone: "status-done" },
           ]}
+          addLabel="Add status"
+          onAdd={() => openCustomizationPanel("statuses")}
         />
         <InlineSelect
           value={goal.priority}
-          onChange={(next) => updateGoal({ ...goal, priority: next as Priority })}
+          onChange={(next) => {
+            if (goal.priority === next) return;
+            onStageUndo(goal);
+            updateGoal({ ...goal, priority: next as Priority });
+          }}
           options={[
             { value: "low", label: "Low", tone: "priority-low" },
             { value: "medium", label: "Medium", tone: "priority-medium" },
             { value: "high", label: "High", tone: "priority-high" },
             { value: "critical", label: "Critical", tone: "priority-critical" },
           ]}
+          addLabel="Add priority"
+          onAdd={() => openCustomizationPanel("priorities")}
         />
-        <InlineSelect
-          value={goal.category}
-          onChange={(next) => updateGoal({ ...goal, category: next as Goal["category"] })}
-          options={[
-            { value: "STRATEGY", label: "Strategy", tone: "category-strategy" },
-            { value: "VISION", label: "Vision", tone: "category-vision" },
-            { value: "TACTICAL", label: "Tactical", tone: "category-tactical" },
-            { value: "PROJECT", label: "Project", tone: "category-project" },
-            { value: "DAILY", label: "Daily", tone: "category-daily" },
-          ]}
-        />
+        <CategorySelect goal={goal} updateGoal={updateGoal} onStageUndo={onStageUndo} />
+        <span className="goal-row__comments" aria-label={`${goal.comments?.length ?? 0} comments`}>
+          💬 {goal.comments?.length ?? 0}
+        </span>
       </div>
 
       {notesValue && <p className="goal-row__note-text">{notesValue}</p>}
@@ -281,31 +389,104 @@ function GoalCard({ goal, updateGoal, deleteGoal, onEdit }: GoalCardProps) {
   );
 }
 
-type MilestonesShelfProps = {
-  milestones: Goal[];
-  onEdit(goal: Goal): void;
+type GoalDateEditorProps = {
+  goal: Goal;
+  updateGoal: (goal: Goal) => void;
+  onStageUndo(goal: Goal): void;
 };
 
-function MilestonesShelf({ milestones, onEdit }: MilestonesShelfProps) {
+function GoalDateEditor({ goal, updateGoal, onStageUndo }: GoalDateEditorProps) {
+  const [open, setOpen] = useState(false);
+  const [draftStart, setDraftStart] = useState(goal.startDate);
+  const [draftEnd, setDraftEnd] = useState(goal.endDate);
+  const [error, setError] = useState<string | null>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClick = (event: globalThis.MouseEvent) => {
+      if (!wrapperRef.current) return;
+      if (!wrapperRef.current.contains(event.target as Node)) {
+        setOpen(false);
+        setError(null);
+      }
+    };
+    const handleEsc = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        setError(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleEsc);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleEsc);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      setDraftStart(goal.startDate);
+      setDraftEnd(goal.endDate);
+      setError(null);
+    }
+  }, [open, goal.startDate, goal.endDate]);
+
+  const handleSave = () => {
+    if (draftStart > draftEnd) {
+      setError("End date must be after start date.");
+      return;
+    }
+    if (draftStart === goal.startDate && draftEnd === goal.endDate) {
+      setOpen(false);
+      return;
+    }
+    onStageUndo(goal);
+    updateGoal({ ...goal, startDate: draftStart, endDate: draftEnd });
+    setOpen(false);
+    setError(null);
+  };
+
   return (
-    <div className="milestones-panel">
-      <h3 className="milestones-panel__title">Milestones</h3>
-      {milestones.length === 0 ? (
-        <p className="milestones-panel__hint">Create a milestone from the goal editor to see it here.</p>
-      ) : (
-        <ul className="milestones-panel__list">
-          {milestones.map((goal) => (
-            <li key={goal.id}>
-              <button type="button" className="milestones-panel__item" onClick={() => onEdit(goal)}>
-                <span className="milestones-panel__label">{goal.milestone?.label ?? goal.title}</span>
-                <span className="milestones-panel__date">
-                  {goal.milestone?.date ?? goal.milestone?.windowEnd ?? goal.endDate}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
+    <div className={["goal-date", open ? "is-open" : ""].join(" ")} ref={wrapperRef}>
+      <button
+        type="button"
+        className="goal-date__chip"
+        onClick={(event) => {
+          event.stopPropagation();
+          setOpen((prev) => !prev);
+        }}
+      >
+        {prettyRange(goal)}
+      </button>
+      {open && (
+        <div
+          className="goal-date__popover"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="goal-date__fields">
+            <label>
+              <span>Start</span>
+              <input type="date" value={draftStart} onChange={(e) => setDraftStart(e.target.value)} />
+            </label>
+            <label>
+              <span>End</span>
+              <input type="date" value={draftEnd} onChange={(e) => setDraftEnd(e.target.value)} />
+            </label>
+          </div>
+          {error && <p className="goal-date__error">{error}</p>}
+          <div className="goal-date__actions">
+            <button type="button" className="btn" onClick={() => setOpen(false)}>
+              Cancel
+            </button>
+            <button type="button" className="btn btn--primary" onClick={handleSave}>
+              Save dates
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
 }
+

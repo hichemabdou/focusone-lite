@@ -17,10 +17,10 @@ const COLOR_OPTIONS = ["#f97316", "#0ea5e9", "#a855f7", "#22c55e", "#eab308"];
 export default function MilestoneEditor(props: Props) {
   const { goal } = props;
   if (!goal) return null;
-  return <MilestoneEditorForm key={goal.id} {...props} goal={goal} />;
+  return <MilestoneEditorForm key={goal.id} open={props.open} goal={goal} onClose={props.onClose} onSave={props.onSave} />;
 }
 
-function MilestoneEditorForm({ open, goal, onClose, onSave }: Required<Props>) {
+function MilestoneEditorForm({ open, goal, onClose, onSave }: { open: boolean; goal: Goal; onClose: () => void; onSave: (next: Goal) => void }) {
   const fallbackDate = goal.endDate;
   const initial = goal.milestone;
 
@@ -58,16 +58,20 @@ function MilestoneEditorForm({ open, goal, onClose, onSave }: Required<Props>) {
       return;
     }
     const base = ensureMilestoneDraft(goal.milestone, goal.endDate, type === "point" ? "point" : "window");
+    if (!base) {
+      setError("Failed to create milestone draft.");
+      return;
+    }
     const draft =
       type === "point"
-        ? { ...base, type: "point" as const, label, date: pointDate, color }
+        ? { id: base.id, type: "point" as const, label, date: pointDate, color: color }
         : {
-            ...base,
+            id: base.id,
             type: "window" as const,
             label,
             windowStart,
             windowEnd,
-            color,
+            color: color,
           };
     const normalized = normalizeMilestoneDraft(draft, goal.endDate);
     onSave({ ...goal, milestone: normalized });

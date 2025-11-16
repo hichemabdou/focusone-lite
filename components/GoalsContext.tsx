@@ -4,7 +4,7 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from "
 
 export type Priority = "low" | "medium" | "high" | "critical";
 export type Status = "open" | "in-progress" | "blocked" | "done";
-export type Category = "STRATEGY" | "VISION" | "TACTICAL" | "PROJECT" | "DAILY";
+export type Category = string; // Now dynamic, can be any string
 
 export type Milestone =
   | {
@@ -23,6 +23,12 @@ export type Milestone =
       color?: string;
     };
 
+export type GoalComment = {
+  id: string;
+  body: string;
+  createdAt: string;
+};
+
 export type Goal = {
   id: string;
   title: string;
@@ -33,19 +39,11 @@ export type Goal = {
   status: Status;
   notes?: string;
   milestone?: Milestone | null;
+  comments: GoalComment[];
 };
 
 const STORAGE_KEY = "focusone_goals_v1";
 
-// Category base color + Priority opacity logic
-export const CATEGORY_COLORS: Record<Category, string> = {
-  STRATEGY: "bg-cyan-500",
-  VISION: "bg-amber-500",
-  TACTICAL: "bg-sky-500",
-  PROJECT: "bg-fuchsia-500",
-  DAILY: "bg-emerald-500",
-};
-const CATEGORY_VALUES: Category[] = ["STRATEGY", "VISION", "TACTICAL", "PROJECT", "DAILY"];
 export const PRIORITY_OPACITY: Record<Priority, string> = {
   low: "opacity-50",
   medium: "opacity-70",
@@ -70,6 +68,8 @@ type Ctx = {
   addGoal(g: Omit<Goal, "id">): void;
   updateGoal(g: Goal): void;
   deleteGoal(id: string): void;
+  addComment(goalId: string, body: string): void;
+  deleteComment(goalId: string, commentId: string): void;
   importJson(input: Goal[]): void;
   exportJson(): string;
 };
@@ -92,6 +92,7 @@ const sample: Goal[] = [
       label: "Draft manifesto",
       date: "2025-11-20",
     },
+    comments: [],
   },
   {
     id: "g2",
@@ -102,10 +103,27 @@ const sample: Goal[] = [
     priority: "critical",
     status: "open",
     milestone: null,
+    comments: [],
   },
 ];
 
 type RawGoal = Partial<Goal> & Record<string, unknown>;
+
+function sanitizeComments(input: unknown): GoalComment[] {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((item) => {
+      const data = item as Partial<GoalComment>;
+      const body = typeof data.body === "string" ? data.body.trim() : "";
+      if (!body) return null;
+      return {
+        id: typeof data.id === "string" ? data.id : crypto.randomUUID(),
+        body,
+        createdAt: typeof data.createdAt === "string" ? data.createdAt : new Date().toISOString(),
+      };
+    })
+    .filter((entry): entry is GoalComment => Boolean(entry));
+}
 
 function sanitizeGoal(goalInput: RawGoal): Goal {
   const startDate = goalInput.startDate ?? goalInput.endDate ?? new Date().toISOString().slice(0, 10);
@@ -122,6 +140,7 @@ function sanitizeGoal(goalInput: RawGoal): Goal {
     status: goalInput.status ?? "open",
     notes: goalInput.notes,
     milestone: normalizedMilestone,
+    comments: sanitizeComments(goalInput.comments),
   };
 }
 
@@ -184,7 +203,7 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
 
   const visibleGoals = useMemo(() => {
     let arr = goals.slice();
-    if (filters.categories && filters.categories.size > 0 && filters.categories.size < CATEGORY_VALUES.length) {
+    if (filters.categories && filters.categories.size > 0) {
       arr = arr.filter((g) => filters.categories!.has(g.category));
     }
     if (filters.priorities && filters.priorities.size > 0 && filters.priorities.size < PRIORITY_VALUES.length) {
@@ -210,6 +229,29 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
     setGoals((s) => [...s, sanitizeGoal({ ...g, id: crypto.randomUUID() })]);
   const updateGoal = (g: Goal) => setGoals((s) => s.map((x) => (x.id === g.id ? sanitizeGoal(g) : x)));
   const deleteGoal = (id: string) => setGoals((s) => s.filter((x) => x.id !== id));
+  const addComment = (goalId: string, body: string) => {
+    const trimmed = body.trim();
+    if (!trimmed) return;
+    setGoals((s) =>
+      s.map((goal) =>
+        goal.id === goalId
+          ? {
+              ...goal,
+              comments: [
+                ...goal.comments,
+                { id: crypto.randomUUID(), body: trimmed, createdAt: new Date().toISOString() },
+              ],
+            }
+          : goal
+      )
+    );
+  };
+  const deleteComment = (goalId: string, commentId: string) =>
+    setGoals((s) =>
+      s.map((goal) =>
+        goal.id === goalId ? { ...goal, comments: goal.comments.filter((comment) => comment.id !== commentId) } : goal
+      )
+    );
   const importJson = (input: Goal[]) => setGoals((input ?? []).map(sanitizeGoal));
   const exportJson = () => JSON.stringify(goals, null, 2);
 
@@ -221,6 +263,8 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
     addGoal,
     updateGoal,
     deleteGoal,
+    addComment,
+    deleteComment,
     importJson,
     exportJson,
   };

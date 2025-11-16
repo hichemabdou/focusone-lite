@@ -10,10 +10,9 @@
   },
   "dependencies": {
     "next": "16.0.1",
+    "nodemailer": "^6.10.1",
     "react": "19.2.0",
-    "react-dom": "19.2.0",
-    "vis-data": "^8.0.3",
-    "vis-timeline": "^8.3.1"
+    "react-dom": "19.2.0"
   },
   "devDependencies": {
     "@types/node": "^20",

@@ -2,16 +2,16 @@
 
 import { useMemo } from "react";
 import { Goal, useGoals } from "./GoalsContext";
+import { useCustomization } from "./CustomizationContext";
 
-type Cat = "STRATEGY" | "VISION" | "TACTICAL" | "PROJECT" | "DAILY";
 type Pri = "low" | "medium" | "high" | "critical";
 type St  = "open" | "in-progress" | "blocked" | "done";
-const CATEGORIES: Cat[] = ["STRATEGY", "VISION", "TACTICAL", "PROJECT", "DAILY"];
 const PRIORITIES: Pri[] = ["low", "medium", "high", "critical"];
 const STATUSES: St[] = ["open", "in-progress", "blocked", "done"];
 
 export default function GoalFilters() {
   const { goals = [], filters, setFilters } = useGoals();
+  const { categories } = useCustomization();
   const all: Goal[] = goals;
 
   const counts = useMemo(() => {
@@ -19,7 +19,7 @@ export default function GoalFilters() {
       (acc, goal) => {
         acc.total += 1;
         acc.status[goal.status] += 1;
-        acc.categories[goal.category] += 1;
+        acc.categories[goal.category] = (acc.categories[goal.category] ?? 0) + 1;
         acc.priorities[goal.priority] += 1;
         return acc;
       },
@@ -31,13 +31,7 @@ export default function GoalFilters() {
           blocked: 0,
           done: 0,
         } as Record<St, number>,
-        categories: {
-          STRATEGY: 0,
-          VISION: 0,
-          TACTICAL: 0,
-          PROJECT: 0,
-          DAILY: 0,
-        } as Record<Cat, number>,
+        categories: {} as Record<string, number>,
         priorities: {
           low: 0,
           medium: 0,
@@ -48,7 +42,7 @@ export default function GoalFilters() {
     );
   }, [all]);
 
-  const toggleCategory = (value: Cat) => {
+  const toggleCategory = (value: string) => {
     setFilters((prev) => {
       const next = new Set(prev.categories ?? []);
       if (next.has(value)) {
@@ -164,17 +158,21 @@ export default function GoalFilters() {
       <div className="filters__section">
         <div className="eyebrow">Focus categories</div>
         <div className="filters__chips">
-          {CATEGORIES.map(c => (
-            <Chip
-              key={c}
-              active={filters.categories?.has(c) ?? false}
-              onClick={() => toggleCategory(c)}
-              className={`chip--cat-${c.toLowerCase()}`}
-              count={counts.categories[c]}
-            >
-              {c.charAt(0) + c.slice(1).toLowerCase()}
-            </Chip>
-          ))}
+          {categories.map(cat => {
+            const catName = cat.name;
+            const count = counts.categories[catName] || 0;
+            return (
+              <Chip
+                key={cat.id}
+                active={filters.categories?.has(catName) ?? false}
+                onClick={() => toggleCategory(catName)}
+                className={`chip--cat-${catName.toLowerCase()}`}
+                count={count}
+              >
+                {catName.charAt(0) + catName.slice(1).toLowerCase()}
+              </Chip>
+            );
+          })}
         </div>
       </div>
 
@@ -196,6 +194,14 @@ export default function GoalFilters() {
         </div>
       </div>
 
+      <div className="filters__section filters__integrations">
+        <div className="filters__integrations-card">
+          <p className="filters__integrations-title">Notifications & calendar</p>
+          <p className="filters__integrations-copy">
+            Manage email nudges and calendar sync from the customization panel next to the timeline.
+          </p>
+        </div>
+      </div>
 
       {/* Search + Reset */}
       <div className="filters__section">

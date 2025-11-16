@@ -17,6 +17,7 @@ export function createDefaultGoal(): Omit<Goal, "id"> {
     startDate: toISO(today),
     endDate: toISO(end),
     milestone: null,
+    comments: [],
   };
 }
 
