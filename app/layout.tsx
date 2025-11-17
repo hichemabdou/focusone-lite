@@ -5,6 +5,8 @@ import { GoalsProvider } from "@/components/GoalsContext";
 import { CustomizationProvider } from "@/components/CustomizationContext";
 import { ThemeProvider } from "@/components/ThemeContext";
 import SessionProvider from "@/components/SessionProvider";
+import ToastContainer from "@/components/Toast";
+import KeyboardShortcuts from "@/components/KeyboardShortcuts";
 
 export const metadata: Metadata = {
   title: "Focus.One",
@@ -18,7 +20,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <SessionProvider>
           <ThemeProvider>
             <CustomizationProvider>
-              <GoalsProvider>{children}</GoalsProvider>
+              <GoalsProvider>
+                {children}
+                <ToastContainer />
+                <KeyboardShortcuts />
+              </GoalsProvider>
             </CustomizationProvider>
           </ThemeProvider>
         </SessionProvider>

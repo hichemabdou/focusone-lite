@@ -83,7 +83,11 @@ export const authOptions: NextAuthOptions = {
   providers,
   callbacks: {
     async signIn({ user, account, profile }) {
-      if (account?.provider === "google") {
+      // Check if Supabase is configured
+      const isSupabaseConfigured = process.env.NEXT_PUBLIC_SUPABASE_URL &&
+        process.env.NEXT_PUBLIC_SUPABASE_URL !== 'https://placeholder.supabase.co';
+
+      if (account?.provider === "google" && isSupabaseConfigured) {
         const supabase = getServiceSupabase();
 
         // Check if user exists
@@ -125,22 +129,32 @@ export const authOptions: NextAuthOptions = {
     },
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id;
+        // Use email as ID if no database ID available
+        token.id = user.id || user.email;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        // Get user ID from database
-        const supabase = getServiceSupabase();
-        const { data: user } = await supabase
-          .from('users')
-          .select('id')
-          .eq('email', session.user.email!)
-          .single();
+        // Check if Supabase is configured
+        const isSupabaseConfigured = process.env.NEXT_PUBLIC_SUPABASE_URL &&
+          process.env.NEXT_PUBLIC_SUPABASE_URL !== 'https://placeholder.supabase.co';
 
-        if (user) {
-          (session.user as any).id = user.id;
+        if (isSupabaseConfigured) {
+          // Get user ID from database
+          const supabase = getServiceSupabase();
+          const { data: user } = await supabase
+            .from('users')
+            .select('id')
+            .eq('email', session.user.email!)
+            .single();
+
+          if (user) {
+            (session.user as any).id = user.id;
+          }
+        } else {
+          // Use email as ID when Supabase is not configured
+          (session.user as any).id = token.id || session.user.email;
         }
       }
       return session;

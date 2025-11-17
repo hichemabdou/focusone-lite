@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
+import { showToast } from "./Toast";
 
 export type Priority = "low" | "medium" | "high" | "critical";
 export type Status = "open" | "in-progress" | "blocked" | "done";
@@ -310,12 +311,17 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
           const data = await response.json();
           const newGoal = dbGoalToFrontend(data.goal);
           setGoals((s) => [...s, newGoal]);
+          showToast("Goal created successfully!", "success");
+        } else {
+          showToast("Failed to create goal", "error");
         }
       } catch (error) {
         console.error("Error adding goal:", error);
+        showToast("Failed to create goal", "error");
       }
     } else {
       setGoals((s) => [...s, sanitizeGoal({ ...g, id: crypto.randomUUID() })]);
+      showToast("Goal created!", "success");
     }
   };
 
@@ -340,12 +346,17 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
           const data = await response.json();
           const updatedGoal = dbGoalToFrontend(data.goal);
           setGoals((s) => s.map((x) => (x.id === g.id ? updatedGoal : x)));
+          showToast("Goal updated!", "success");
+        } else {
+          showToast("Failed to update goal", "error");
         }
       } catch (error) {
         console.error("Error updating goal:", error);
+        showToast("Failed to update goal", "error");
       }
     } else {
       setGoals((s) => s.map((x) => (x.id === g.id ? sanitizeGoal(g) : x)));
+      showToast("Goal updated!", "success");
     }
   };
 
@@ -357,12 +368,17 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
         });
         if (response.ok) {
           setGoals((s) => s.filter((x) => x.id !== id));
+          showToast("Goal deleted", "info");
+        } else {
+          showToast("Failed to delete goal", "error");
         }
       } catch (error) {
         console.error("Error deleting goal:", error);
+        showToast("Failed to delete goal", "error");
       }
     } else {
       setGoals((s) => s.filter((x) => x.id !== id));
+      showToast("Goal deleted", "info");
     }
   };
 

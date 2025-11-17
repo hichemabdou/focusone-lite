@@ -3,6 +3,7 @@
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession, signOut } from "next-auth/react";
 import GoalsList from "@/components/GoalsList";
 import GoalFilters from "@/components/GoalFilters";
 import Timeline from "@/components/Timeline";
@@ -13,6 +14,7 @@ import CustomizationPanel from "@/components/CustomizationPanel";
 import { openCustomizationPanel } from "@/components/customizationEvents";
 
 export default function ClassicClient() {
+  const { data: session } = useSession();
   const { importJson, exportJson, filters, setFilters } = useGoals();
   const { theme, toggleTheme } = useTheme();
 
@@ -101,11 +103,29 @@ export default function ClassicClient() {
           </div>
         </div>
         <div className="workspace__account">
-          <div className="workspace__avatar" aria-hidden>FO</div>
-          <div className="workspace__account-meta">
-            <span className="workspace__account-label">Your account</span>
-            <span className="workspace__account-status">Single-user mode</span>
-          </div>
+          {session?.user ? (
+            <>
+              <div className="workspace__avatar" aria-hidden>
+                {session.user.image ? (
+                  <img src={session.user.image} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%' }} />
+                ) : (
+                  session.user.name?.charAt(0).toUpperCase() || session.user.email?.charAt(0).toUpperCase() || 'U'
+                )}
+              </div>
+              <div className="workspace__account-meta">
+                <span className="workspace__account-label">{session.user.name || session.user.email}</span>
+                <span className="workspace__account-status">{session.user.email}</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="workspace__avatar" aria-hidden>FO</div>
+              <div className="workspace__account-meta">
+                <span className="workspace__account-label">Your account</span>
+                <span className="workspace__account-status">Guest mode</span>
+              </div>
+            </>
+          )}
           <div className="workspace__account-actions">
             <button
               type="button"
@@ -158,14 +178,70 @@ export default function ClassicClient() {
                     <p className="workspace__tools-hint">Use JSON backups to move goals between accounts later.</p>
                   </div>
                   <div className="workspace__tools-group">
+                    <p className="workspace__tools-label">Customization</p>
+                    <button
+                      type="button"
+                      className="btn w-full"
+                      onClick={() => {
+                        openCustomizationPanel();
+                        setToolsOpen(false);
+                      }}
+                    >
+                      Categories, priorities & statuses
+                    </button>
+                  </div>
+                  <div className="workspace__tools-group">
+                    <p className="workspace__tools-label">Appearance</p>
+                    <button type="button" className="btn w-full workspace__tools-theme" onClick={toggleTheme}>
+                      Switch to {theme === "light" ? "Dark" : "Light"} mode
+                    </button>
+                  </div>
+                  <div className="workspace__tools-group">
                     <p className="workspace__tools-label">Integrations</p>
                     <button type="button" className="btn w-full" onClick={() => setIntegrationsOpen(true)}>
                       Notifications & integrations
                     </button>
                   </div>
-                  <button type="button" className="btn w-full workspace__tools-theme" onClick={toggleTheme}>
-                    Switch to {theme === "light" ? "Dark" : "Light"} mode
-                  </button>
+                  <div className="workspace__tools-group">
+                    <p className="workspace__tools-label">Help & Resources</p>
+                    <a
+                      href="https://github.com/yourusername/focusone-lite/blob/main/README.md"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn w-full"
+                      style={{ textAlign: 'center', display: 'block', textDecoration: 'none' }}
+                    >
+                      Documentation
+                    </a>
+                    <button
+                      type="button"
+                      className="btn w-full"
+                      onClick={() => {
+                        const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+                        const modKey = isMac ? 'Cmd' : 'Ctrl';
+                        alert(`Keyboard Shortcuts:\n\n${modKey} + K → Focus search\n${modKey} + N → Create new goal\n${modKey} + , → Open settings\n${modKey} + / → Show this help\nEsc → Close modals/panels`);
+                        setToolsOpen(false);
+                      }}
+                    >
+                      Keyboard shortcuts
+                    </button>
+                  </div>
+                  <div className="workspace__tools-group">
+                    <p className="workspace__tools-label">Account</p>
+                    {session?.user ? (
+                      <button
+                        type="button"
+                        className="btn w-full"
+                        onClick={() => signOut({ callbackUrl: '/auth/login' })}
+                      >
+                        Sign out
+                      </button>
+                    ) : (
+                      <Link href="/auth/login" className="btn w-full" style={{ textAlign: 'center', display: 'block' }}>
+                        Sign in
+                      </Link>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
