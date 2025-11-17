@@ -7,7 +7,7 @@ import { useCustomization } from "./CustomizationContext";
 import GoalEditor from "./GoalEditor";
 import MilestoneEditor from "./MilestoneEditor";
 import MilestonesPanel from "./MilestonesPanel";
-import MilestonesList, { StandaloneMilestone } from "./MilestonesList";
+import MilestoneCreator from "./MilestoneCreator";
 
 /* -------- utilities -------- */
 const clampNum = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
@@ -305,7 +305,23 @@ export default function Timeline() {
   const [undoStack, setUndoStack] = useState<Goal[]>([]);
   const [redoStack, setRedoStack] = useState<Goal[]>([]);
   const [milestoneGoal, setMilestoneGoal] = useState<Goal | null>(null);
-  const [standaloneMilestones, setStandaloneMilestones] = useState<StandaloneMilestone[]>([]);
+
+  // Milestone structure supporting both points and windows
+  type Milestone = {
+    id: string;
+    type: "point" | "window";
+    label: string;
+    date?: string; // for point type
+    startDate?: string; // for window type
+    endDate?: string; // for window type
+    color: string;
+    icon?: string; // only for point type
+  };
+
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [showMilestoneCreator, setShowMilestoneCreator] = useState(false);
+  const [editingMilestoneId, setEditingMilestoneId] = useState<string | null>(null);
+  const [showMilestonesList, setShowMilestonesList] = useState(false);
 
   const formatRange = (start: Date, end: Date) => {
     const startText = start.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
@@ -383,6 +399,8 @@ export default function Timeline() {
   const { milestonePoints, milestoneWindows } = useMemo(() => {
     const points: MilestonePoint[] = [];
     const windows: MilestoneWindowOverlay[] = [];
+
+    // Add goal milestones
     items.forEach((goal) => {
       const ms = goal.milestone;
       if (!ms) return;
@@ -413,8 +431,38 @@ export default function Timeline() {
         });
       }
     });
+
+    // Add custom milestones
+    milestones.forEach((milestone) => {
+      if (milestone.type === "point" && milestone.date) {
+        const leftPct = clampNum(((parseISO(milestone.date).getTime() - msStart) / msSpan) * 100, -5, 105);
+        points.push({
+          id: milestone.id,
+          label: milestone.label,
+          leftPct,
+          color: milestone.color,
+          icon: milestone.icon || "📍",
+        });
+      } else if (milestone.type === "window" && milestone.startDate && milestone.endDate) {
+        const startPct = clampNum(((parseISO(milestone.startDate).getTime() - msStart) / msSpan) * 100, -5, 105);
+        const endPct = clampNum(((parseISO(milestone.endDate).getTime() - msStart) / msSpan) * 100, -5, 105);
+        const windowFill = hexToRgba(milestone.color, 0.12);
+        const windowBorder = hexToRgba(milestone.color, 0.35);
+        windows.push({
+          id: milestone.id,
+          label: milestone.label,
+          leftPct: Math.min(startPct, endPct),
+          widthPct: Math.max(2, Math.abs(endPct - startPct)),
+          color: milestone.color,
+          fill: windowFill,
+          border: windowBorder,
+          shadow: hexToRgba(milestone.color, 0.25),
+        });
+      }
+    });
+
     return { milestonePoints: points, milestoneWindows: windows };
-  }, [items, msSpan, msStart, getCategoryColor]);
+  }, [items, milestones, msSpan, msStart, getCategoryColor]);
 
   const densityMap: Record<Density, number> = {
     cozy: 44,
@@ -724,6 +772,28 @@ export default function Timeline() {
             ))}
           </div>
           <div className="timeline__toolbar-actions">
+            <button
+              type="button"
+              className="chip chip--interactive timeline__action-chip"
+              onClick={() => setShowMilestoneCreator(true)}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              Add milestone
+            </button>
+            {milestones.length > 0 && (
+              <button
+                type="button"
+                className={`chip chip--interactive timeline__action-chip ${showMilestonesList ? 'chip--on' : ''}`}
+                onClick={() => setShowMilestonesList(!showMilestonesList)}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M3 12h18M3 6h18M3 18h18" />
+                </svg>
+                View milestones ({milestones.length})
+              </button>
+            )}
             <button type="button" className="chip chip--interactive timeline__action-chip" onClick={() => centerOnToday("smooth")}>
               Jump to today
             </button>
@@ -989,34 +1059,59 @@ export default function Timeline() {
                   </div>
                 </div>
 
-                {milestoneWindows.map((window) => (
-                  <div
-                    key={window.id}
-                    className="timeline__window-highlight"
-                    style={{
-                      left: `${window.leftPct}%`,
-                      width: `${window.widthPct}%`,
-                      background: `linear-gradient(120deg, ${window.fill}, rgba(15,17,23,.92))`,
-                      borderColor: window.border,
-                      boxShadow: `0 20px 50px -30px ${window.shadow}`,
-                    }}
-                  >
-                    <span className="timeline__window-label">{window.label}</span>
-                  </div>
-                ))}
+                {milestoneWindows.map((window) => {
+                  const isCustom = milestones.some((m) => m.id === window.id);
+                  return (
+                    <div
+                      key={window.id}
+                      className={`timeline__window-highlight ${isCustom ? 'timeline__window-highlight--custom' : ''}`}
+                      style={{
+                        left: `${window.leftPct}%`,
+                        width: `${window.widthPct}%`,
+                        background: `linear-gradient(120deg, ${window.fill}, ${hexToRgba(window.color, 0.05)})`,
+                        borderLeft: `2px solid ${window.border}`,
+                        borderRight: `2px solid ${window.border}`,
+                        boxShadow: `inset 0 0 40px -10px ${window.shadow}`,
+                        cursor: isCustom ? 'pointer' : 'default',
+                      }}
+                      onClick={() => {
+                        if (isCustom) {
+                          setEditingMilestoneId(window.id);
+                        }
+                      }}
+                      title={isCustom ? `${window.label} - Click to edit` : window.label}
+                    >
+                      <span className="timeline__window-label">{window.label}</span>
+                    </div>
+                  );
+                })}
 
-                {milestonePoints.map((point) => (
-                  <div
-                    key={point.id}
-                    className="timeline__point-line"
-                    style={{ left: `${point.leftPct}%` }}
-                  >
-                    <span className="timeline__point-dot" style={{ borderColor: point.color, background: point.color }}>
-                      <span>{point.icon}</span>
-                    </span>
-                    <span className="timeline__point-label">{point.label}</span>
-                  </div>
-                ))}
+                {milestonePoints.map((point) => {
+                  const isCustom = milestones.some((m) => m.id === point.id);
+                  return (
+                    <div
+                      key={point.id}
+                      className={`timeline__milestone ${isCustom ? 'timeline__milestone--editable' : ''}`}
+                      style={{ left: `${point.leftPct}%` }}
+                      onClick={() => {
+                        if (isCustom) {
+                          setEditingMilestoneId(point.id);
+                        }
+                      }}
+                    >
+                      <div
+                        className="timeline__milestone-marker"
+                        style={{
+                          backgroundColor: point.color,
+                          borderColor: point.color,
+                        }}
+                      >
+                        <span className="timeline__milestone-icon">{point.icon}</span>
+                      </div>
+                      <span className="timeline__milestone-label">{point.label}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -1077,18 +1172,90 @@ export default function Timeline() {
           )}
         </div>
       </div>
-      <MilestonesList
-        milestones={standaloneMilestones}
-        onAdd={(milestone) => {
-          setStandaloneMilestones((prev) => [...prev, { ...milestone, id: crypto.randomUUID() }]);
-        }}
-        onEdit={(milestone) => {
-          setStandaloneMilestones((prev) => prev.map((m) => (m.id === milestone.id ? milestone : m)));
-        }}
-        onDelete={(id) => {
-          setStandaloneMilestones((prev) => prev.filter((m) => m.id !== id));
-        }}
-      />
+      {/* Milestone Creator/Editor */}
+      {(showMilestoneCreator || editingMilestoneId) && (
+        <MilestoneCreator
+          milestone={editingMilestoneId ? milestones.find((m) => m.id === editingMilestoneId) : undefined}
+          onSave={(milestone) => {
+            if (editingMilestoneId) {
+              setMilestones((prev) => prev.map((m) => (m.id === editingMilestoneId ? { ...milestone, id: editingMilestoneId } : m)));
+              setEditingMilestoneId(null);
+            } else {
+              setMilestones((prev) => [...prev, { ...milestone, id: crypto.randomUUID() }]);
+              setShowMilestoneCreator(false);
+            }
+          }}
+          onCancel={() => {
+            setShowMilestoneCreator(false);
+            setEditingMilestoneId(null);
+          }}
+          onDelete={editingMilestoneId ? () => {
+            setMilestones((prev) => prev.filter((m) => m.id !== editingMilestoneId));
+            setEditingMilestoneId(null);
+          } : undefined}
+        />
+      )}
+
+      {showMilestonesList && milestones.length > 0 && (
+        <div className="timeline-milestones-panel">
+          <div className="timeline-milestones-panel__backdrop" onClick={() => setShowMilestonesList(false)} />
+          <div className="timeline-milestones-panel__content">
+            <header className="timeline-milestones-panel__header">
+              <h3>Milestones ({milestones.length})</h3>
+              <button
+                type="button"
+                className="timeline-milestones-panel__close"
+                onClick={() => setShowMilestonesList(false)}
+                aria-label="Close"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </header>
+            <div className="timeline-milestones-panel__list">
+              {milestones.map((milestone) => (
+                <div
+                  key={milestone.id}
+                  className="timeline-milestone-card"
+                  onClick={() => {
+                    setEditingMilestoneId(milestone.id);
+                    setShowMilestonesList(false);
+                  }}
+                >
+                  <div className="timeline-milestone-card__icon" style={{ backgroundColor: milestone.color }}>
+                    {milestone.type === 'point' && milestone.icon && (
+                      <span>{milestone.icon}</span>
+                    )}
+                    {milestone.type === 'window' && (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <rect x="3" y="4" width="18" height="16" rx="2" />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="timeline-milestone-card__content">
+                    <h4 className="timeline-milestone-card__title">{milestone.label}</h4>
+                    <p className="timeline-milestone-card__meta">
+                      {milestone.type === 'point' && milestone.date && (
+                        <span>{new Date(milestone.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                      )}
+                      {milestone.type === 'window' && milestone.startDate && milestone.endDate && (
+                        <span>
+                          {new Date(milestone.startDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} → {new Date(milestone.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <div className="timeline-milestone-card__type">
+                    {milestone.type === 'point' ? 'Point' : 'Window'}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
       <GoalEditor
         open={Boolean(editingGoal)}

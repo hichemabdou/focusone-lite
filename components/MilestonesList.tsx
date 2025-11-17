@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export type StandaloneMilestone = {
   id: string;
@@ -15,15 +15,17 @@ export type StandaloneMilestone = {
 
 type Props = {
   milestones: StandaloneMilestone[];
+  editingMilestone?: StandaloneMilestone | null;
   onAdd: (milestone: Omit<StandaloneMilestone, "id">) => void;
   onEdit: (milestone: StandaloneMilestone) => void;
   onDelete: (id: string) => void;
+  onCancelEdit?: () => void;
 };
 
 const DEFAULT_ICONS = ["🎯", "🚀", "💡", "⭐", "🏆", "📍", "🔔", "💎"];
 const DEFAULT_COLORS = ["#3b82f6", "#a855f7", "#14b8a6", "#f97316", "#facc15", "#fb7185", "#22c55e"];
 
-export default function MilestonesList({ milestones, onAdd, onEdit, onDelete }: Props) {
+export default function MilestonesList({ milestones, editingMilestone, onAdd, onEdit, onDelete, onCancelEdit }: Props) {
   const [collapsed, setCollapsed] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -33,6 +35,16 @@ export default function MilestonesList({ milestones, onAdd, onEdit, onDelete }: 
     color: DEFAULT_COLORS[0],
     icon: DEFAULT_ICONS[0],
   });
+
+  // Handle external editing trigger from timeline clicks
+  useEffect(() => {
+    if (editingMilestone) {
+      setCollapsed(false);
+      setIsAdding(true);
+      setEditingId(editingMilestone.id);
+      setDraft(editingMilestone);
+    }
+  }, [editingMilestone]);
 
   const handleSave = () => {
     if (!draft.label?.trim()) return;
@@ -95,14 +107,19 @@ export default function MilestonesList({ milestones, onAdd, onEdit, onDelete }: 
             type="button"
             className="btn btn--sm"
             onClick={() => {
-              if (isAdding && !editingId) {
+              if (isAdding) {
+                // Close the form
                 setIsAdding(false);
-                return;
-              }
-              if (isAdding && editingId) {
                 setEditingId(null);
-                setIsAdding(false);
+                setDraft({
+                  type: "point",
+                  label: "",
+                  color: DEFAULT_COLORS[0],
+                  icon: DEFAULT_ICONS[0],
+                });
+                onCancelEdit?.();
               } else {
+                // Open the form for adding
                 setDraft({
                   type: "point",
                   label: "",
@@ -110,11 +127,11 @@ export default function MilestonesList({ milestones, onAdd, onEdit, onDelete }: 
                   icon: DEFAULT_ICONS[0],
                 });
                 setEditingId(null);
-                setIsAdding((prev) => !prev);
+                setIsAdding(true);
               }
             }}
           >
-            {isAdding ? "Close" : "+ Add"}
+            {isAdding ? "Cancel" : "+ Add"}
           </button>
         )}
       </div>
@@ -228,6 +245,7 @@ export default function MilestonesList({ milestones, onAdd, onEdit, onDelete }: 
                       setEditingId(null);
                       setIsAdding(false);
                       setDraft({ type: "point", label: "", color: DEFAULT_COLORS[0], icon: DEFAULT_ICONS[0] });
+                      onCancelEdit?.();
                     }}
                   >
                     Cancel edit

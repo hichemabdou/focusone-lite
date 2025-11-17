@@ -158,16 +158,6 @@ export default function ClassicClient() {
                     <p className="workspace__tools-hint">Use JSON backups to move goals between accounts later.</p>
                   </div>
                   <div className="workspace__tools-group">
-                    <p className="workspace__tools-label">Customization</p>
-                    <button
-                      type="button"
-                      className="btn w-full"
-                      onClick={() => openCustomizationPanel("categories")}
-                    >
-                      Categories & colors
-                    </button>
-                  </div>
-                  <div className="workspace__tools-group">
                     <p className="workspace__tools-label">Integrations</p>
                     <button type="button" className="btn w-full" onClick={() => setIntegrationsOpen(true)}>
                       Notifications & integrations

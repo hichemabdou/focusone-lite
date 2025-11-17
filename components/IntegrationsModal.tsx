@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Modal from "./Modal";
+import { openCustomizationPanel } from "./customizationEvents";
 
 type Props = {
   open: boolean;
@@ -216,6 +217,23 @@ export default function IntegrationsModal({ open, onClose }: Props) {
           </header>
           <button type="button" className="btn">
             Enable Google sign-in (coming soon)
+          </button>
+        </section>
+
+        <section className="integrations__section">
+          <header>
+            <h4>Customization</h4>
+            <p>Customize categories, colors, priorities, and statuses for your workspace.</p>
+          </header>
+          <button
+            type="button"
+            className="btn btn--primary"
+            onClick={() => {
+              openCustomizationPanel("categories");
+              onClose();
+            }}
+          >
+            Categories & colors
           </button>
         </section>
       </div>

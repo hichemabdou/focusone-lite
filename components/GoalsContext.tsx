@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 
 export type Priority = "low" | "medium" | "high" | "critical";
 export type Status = "open" | "in-progress" | "blocked" | "done";
@@ -180,6 +181,29 @@ function normalizeMilestone(input: unknown, fallbackDate: string): Goal["milesto
   };
 }
 
+// Convert database fields (snake_case) to frontend fields (camelCase)
+function dbGoalToFrontend(dbGoal: any): Goal {
+  const comments = (dbGoal.comments || []).map((c: any) => ({
+    id: c.id,
+    body: c.text,
+    createdAt: c.timestamp || c.created_at,
+  }));
+
+  return sanitizeGoal({
+    id: dbGoal.id,
+    title: dbGoal.title,
+    startDate: dbGoal.start_date,
+    endDate: dbGoal.end_date,
+    category: dbGoal.category,
+    priority: dbGoal.priority,
+    status: dbGoal.status,
+    notes: dbGoal.notes,
+    milestone: dbGoal.milestone,
+    comments,
+  });
+}
+
+// Fallback to localStorage for guest/unauthenticated mode
 function load(): Goal[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -193,20 +217,53 @@ function load(): Goal[] {
 function persist(goals: Goal[]) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(goals));
-    // notify any listeners (timeline) that data changed
     window.dispatchEvent(new Event("goals-updated"));
   } catch {}
 }
 
 export function GoalsProvider({ children }: { children: React.ReactNode }) {
+  const { data: session, status } = useSession();
+  const isAuthenticated = status === "authenticated";
   const [goals, setGoals] = useState<Goal[]>(() => load());
+  const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<Filters>({
     categories: null,
     priorities: null,
     statuses: null,
     query: "",
   });
-  useEffect(() => persist(goals), [goals]);
+
+  // Fetch goals from API when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchGoals();
+    } else if (status === "unauthenticated") {
+      setLoading(false);
+    }
+  }, [isAuthenticated, status]);
+
+  // Persist to localStorage for unauthenticated users
+  useEffect(() => {
+    if (!isAuthenticated && !loading) {
+      persist(goals);
+    }
+  }, [goals, isAuthenticated, loading]);
+
+  const fetchGoals = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch("/api/goals");
+      if (response.ok) {
+        const data = await response.json();
+        const frontendGoals = (data.goals || []).map(dbGoalToFrontend);
+        setGoals(frontendGoals);
+      }
+    } catch (error) {
+      console.error("Error fetching goals:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const visibleGoals = useMemo(() => {
     let arr = goals.slice();
@@ -232,34 +289,136 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
     return arr;
   }, [goals, filters]);
 
-  const addGoal = (g: Omit<Goal, "id">) =>
-    setGoals((s) => [...s, sanitizeGoal({ ...g, id: crypto.randomUUID() })]);
-  const updateGoal = (g: Goal) => setGoals((s) => s.map((x) => (x.id === g.id ? sanitizeGoal(g) : x)));
-  const deleteGoal = (id: string) => setGoals((s) => s.filter((x) => x.id !== id));
-  const addComment = (goalId: string, input: AddCommentInput) => {
+  const addGoal = async (g: Omit<Goal, "id">) => {
+    if (isAuthenticated) {
+      try {
+        const response = await fetch("/api/goals", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: g.title,
+            startDate: g.startDate,
+            endDate: g.endDate,
+            category: g.category,
+            priority: g.priority,
+            status: g.status,
+            notes: g.notes,
+            milestone: g.milestone,
+          }),
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const newGoal = dbGoalToFrontend(data.goal);
+          setGoals((s) => [...s, newGoal]);
+        }
+      } catch (error) {
+        console.error("Error adding goal:", error);
+      }
+    } else {
+      setGoals((s) => [...s, sanitizeGoal({ ...g, id: crypto.randomUUID() })]);
+    }
+  };
+
+  const updateGoal = async (g: Goal) => {
+    if (isAuthenticated) {
+      try {
+        const response = await fetch(`/api/goals/${g.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: g.title,
+            startDate: g.startDate,
+            endDate: g.endDate,
+            category: g.category,
+            priority: g.priority,
+            status: g.status,
+            notes: g.notes,
+            milestone: g.milestone,
+          }),
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const updatedGoal = dbGoalToFrontend(data.goal);
+          setGoals((s) => s.map((x) => (x.id === g.id ? updatedGoal : x)));
+        }
+      } catch (error) {
+        console.error("Error updating goal:", error);
+      }
+    } else {
+      setGoals((s) => s.map((x) => (x.id === g.id ? sanitizeGoal(g) : x)));
+    }
+  };
+
+  const deleteGoal = async (id: string) => {
+    if (isAuthenticated) {
+      try {
+        const response = await fetch(`/api/goals/${id}`, {
+          method: "DELETE",
+        });
+        if (response.ok) {
+          setGoals((s) => s.filter((x) => x.id !== id));
+        }
+      } catch (error) {
+        console.error("Error deleting goal:", error);
+      }
+    } else {
+      setGoals((s) => s.filter((x) => x.id !== id));
+    }
+  };
+
+  const addComment = async (goalId: string, input: AddCommentInput) => {
     const trimmed = input.body.trim();
     if (!trimmed) return;
-    setGoals((s) =>
-      s.map((goal) =>
-        goal.id === goalId
-          ? {
-              ...goal,
-              comments: [
-                ...goal.comments,
-                {
-                  id: input.id ?? crypto.randomUUID(),
-                  body: trimmed,
-                  createdAt: input.createdAt ?? new Date().toISOString(),
-                },
-              ],
-            }
-          : goal
-      )
-    );
+
+    if (isAuthenticated) {
+      try {
+        const response = await fetch(`/api/goals/${goalId}/comments`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: trimmed }),
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const newComment = {
+            id: data.comment.id,
+            body: data.comment.text,
+            createdAt: data.comment.timestamp,
+          };
+          setGoals((s) =>
+            s.map((goal) =>
+              goal.id === goalId ? { ...goal, comments: [...goal.comments, newComment] } : goal
+            )
+          );
+        }
+      } catch (error) {
+        console.error("Error adding comment:", error);
+      }
+    } else {
+      setGoals((s) =>
+        s.map((goal) =>
+          goal.id === goalId
+            ? {
+                ...goal,
+                comments: [
+                  ...goal.comments,
+                  {
+                    id: input.id ?? crypto.randomUUID(),
+                    body: trimmed,
+                    createdAt: input.createdAt ?? new Date().toISOString(),
+                  },
+                ],
+              }
+            : goal
+        )
+      );
+    }
   };
-  const updateComment = (goalId: string, commentId: string, body: string) => {
+
+  const updateComment = async (goalId: string, commentId: string, body: string) => {
     const trimmed = body.trim();
     if (!trimmed) return;
+
+    // Note: API doesn't support comment updates yet, fallback to local only
     setGoals((s) =>
       s.map((goal) =>
         goal.id === goalId
@@ -273,12 +432,34 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
       )
     );
   };
-  const deleteComment = (goalId: string, commentId: string) =>
-    setGoals((s) =>
-      s.map((goal) =>
-        goal.id === goalId ? { ...goal, comments: goal.comments.filter((comment) => comment.id !== commentId) } : goal
-      )
-    );
+
+  const deleteComment = async (goalId: string, commentId: string) => {
+    if (isAuthenticated) {
+      try {
+        const response = await fetch(`/api/goals/${goalId}/comments/${commentId}`, {
+          method: "DELETE",
+        });
+        if (response.ok) {
+          setGoals((s) =>
+            s.map((goal) =>
+              goal.id === goalId
+                ? { ...goal, comments: goal.comments.filter((comment) => comment.id !== commentId) }
+                : goal
+            )
+          );
+        }
+      } catch (error) {
+        console.error("Error deleting comment:", error);
+      }
+    } else {
+      setGoals((s) =>
+        s.map((goal) =>
+          goal.id === goalId ? { ...goal, comments: goal.comments.filter((comment) => comment.id !== commentId) } : goal
+        )
+      );
+    }
+  };
+
   const importJson = (input: Goal[]) => setGoals((input ?? []).map(sanitizeGoal));
   const exportJson = () => JSON.stringify(goals, null, 2);
 

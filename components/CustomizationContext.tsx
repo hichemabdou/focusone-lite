@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 
 export type CustomCategory = {
   id: string;
@@ -100,11 +101,59 @@ type CustomizationContextType = {
 const CustomizationContext = createContext<CustomizationContextType | null>(null);
 
 export function CustomizationProvider({ children }: { children: React.ReactNode }) {
+  const { data: session, status } = useSession();
+  const isAuthenticated = status === "authenticated";
   const [state, setState] = useState<CustomizationState>(() => load());
+  const [loading, setLoading] = useState(true);
 
+  // Fetch customizations from API when authenticated
   useEffect(() => {
-    persist(state);
-  }, [state]);
+    if (isAuthenticated) {
+      fetchCustomizations();
+    } else if (status === "unauthenticated") {
+      setLoading(false);
+    }
+  }, [isAuthenticated, status]);
+
+  // Persist to localStorage for unauthenticated users
+  useEffect(() => {
+    if (!isAuthenticated && !loading) {
+      persist(state);
+    }
+  }, [state, isAuthenticated, loading]);
+
+  const fetchCustomizations = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch("/api/customizations");
+      if (response.ok) {
+        const data = await response.json();
+        setState({
+          categories: data.categories || DEFAULT_CATEGORIES,
+          priorities: data.priorities || DEFAULT_PRIORITIES,
+          statuses: data.statuses || DEFAULT_STATUSES,
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching customizations:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveToApi = async (type: string, data: any) => {
+    if (!isAuthenticated) return;
+
+    try {
+      await fetch("/api/customizations", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type, data }),
+      });
+    } catch (error) {
+      console.error(`Error saving ${type}:`, error);
+    }
+  };
 
   const getCategoryColor = (name: string): string => {
     const category = state.categories.find((c) => c.name.toUpperCase() === name.toUpperCase());
@@ -127,46 +176,57 @@ export function CustomizationProvider({ children }: { children: React.ReactNode 
       name: name.toUpperCase(),
       color,
     };
-    setState((prev) => ({
-      ...prev,
-      categories: [...prev.categories, newCategory],
-    }));
+    setState((prev) => {
+      const newCategories = [...prev.categories, newCategory];
+      saveToApi("categories", newCategories);
+      return { ...prev, categories: newCategories };
+    });
   };
 
   const updateCategory = (id: string, updates: Partial<CustomCategory>) => {
-    setState((prev) => ({
-      ...prev,
-      categories: prev.categories.map((cat) => (cat.id === id ? { ...cat, ...updates } : cat)),
-    }));
+    setState((prev) => {
+      const newCategories = prev.categories.map((cat) => (cat.id === id ? { ...cat, ...updates } : cat));
+      saveToApi("categories", newCategories);
+      return { ...prev, categories: newCategories };
+    });
   };
 
   const deleteCategory = (id: string) => {
-    setState((prev) => ({
-      ...prev,
-      categories: prev.categories.filter((cat) => cat.id !== id),
-    }));
+    setState((prev) => {
+      const newCategories = prev.categories.filter((cat) => cat.id !== id);
+      saveToApi("categories", newCategories);
+      return { ...prev, categories: newCategories };
+    });
   };
 
   const updatePriority = (id: string, color: string) => {
-    setState((prev) => ({
-      ...prev,
-      priorities: prev.priorities.map((p) => (p.id === id ? { ...p, color } : p)),
-    }));
+    setState((prev) => {
+      const newPriorities = prev.priorities.map((p) => (p.id === id ? { ...p, color } : p));
+      saveToApi("priorities", newPriorities);
+      return { ...prev, priorities: newPriorities };
+    });
   };
 
   const updateStatus = (id: string, color: string) => {
-    setState((prev) => ({
-      ...prev,
-      statuses: prev.statuses.map((s) => (s.id === id ? { ...s, color } : s)),
-    }));
+    setState((prev) => {
+      const newStatuses = prev.statuses.map((s) => (s.id === id ? { ...s, color } : s));
+      saveToApi("statuses", newStatuses);
+      return { ...prev, statuses: newStatuses };
+    });
   };
 
   const resetToDefaults = () => {
-    setState({
+    const defaults = {
       categories: DEFAULT_CATEGORIES,
       priorities: DEFAULT_PRIORITIES,
       statuses: DEFAULT_STATUSES,
-    });
+    };
+    setState(defaults);
+    if (isAuthenticated) {
+      saveToApi("categories", defaults.categories);
+      saveToApi("priorities", defaults.priorities);
+      saveToApi("statuses", defaults.statuses);
+    }
   };
 
   const value: CustomizationContextType = {
