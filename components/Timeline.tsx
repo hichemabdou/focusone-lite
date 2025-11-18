@@ -178,6 +178,7 @@ export default function Timeline() {
   const [showQuarterGrid, setShowQuarterGrid] = useState(true);
   const [gridMenuOpen, setGridMenuOpen] = useState(false);
   const gridToggleRef = useRef<HTMLDivElement>(null);
+  const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const targetRange = useMemo<Range>(() => {
     const now = new Date();
@@ -396,6 +397,51 @@ export default function Timeline() {
     [closeInlineEditor]
   );
 
+  const openInlineEditor = useCallback((span: SpanInfo, barRect: DOMRect) => {
+    const gridEl = timelineRef.current;
+    if (!gridEl) return;
+    const gridRect = gridEl.getBoundingClientRect();
+    const centerX = barRect.left - gridRect.left + barRect.width / 2;
+    const top = Math.max(12, barRect.top - gridRect.top - 20);
+    const left = clampNum(centerX, 140, gridRect.width - 140);
+    setInlineEditor({ goalId: span.g.id, left, top });
+  }, []);
+
+  const handleBarClick = useCallback((span: SpanInfo, event: ReactMouseEvent<HTMLDivElement>) => {
+    if (dragging) return;
+
+    // Capture the bounding rect immediately (before event is pooled)
+    const barRect = (event.currentTarget as HTMLDivElement).getBoundingClientRect();
+
+    // Clear any existing timeout
+    if (clickTimeoutRef.current) {
+      clearTimeout(clickTimeoutRef.current);
+      clickTimeoutRef.current = null;
+    }
+
+    // Set a timeout for single click
+    clickTimeoutRef.current = setTimeout(() => {
+      openInlineEditor(span, barRect);
+      clickTimeoutRef.current = null;
+    }, 200); // Wait 200ms to see if it's a double click
+  }, [dragging, openInlineEditor]);
+
+  const handleBarDoubleClick = useCallback((span: SpanInfo) => {
+    if (dragging) return;
+
+    // Clear the single click timeout
+    if (clickTimeoutRef.current) {
+      clearTimeout(clickTimeoutRef.current);
+      clickTimeoutRef.current = null;
+    }
+
+    // Close inline editor if open
+    closeInlineEditor();
+
+    // Open full editor
+    handleOpenGoal(span.g);
+  }, [dragging, handleOpenGoal, closeInlineEditor]);
+
   const { milestonePoints, milestoneWindows } = useMemo(() => {
     const points: MilestonePoint[] = [];
     const windows: MilestoneWindowOverlay[] = [];
@@ -503,17 +549,6 @@ export default function Timeline() {
   };
 
   const clearHover = () => setHovered(null);
-
-  const openInlineEditor = (span: SpanInfo, event: ReactMouseEvent<HTMLDivElement>) => {
-    const gridEl = timelineRef.current;
-    if (!gridEl) return;
-    const gridRect = gridEl.getBoundingClientRect();
-    const barRect = (event.currentTarget as HTMLDivElement).getBoundingClientRect();
-    const centerX = barRect.left - gridRect.left + barRect.width / 2;
-    const top = Math.max(12, barRect.top - gridRect.top - 20);
-    const left = clampNum(centerX, 140, gridRect.width - 140);
-    setInlineEditor({ goalId: span.g.id, left, top });
-  };
 
   const today = new Date();
   const todayPct = clampNum(((today.getTime() - msStart) / msSpan) * 100, -5, 105);
@@ -647,6 +682,15 @@ export default function Timeline() {
       centerOnToday("smooth");
     }
   }, [focusMode, centerOnToday]);
+
+  // Cleanup click timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (clickTimeoutRef.current) {
+        clearTimeout(clickTimeoutRef.current);
+      }
+    };
+  }, []);
   useEffect(() => {
     centerOnToday("auto");
   }, [contentPixelWidth, centerOnToday]);
@@ -1036,9 +1080,8 @@ export default function Timeline() {
                             onMouseMove={onHover}
                             onMouseLeave={clearHover}
                             onBlur={clearHover}
-                            onClick={(e) => {
-                              if (!isDragging) openInlineEditor(span, e);
-                            }}
+                            onClick={(e) => handleBarClick(span, e)}
+                            onDoubleClick={() => handleBarDoubleClick(span)}
                             onMouseDown={handleBarMouseDown(span, "move")}
                             tabIndex={0}
                           >
@@ -1146,43 +1189,46 @@ export default function Timeline() {
               style={{ left: `${inlineEditor.left}px`, top: `${inlineEditor.top}px` }}
             >
               <div className="timeline__inline-head">
-                <div>
-                  <p className="timeline__inline-eyebrow">Quick edit</p>
+                <div className="timeline__inline-info">
                   <h4 className="timeline__inline-title">{inlineGoal.title || "Untitled goal"}</h4>
                   <span className="timeline__inline-meta">{inlineRangeSummary}</span>
                 </div>
                 <button type="button" className="timeline__inline-close" onClick={closeInlineEditor} aria-label="Close quick editor">
-                  ×
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                    <path d="M18 6L6 18M6 6l12 12" />
+                  </svg>
                 </button>
               </div>
-              <div className="timeline__inline-group">
-                {INLINE_STATUS_ACTIONS.map((action) => (
-                  <button
-                    key={action.value}
-                    type="button"
-                    className={[
-                      "timeline__inline-button",
-                      inlineGoal.status === action.value ? "is-active" : "",
-                    ].join(" ")}
-                    onClick={() => quickUpdateStatus(inlineGoal, action.value)}
-                  >
-                    {action.label}
-                  </button>
-                ))}
-              </div>
-              <div className="timeline__inline-group timeline__inline-group--secondary">
-                <button type="button" className="timeline__inline-button" onClick={() => handleOpenGoal(inlineGoal)}>
-                  Edit goal
-                </button>
-                <div className="timeline__inline-history">
-                  <button type="button" className="timeline__inline-button" onClick={handleUndo} disabled={!canUndo}>
-                    Undo
-                  </button>
-                  <button type="button" className="timeline__inline-button" onClick={handleRedo} disabled={!canRedo}>
-                    Redo
-                  </button>
+              <div className="timeline__inline-section">
+                <label className="timeline__inline-label">Status</label>
+                <div className="timeline__inline-group">
+                  {INLINE_STATUS_ACTIONS.map((action) => {
+                    const statusKey = action.value === "in-progress" ? "inprog" : action.value;
+                    return (
+                      <button
+                        key={action.value}
+                        type="button"
+                        className={[
+                          "timeline__inline-button",
+                          "timeline__inline-button--status",
+                          `timeline__inline-button--${statusKey}`,
+                          inlineGoal.status === action.value ? "is-active" : "",
+                        ].join(" ")}
+                        onClick={() => quickUpdateStatus(inlineGoal, action.value)}
+                      >
+                        {action.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
+              <button type="button" className="timeline__inline-edit-full" onClick={() => handleOpenGoal(inlineGoal)}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
+                Full editor
+              </button>
             </div>
           )}
         </div>

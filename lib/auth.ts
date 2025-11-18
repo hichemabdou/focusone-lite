@@ -176,25 +176,25 @@ async function createDefaultCustomizations(userId: string) {
   const supabase = getServiceSupabase();
 
   const defaultCategories = [
-    { name: "STRATEGY", color: "#8b5cf6" },
-    { name: "VISION", color: "#3b82f6" },
-    { name: "TACTICAL", color: "#10b981" },
-    { name: "PROJECT", color: "#f59e0b" },
-    { name: "DAILY", color: "#ef4444" }
+    { id: "strategy", name: "STRATEGY", color: "#8b5cf6" },
+    { id: "vision", name: "VISION", color: "#3b82f6" },
+    { id: "tactical", name: "TACTICAL", color: "#10b981" },
+    { id: "project", name: "PROJECT", color: "#f59e0b" },
+    { id: "daily", name: "DAILY", color: "#ef4444" }
   ];
 
   const defaultPriorities = [
-    { name: "low", color: "#6b7280" },
-    { name: "medium", color: "#f59e0b" },
-    { name: "high", color: "#ef4444" },
-    { name: "critical", color: "#dc2626" }
+    { id: "low", name: "low", color: "#6b7280" },
+    { id: "medium", name: "medium", color: "#f59e0b" },
+    { id: "high", name: "high", color: "#ef4444" },
+    { id: "critical", name: "critical", color: "#dc2626" }
   ];
 
   const defaultStatuses = [
-    { name: "open", color: "#6b7280" },
-    { name: "in-progress", color: "#3b82f6" },
-    { name: "blocked", color: "#ef4444" },
-    { name: "done", color: "#10b981" }
+    { id: "open", name: "open", color: "#6b7280" },
+    { id: "in-progress", name: "in-progress", color: "#3b82f6" },
+    { id: "blocked", name: "blocked", color: "#ef4444" },
+    { id: "done", name: "done", color: "#10b981" }
   ];
 
   await supabase.from('customizations').insert([

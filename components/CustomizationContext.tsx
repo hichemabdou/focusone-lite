@@ -52,6 +52,31 @@ const DEFAULT_STATUSES: CustomStatus[] = [
   { id: "done", name: "done", color: "#22c55e" },
 ];
 
+// Normalize data to ensure all items have IDs
+function normalizeCategories(categories: any[]): CustomCategory[] {
+  return categories.map((cat, index) => ({
+    id: cat.id || `cat-${cat.name.toLowerCase()}-${index}`,
+    name: cat.name,
+    color: cat.color,
+  }));
+}
+
+function normalizePriorities(priorities: any[]): CustomPriority[] {
+  return priorities.map((pri, index) => ({
+    id: pri.id || `pri-${pri.name}-${index}`,
+    name: pri.name,
+    color: pri.color,
+  }));
+}
+
+function normalizeStatuses(statuses: any[]): CustomStatus[] {
+  return statuses.map((status, index) => ({
+    id: status.id || `status-${status.name}-${index}`,
+    name: status.name,
+    color: status.color,
+  }));
+}
+
 function load(): CustomizationState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -64,9 +89,9 @@ function load(): CustomizationState {
     }
     const parsed = JSON.parse(raw);
     return {
-      categories: parsed.categories || DEFAULT_CATEGORIES,
-      priorities: parsed.priorities || DEFAULT_PRIORITIES,
-      statuses: parsed.statuses || DEFAULT_STATUSES,
+      categories: normalizeCategories(parsed.categories || DEFAULT_CATEGORIES),
+      priorities: normalizePriorities(parsed.priorities || DEFAULT_PRIORITIES),
+      statuses: normalizeStatuses(parsed.statuses || DEFAULT_STATUSES),
     };
   } catch {
     return {
@@ -129,9 +154,9 @@ export function CustomizationProvider({ children }: { children: React.ReactNode 
       if (response.ok) {
         const data = await response.json();
         setState({
-          categories: data.categories || DEFAULT_CATEGORIES,
-          priorities: data.priorities || DEFAULT_PRIORITIES,
-          statuses: data.statuses || DEFAULT_STATUSES,
+          categories: normalizeCategories(data.categories || DEFAULT_CATEGORIES),
+          priorities: normalizePriorities(data.priorities || DEFAULT_PRIORITIES),
+          statuses: normalizeStatuses(data.statuses || DEFAULT_STATUSES),
         });
       }
     } catch (error) {

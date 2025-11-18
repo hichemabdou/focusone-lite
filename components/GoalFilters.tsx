@@ -147,95 +147,174 @@ export default function GoalFilters() {
     </button>
   );
 
+  const hasActiveFilters = filters.categories || filters.priorities || filters.statuses;
+
   return (
     <div className="filters">
-      {/* Title */}
-      <div className="filters__header filters__header--compact">
-        <span className="filters__eyebrow">Control centre</span>
+      {/* Control Center Title */}
+      <div className="filters__control-center-title">
+        <h2>Control Center</h2>
       </div>
 
-      <section className="filters__pulse" aria-label="Workspace pulse">
-        <div className="filters__pulse-head">
-          <div>
-            <p className="filters__pulse-meta">Workspace pulse · {currentYear}</p>
-            <span className="filters__pulse-total">
-              {currentYearTotal} goals · {currentYearDone} done
-            </span>
-          </div>
-          <div className="filters__pulse-score">
-            <span>Done</span>
-            <strong>{completionPct}%</strong>
-          </div>
+      {/* Header with Year and Completion */}
+      <div className="filters__premium-header">
+        <div className="filters__premium-year">{currentYear}</div>
+        <div className="filters__premium-completion">
+          <span className="filters__premium-completion-value">{completionPct}%</span>
+          <span className="filters__premium-completion-label">complete</span>
         </div>
-        <div className="filters__pulse-bar" aria-hidden>
-          <span style={{ width: `${completionPct}%` }} />
-        </div>
-        <div className="filters__status-pills">
-          {statusPills.map(({ key, label, className }) => (
-            <button
-              key={key}
-              type="button"
-              className={["filters__status-pill", className].join(" ")}
-              onClick={() => toggleStatus(key)}
-              aria-pressed={filters.statuses?.has(key) ?? false}
-            >
-              <span>{label}</span>
-              <strong>{counts.status[key]}</strong>
-            </button>
-          ))}
-        </div>
-        <div className="filters__year-card filters__year-card--next">
-          <p>{nextYear} · Next year</p>
-          <strong>{nextYearInfo.total} goals planned</strong>
-          <small>{nextYearInfo.done ? `${nextYearInfo.done} pre-completed` : "Preview your upcoming focus"}</small>
-        </div>
-      </section>
+      </div>
 
-      {/* Categories */}
-      <div className="filters__section">
-        <div className="eyebrow">Focus categories</div>
-        <div className="filters__chips">
-          {categories.map(cat => {
-            const catName = cat.name;
-            const count = counts.categories[catName] || 0;
+      {/* Quick Stats */}
+      <div className="filters__premium-stats">
+        <div className="filters__premium-stat">
+          <span className="filters__premium-stat-value">{currentYearTotal}</span>
+          <span className="filters__premium-stat-label">Goals</span>
+        </div>
+        <div className="filters__premium-stat-divider" />
+        <div className="filters__premium-stat">
+          <span className="filters__premium-stat-value">{counts.status.done}</span>
+          <span className="filters__premium-stat-label">Done</span>
+        </div>
+        <div className="filters__premium-stat-divider" />
+        <div className="filters__premium-stat">
+          <span className="filters__premium-stat-value">{counts.status["in-progress"]}</span>
+          <span className="filters__premium-stat-label">Active</span>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="filters__premium-section">
+        <div className="filters__premium-section-header">
+          <span>Status</span>
+          {filters.statuses && (
+            <button
+              type="button"
+              className="filters__premium-clear"
+              onClick={() => setFilters(prev => ({ ...prev, statuses: null }))}
+            >
+              Clear
+            </button>
+          )}
+        </div>
+        <div className="filters__premium-pills">
+          {statusPills.map(({ key, label, className }) => {
+            const isActive = filters.statuses?.has(key) ?? false;
+            const statusClass = key === "in-progress" ? "inprog" : key;
             return (
-              <Chip
-                key={cat.id}
-                active={filters.categories?.has(catName) ?? false}
-                onClick={() => toggleCategory(catName)}
-                className={`chip--cat-${catName.toLowerCase()}`}
-                count={count}
+              <button
+                key={key}
+                type="button"
+                className={[
+                  "filters__premium-pill",
+                  `filters__premium-pill--${statusClass}`,
+                  isActive ? "is-active" : ""
+                ].join(" ")}
+                onClick={() => toggleStatus(key)}
+                aria-pressed={isActive}
               >
-                {catName.charAt(0) + catName.slice(1).toLowerCase()}
-              </Chip>
+                <span className="filters__premium-pill-label">{label}</span>
+                <span className="filters__premium-pill-count">{counts.status[key]}</span>
+              </button>
             );
           })}
         </div>
       </div>
 
-      {/* Priority */}
-      <div className="filters__section">
-        <div className="eyebrow">Priority</div>
-        <div className="filters__chips">
-          {PRIORITIES.map(p => (
-            <Chip
-              key={p}
-              active={filters.priorities?.has(p) ?? false}
-              onClick={() => togglePriority(p)}
-              className={`chip--pri-${p}`}
-              count={counts.priorities[p]}
+      <div className="filters__premium-section">
+        <div className="filters__premium-section-header">
+          <span>Category</span>
+          {filters.categories && (
+            <button
+              type="button"
+              className="filters__premium-clear"
+              onClick={() => setFilters(prev => ({ ...prev, categories: null }))}
             >
-              {p.charAt(0).toUpperCase() + p.slice(1)}
-            </Chip>
+              Clear
+            </button>
+          )}
+        </div>
+        <div className="filters__premium-pills">
+          {categories.map(cat => {
+            const catName = cat.name;
+            const count = counts.categories[catName] || 0;
+            const isActive = filters.categories?.has(catName) ?? false;
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                className={[
+                  "filters__premium-pill",
+                  `filters__premium-pill--cat-${catName.toLowerCase()}`,
+                  isActive ? "is-active" : ""
+                ].join(" ")}
+                onClick={() => toggleCategory(catName)}
+                aria-pressed={isActive}
+              >
+                <span className="filters__premium-pill-label">{catName.charAt(0) + catName.slice(1).toLowerCase()}</span>
+                <span className="filters__premium-pill-count">{count}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="filters__premium-section">
+        <div className="filters__premium-section-header">
+          <span>Priority</span>
+          {filters.priorities && (
+            <button
+              type="button"
+              className="filters__premium-clear"
+              onClick={() => setFilters(prev => ({ ...prev, priorities: null }))}
+            >
+              Clear
+            </button>
+          )}
+        </div>
+        <div className="filters__premium-pills">
+          {PRIORITIES.map(p => (
+            <button
+              key={p}
+              type="button"
+              className={[
+                "filters__premium-pill",
+                `filters__premium-pill--pri-${p}`,
+                filters.priorities?.has(p) ? "is-active" : ""
+              ].join(" ")}
+              onClick={() => togglePriority(p)}
+              aria-pressed={filters.priorities?.has(p) ?? false}
+            >
+              <span className="filters__premium-pill-label">{p.charAt(0).toUpperCase() + p.slice(1)}</span>
+              <span className="filters__premium-pill-count">{counts.priorities[p]}</span>
+            </button>
           ))}
         </div>
       </div>
 
-      <div className="filters__section">
-        <button type="button" className="btn btn--ghost w-full" onClick={reset}>
-          Reset filters
-        </button>
-      </div>
+      {/* Next Year & Reset */}
+      {(nextYearInfo.total > 0 || hasActiveFilters) && (
+        <div className="filters__premium-footer">
+          {nextYearInfo.total > 0 && (
+            <div className="filters__premium-next-year">
+              <div className="filters__premium-next-year-icon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+              </div>
+              <div className="filters__premium-next-year-content">
+                <span>{nextYear}</span>
+                <span>{nextYearInfo.total} planned</span>
+              </div>
+            </div>
+          )}
+          {hasActiveFilters && (
+            <button type="button" className="filters__premium-reset" onClick={reset}>
+              Reset filters
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

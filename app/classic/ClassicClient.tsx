@@ -163,59 +163,62 @@ export default function ClassicClient() {
               </button>
               {toolsOpen && (
                 <div className="workspace__tools" role="menu">
-                  <p className="workspace__tools-title">Control center</p>
+                  <p className="workspace__tools-title">Control Center</p>
+
                   <div className="workspace__tools-group">
-                    <p className="workspace__tools-label">Data & backups</p>
-                    <div className="workspace__tools-row">
-                      <label className="btn workspace__tools-import">
-                        Import
+                    <div className="workspace__tools-row workspace__tools-row--compact">
+                      <label className="workspace__tools-action">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                        </svg>
+                        <span>Import</span>
                         <input type="file" accept="application/json" onChange={handleImport} disabled={busy} />
                       </label>
-                      <button type="button" className="btn w-full" disabled={busy} onClick={handleExport}>
-                        Export
+                      <button type="button" className="workspace__tools-action" disabled={busy} onClick={handleExport}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                        </svg>
+                        <span>Export</span>
                       </button>
                     </div>
-                    <p className="workspace__tools-hint">Use JSON backups to move goals between accounts later.</p>
                   </div>
+
                   <div className="workspace__tools-group">
-                    <p className="workspace__tools-label">Customization</p>
                     <button
                       type="button"
-                      className="btn w-full"
+                      className="workspace__tools-item"
                       onClick={() => {
                         openCustomizationPanel();
                         setToolsOpen(false);
                       }}
                     >
-                      Categories, priorities & statuses
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
+                      </svg>
+                      <span>Customize categories & statuses</span>
                     </button>
-                  </div>
-                  <div className="workspace__tools-group">
-                    <p className="workspace__tools-label">Appearance</p>
-                    <button type="button" className="btn w-full workspace__tools-theme" onClick={toggleTheme}>
-                      Switch to {theme === "light" ? "Dark" : "Light"} mode
+                    <button type="button" className="workspace__tools-item" onClick={toggleTheme}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        {theme === "light" ? (
+                          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                        ) : (
+                          <>
+                            <circle cx="12" cy="12" r="5"/>
+                            <path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42m12.72-12.72l1.42-1.42"/>
+                          </>
+                        )}
+                      </svg>
+                      <span>{theme === "light" ? "Dark" : "Light"} mode</span>
                     </button>
-                  </div>
-                  <div className="workspace__tools-group">
-                    <p className="workspace__tools-label">Integrations</p>
-                    <button type="button" className="btn w-full" onClick={() => setIntegrationsOpen(true)}>
-                      Notifications & integrations
+                    <button type="button" className="workspace__tools-item" onClick={() => setIntegrationsOpen(true)}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"/>
+                      </svg>
+                      <span>Notifications & integrations</span>
                     </button>
-                  </div>
-                  <div className="workspace__tools-group">
-                    <p className="workspace__tools-label">Help & Resources</p>
-                    <a
-                      href="https://github.com/yourusername/focusone-lite/blob/main/README.md"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn w-full"
-                      style={{ textAlign: 'center', display: 'block', textDecoration: 'none' }}
-                    >
-                      Documentation
-                    </a>
                     <button
                       type="button"
-                      className="btn w-full"
+                      className="workspace__tools-item"
                       onClick={() => {
                         const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
                         const modKey = isMac ? 'Cmd' : 'Ctrl';
@@ -223,25 +226,36 @@ export default function ClassicClient() {
                         setToolsOpen(false);
                       }}
                     >
-                      Keyboard shortcuts
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M6 16h12"/>
+                      </svg>
+                      <span>Keyboard shortcuts</span>
                     </button>
                   </div>
-                  <div className="workspace__tools-group">
-                    <p className="workspace__tools-label">Account</p>
-                    {session?.user ? (
+
+                  {session?.user ? (
+                    <div className="workspace__tools-group">
                       <button
                         type="button"
-                        className="btn w-full"
+                        className="workspace__tools-item workspace__tools-item--danger"
                         onClick={() => signOut({ callbackUrl: '/auth/login' })}
                       >
-                        Sign out
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>
+                        </svg>
+                        <span>Sign out</span>
                       </button>
-                    ) : (
-                      <Link href="/auth/login" className="btn w-full" style={{ textAlign: 'center', display: 'block' }}>
-                        Sign in
+                    </div>
+                  ) : (
+                    <div className="workspace__tools-group">
+                      <Link href="/auth/login" className="workspace__tools-item">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/>
+                        </svg>
+                        <span>Sign in</span>
                       </Link>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
