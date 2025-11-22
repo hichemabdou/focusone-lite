@@ -19,18 +19,25 @@ const providers = [];
 
 // Only add Google provider if configured
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET &&
-    process.env.GOOGLE_CLIENT_ID !== 'placeholder-client-id') {
+  process.env.GOOGLE_CLIENT_ID !== 'placeholder-client-id') {
   providers.push(
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      authorization: {
+        params: {
+          scope: "openid email profile https://www.googleapis.com/auth/calendar",
+          access_type: "offline",
+          prompt: "consent",
+        },
+      },
     })
   );
 }
 
 // Only add credentials provider if Supabase is configured
 if (process.env.NEXT_PUBLIC_SUPABASE_URL &&
-    process.env.NEXT_PUBLIC_SUPABASE_URL !== 'https://placeholder.supabase.co') {
+  process.env.NEXT_PUBLIC_SUPABASE_URL !== 'https://placeholder.supabase.co') {
   providers.push(
     CredentialsProvider({
       name: "credentials",
@@ -106,6 +113,7 @@ export const authOptions: NextAuthOptions = {
               name: user.name,
               image: user.image,
               password_hash: null, // OAuth user, no password
+              google_refresh_token: account.refresh_token, // Save refresh token
             });
 
           if (error) {
@@ -123,14 +131,28 @@ export const authOptions: NextAuthOptions = {
           if (newUser) {
             await createDefaultCustomizations(newUser.id);
           }
+        } else {
+          // Update refresh token if provided
+          if (account.refresh_token) {
+            await supabase
+              .from('users')
+              .update({ google_refresh_token: account.refresh_token })
+              .eq('id', existingUser.id);
+          }
         }
       }
       return true;
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
       if (user) {
         // Use email as ID if no database ID available
         token.id = user.id || user.email;
+      }
+      if (account) {
+        token.accessToken = account.access_token;
+        if (account.refresh_token) {
+          token.refreshToken = account.refresh_token;
+        }
       }
       return token;
     },
@@ -156,6 +178,8 @@ export const authOptions: NextAuthOptions = {
           // Use email as ID when Supabase is not configured
           (session.user as any).id = token.id || session.user.email;
         }
+        // Pass access token to client if needed
+        (session as any).accessToken = token.accessToken;
       }
       return session;
     }

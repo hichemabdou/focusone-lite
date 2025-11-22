@@ -8,6 +8,11 @@ import GoalEditor from "./GoalEditor";
 import MilestoneEditor from "./MilestoneEditor";
 import MilestonesPanel from "./MilestonesPanel";
 import MilestoneCreator from "./MilestoneCreator";
+import TimelineContextMenu from "./TimelineContextMenu";
+import GoalActionToolbar from "./GoalActionToolbar";
+import TimelineBar from "./TimelineBar";
+import CalendarView from "./CalendarView";
+import { Calendar as CalendarIcon, LayoutList } from "lucide-react";
 
 /* -------- utilities -------- */
 const clampNum = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
@@ -97,6 +102,7 @@ type SpanInfo = {
   statusColor: string;
   priorityBg: string;
   priorityBgStrong: string;
+  rowIndex: number;
 };
 
 type MilestonePoint = { id: string; label: string; leftPct: number; color: string; icon: string };
@@ -120,17 +126,28 @@ const statusLabel: Record<string, string> = {
 };
 
 const INLINE_STATUS_ACTIONS: Array<{ label: string; value: Status }> = [
-  { label: "Open", value: "open" },
-  { label: "In progress", value: "in-progress" },
-  { label: "Blocked", value: "blocked" },
-  { label: "Done", value: "done" },
+  { label: "Idea", value: "idea" },
+  { label: "Planned", value: "planned" },
+  { label: "Active", value: "active" },
+  { label: "On Hold", value: "on-hold" },
+  { label: "Completed", value: "completed" },
+  { label: "Cancelled", value: "cancelled" },
 ];
 
-const PRIORITY_TINTS: Record<Priority, { base: number; strong: number }> = {
-  low: { base: 0.18, strong: 0.35 },
-  medium: { base: 0.25, strong: 0.45 },
-  high: { base: 0.32, strong: 0.55 },
-  critical: { base: 0.4, strong: 0.65 },
+const PRIORITY_TINTS: Record<string, { base: number; strong: number }> = {
+  p4: { base: 0.18, strong: 0.35 }, // Low
+  p3: { base: 0.25, strong: 0.45 }, // Medium
+  p2: { base: 0.32, strong: 0.55 }, // High
+  p1: { base: 0.4, strong: 0.65 },  // Critical
+};
+
+const PRESETS: Record<string, string> = {
+  fit: "Fit all",
+  month: "This month",
+  "6m": "6 months",
+  ytd: "Year to date",
+  "next-ytd": "Next year to date",
+  "5y": "Next 5 years",
 };
 
 function hexToRgba(hex: string, alpha = 1) {
@@ -159,7 +176,7 @@ function getFitAllRange(goals: Goal[]): Range {
 }
 
 export default function Timeline() {
-  const { visibleGoals, goals, updateGoal, addGoal } = useGoals();
+  const { visibleGoals, goals, updateGoal, addGoal, deleteGoal } = useGoals();
   const { getCategoryColor, getPriorityColor, getStatusColor, categories } = useCustomization();
 
   // Direct goal creation (smooth temporary goal - no notification spam)
@@ -176,7 +193,7 @@ export default function Timeline() {
     const baseItems = (visibleGoals ?? goals ?? []) as Goal[];
     return tempGoal ? [...baseItems, tempGoal] : baseItems;
   }, [visibleGoals, goals, tempGoal]);
-  
+
   // Drag state
   const [dragging, setDragging] = useState<{ goalId: string; type: "move" | "resize-start" | "resize-end" } | null>(null);
   const [dragStart, setDragStart] = useState<{ x: number; startDate: Date; endDate: Date } | null>(null);
@@ -186,6 +203,7 @@ export default function Timeline() {
   const [density, setDensity] = useState<Density>("compact");
   const [focusMode, setFocusMode] = useState(false);
   const [milestonesOpen, setMilestonesOpen] = useState(false);
+  const [viewType, setViewType] = useState<"timeline" | "calendar">("timeline"); // New view state
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [viewportWidth, setViewportWidth] = useState<number | null>(null);
   const [showMonthGrid, setShowMonthGrid] = useState(true);
@@ -193,6 +211,9 @@ export default function Timeline() {
   const [gridMenuOpen, setGridMenuOpen] = useState(false);
   const gridToggleRef = useRef<HTMLDivElement>(null);
   const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Track the bounding rect of the currently selected goal for the toolbar
+  const [activeGoalRect, setActiveGoalRect] = useState<{ x: number; y: number; width: number } | null>(null);
 
   const targetRange = useMemo<Range>(() => {
     const now = new Date();
@@ -269,8 +290,9 @@ export default function Timeline() {
   }, [quarters, showQuarterGrid]);
 
   const spans = useMemo<SpanInfo[]>(
-    () =>
-      items.map((goal) => {
+    () => {
+      // 1. Create basic span objects
+      const rawSpans = items.map((goal) => {
         const start = parseISO(goal.startDate);
         const end = parseISO(goal.endDate);
         const title = (goal.title ?? "").trim().replace(/\s+/g, " ") || "Untitled goal";
@@ -309,8 +331,42 @@ export default function Timeline() {
           statusColor,
           priorityBg,
           priorityBgStrong,
+          rowIndex: 0, // Placeholder
         };
-      }),
+      });
+
+      // 2. Sort by start date for better packing
+      rawSpans.sort((a, b) => a.start.getTime() - b.start.getTime());
+
+      // 3. Pack rows (Greedy algorithm)
+      const rows: number[] = []; // Stores the end time (pct) of the last item in each row
+
+      return rawSpans.map(span => {
+        let placed = false;
+        let rowIndex = 0;
+
+        // Try to fit in existing rows
+        for (let i = 0; i < rows.length; i++) {
+          // Add a small buffer (0.5%) to prevent visual touching
+          if (rows[i] + 0.5 <= span.leftPct) {
+            span.rowIndex = i;
+            rows[i] = span.leftPct + span.widthPct;
+            placed = true;
+            rowIndex = i;
+            break;
+          }
+        }
+
+        // If didn't fit, start a new row
+        if (!placed) {
+          span.rowIndex = rows.length;
+          rows.push(span.leftPct + span.widthPct);
+          rowIndex = rows.length - 1;
+        }
+
+        return span;
+      });
+    },
     [items, msStart, msSpan, pixelBasis, getStatusColor, getPriorityColor]
   );
 
@@ -319,6 +375,9 @@ export default function Timeline() {
   const [inlineEditor, setInlineEditor] = useState<{ goalId: string; left: number; top: number } | null>(null);
   const [undoStack, setUndoStack] = useState<Goal[]>([]);
   const [redoStack, setRedoStack] = useState<Goal[]>([]);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; goalId: string } | null>(null);
+  const [selectedGoalIds, setSelectedGoalIds] = useState<Set<string>>(new Set());
+  const [marqueeBox, setMarqueeBox] = useState<{ x: number; y: number; width: number; height: number; startX: number; startY: number } | null>(null);
   const [milestoneGoal, setMilestoneGoal] = useState<Goal | null>(null);
 
   // Milestone structure supporting both points and windows
@@ -403,42 +462,62 @@ export default function Timeline() {
     [stageUndo, updateGoal]
   );
 
-  const handleOpenGoal = useCallback(
-    (goal: Goal) => {
-      setEditingGoal(goal);
-      closeInlineEditor();
-    },
-    [closeInlineEditor]
-  );
+  const handleOpenGoal = (goal: Goal) => {
+    setEditingGoal(goal);
+  };
 
-  const openInlineEditor = useCallback((span: SpanInfo, barRect: DOMRect) => {
-    const gridEl = timelineRef.current;
-    if (!gridEl) return;
-    const gridRect = gridEl.getBoundingClientRect();
-    const centerX = barRect.left - gridRect.left + barRect.width / 2;
-    const top = Math.max(12, barRect.top - gridRect.top - 20);
-    const left = clampNum(centerX, 140, gridRect.width - 140);
-    setInlineEditor({ goalId: span.g.id, left, top });
-  }, []);
+  const handleCloseGoal = () => {
+    setEditingGoal(null);
+  };
 
   const handleBarClick = useCallback((span: SpanInfo, event: ReactMouseEvent<HTMLDivElement>) => {
     if (dragging) return;
 
+    // Multi-selection logic (Cmd/Ctrl + Click)
+    if (event.metaKey || event.ctrlKey) {
+      event.stopPropagation();
+      setSelectedGoalIds(prev => {
+        const next = new Set(prev);
+        if (next.has(span.g.id)) {
+          next.delete(span.g.id);
+        } else {
+          next.add(span.g.id);
+        }
+        return next;
+      });
+      return; // Don't proceed to editor logic
+    }
+
+    // If clicking a goal that's part of a multi-selection, don't open editor
+    if (selectedGoalIds.size > 1 && selectedGoalIds.has(span.g.id)) {
+      // Just clicked within the selection, do nothing (maybe user wants to drag soon, or right-click)
+      return;
+    }
+
+    // Clear other selections and select this one
+    setSelectedGoalIds(new Set([span.g.id]));
+
     // Capture the bounding rect immediately (before event is pooled)
     const barRect = (event.currentTarget as HTMLDivElement).getBoundingClientRect();
+    const gridEl = timelineRef.current;
+
+    if (gridEl) {
+      const gridRect = gridEl.getBoundingClientRect();
+      // Calculate position relative to the grid container
+      // This ensures it moves with the scroll if the toolbar is absolute inside the grid
+      setActiveGoalRect({
+        x: barRect.left - gridRect.left + gridEl.scrollLeft, // Add scrollLeft if needed, but grid usually scrolls via viewport
+        y: barRect.top - gridRect.top,
+        width: barRect.width
+      });
+    }
 
     // Clear any existing timeout
     if (clickTimeoutRef.current) {
       clearTimeout(clickTimeoutRef.current);
       clickTimeoutRef.current = null;
     }
-
-    // Set a timeout for single click
-    clickTimeoutRef.current = setTimeout(() => {
-      openInlineEditor(span, barRect);
-      clickTimeoutRef.current = null;
-    }, 200); // Wait 200ms to see if it's a double click
-  }, [dragging, openInlineEditor]);
+  }, [dragging, selectedGoalIds]);
 
   const handleBarDoubleClick = useCallback((span: SpanInfo) => {
     if (dragging) return;
@@ -455,6 +534,17 @@ export default function Timeline() {
     // Open full editor
     handleOpenGoal(span.g);
   }, [dragging, handleOpenGoal, closeInlineEditor]);
+
+  const handleContextMenu = useCallback((span: SpanInfo, event: ReactMouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setContextMenu({
+      x: event.clientX,
+      y: event.clientY,
+      goalId: span.g.id,
+    });
+    closeInlineEditor();
+  }, [closeInlineEditor]);
 
   // Direct drawing: Convert percentage to date
   const percentageToDate = useCallback((pct: number): string => {
@@ -476,11 +566,11 @@ export default function Timeline() {
     // Check if hovering over empty space (not on bars, milestones, etc.)
     const target = e.target as HTMLElement;
     const isOverElement = target.closest('.timeline__bar') ||
-                          target.closest('.timeline__milestone-marker') ||
-                          target.closest('.timeline__today') ||
-                          target.closest('button') ||
-                          target.closest('.timeline__header') ||
-                          target.closest('.timeline__quarters');
+      target.closest('.timeline__milestone-marker') ||
+      target.closest('.timeline__today') ||
+      target.closest('button') ||
+      target.closest('.timeline__header') ||
+      target.closest('.timeline__quarters');
 
     if (isOverElement) {
       setHoverTooltip({ x: 0, y: 0, pct: 0, date: '', show: false });
@@ -540,53 +630,124 @@ export default function Timeline() {
     // Don't start creating if already creating or dragging
     if (dragging || tempGoal) return;
 
-    // Don't start creating if clicking on a goal bar, milestone, or interactive element
+    // Don't interact if clicking on a goal bar, milestone, or interactive element
     const target = e.target as HTMLElement;
     if (target.closest('.timeline__bar') ||
-        target.closest('.timeline__milestone-marker') ||
-        target.closest('.timeline__today') ||
-        target.closest('button')) {
+      target.closest('.timeline__milestone-marker') ||
+      target.closest('.timeline__today') ||
+      target.closest('button')) {
       return;
+    }
+
+    // Clear selection if clicking empty space (unless Shift/Cmd held)
+    // But if we are starting a marquee, we might want to keep selection if Shift is held.
+    // Standard behavior: Click on empty space clears selection. Drag starts marquee.
+    if (!e.shiftKey && !e.metaKey && !e.ctrlKey) {
+      setSelectedGoalIds(new Set());
+      setActiveGoalRect(null);
     }
 
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const rect = canvas.getBoundingClientRect();
-    const viewport = viewportRef.current;
-    if (!viewport) return;
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
 
-    // Calculate position accounting for scroll
-    const relativeX = e.clientX - rect.left + viewport.scrollLeft;
-    const pct = (relativeX / rect.width) * 100;
-    const startDate = percentageToDate(pct);
+    // CHECK FOR CREATION (Cmd/Ctrl + Drag)
+    if (e.metaKey || e.ctrlKey) {
+      const viewport = viewportRef.current;
+      if (!viewport) return;
 
-    // Create a very small initial bar (1 hour) that will extend as you drag
-    // This makes it feel like the bar is appearing right where you click
-    const startDateObj = new Date(startDate);
-    const endDateObj = new Date(startDateObj);
-    endDateObj.setHours(endDateObj.getHours() + 1); // Just 1 hour initially
-    const endDate = `${endDateObj.getFullYear()}-${String(endDateObj.getMonth() + 1).padStart(2, '0')}-${String(endDateObj.getDate()).padStart(2, '0')}`;
+      // Calculate position accounting for scroll
+      const relativeX = e.clientX - rect.left + viewport.scrollLeft;
+      const pct = (relativeX / rect.width) * 100;
+      const startDate = percentageToDate(pct);
 
-    // Create temporary goal (no API call = smooth!)
-    const newTempGoal: Goal = {
-      id: `temp-${Date.now()}`,
-      title: "✨ New Goal",
-      startDate,
-      endDate: startDate, // Start with same date, will extend as you drag
-      category: categories[0]?.name || "STRATEGY",
-      priority: "medium",
-      status: "open",
-      notes: "",
-      milestone: null,
-      comments: []
-    };
+      // Create temporary goal
+      const newTempGoal: Goal = {
+        id: `temp-${Date.now()}`,
+        title: "✨ New Goal",
+        startDate,
+        endDate: startDate,
+        category: categories[0]?.name || "FINANCE",
+        priority: "p3",
+        status: "idea",
+        notes: "",
+        milestone: null,
+        comments: []
+      };
 
-    setTempGoal(newTempGoal);
-    tempGoalStartPct.current = pct;
+      setTempGoal(newTempGoal);
+      tempGoalStartPct.current = pct;
+      return;
+    }
+
+    // DEFAULT: MARQUEE SELECTION (No modifier or Shift)
+    setMarqueeBox({
+      x, y, width: 0, height: 0, startX: x, startY: y
+    });
   }, [dragging, tempGoal, percentageToDate, categories]);
 
   const handleCanvasMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    // Handle Marquee Update
+    if (marqueeBox) {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      setMarqueeBox(prev => {
+        if (!prev) return null;
+        const width = Math.abs(x - prev.startX);
+        const height = Math.abs(y - prev.startY);
+        const newX = Math.min(x, prev.startX);
+        const newY = Math.min(y, prev.startY);
+
+        // Live Selection Update
+        const selectionRect = {
+          left: newX,
+          top: newY,
+          right: newX + width,
+          bottom: newY + height
+        };
+
+        const newSelection = new Set<string>(e.shiftKey ? selectedGoalIds : new Set()); // Shift adds to selection
+
+        const bars = canvas.querySelectorAll('.timeline__bar');
+        bars.forEach((bar, index) => {
+          if (index < spans.length) {
+            const span = spans[index];
+            const barRect = bar.getBoundingClientRect();
+            const canvasRect = canvas.getBoundingClientRect();
+
+            const barRelative = {
+              left: barRect.left - canvasRect.left,
+              top: barRect.top - canvasRect.top,
+              right: barRect.right - canvasRect.left,
+              bottom: barRect.bottom - canvasRect.top
+            };
+
+            const intersects = !(
+              barRelative.left > selectionRect.right ||
+              barRelative.right < selectionRect.left ||
+              barRelative.top > selectionRect.bottom ||
+              barRelative.bottom < selectionRect.top
+            );
+
+            if (intersects) {
+              newSelection.add(span.g.id);
+            }
+          }
+        });
+
+        setSelectedGoalIds(newSelection);
+
+        return { ...prev, x: newX, y: newY, width, height };
+      });
+      return;
+    }
+
     // If we're creating a goal, resize it as we drag (smooth local update!)
     if (tempGoal) {
       const canvas = canvasRef.current;
@@ -629,7 +790,68 @@ export default function Timeline() {
     }
   }, []);
 
+  const handleCanvasDoubleClick = useCallback(async (e: React.MouseEvent<HTMLDivElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+
+    // Calculate position accounting for scroll
+    const relativeX = e.clientX - rect.left + viewport.scrollLeft;
+    const pct = (relativeX / rect.width) * 100;
+    const startDate = percentageToDate(pct);
+
+    // Create a default 1-week goal
+    const startObj = new Date(startDate);
+    const endObj = new Date(startObj);
+    endObj.setDate(endObj.getDate() + 7);
+    const endDate = `${endObj.getFullYear()}-${String(endObj.getMonth() + 1).padStart(2, '0')}-${String(endObj.getDate()).padStart(2, '0')}`;
+
+    const newGoal: Omit<Goal, "id"> = {
+      title: "✨ New Goal",
+      startDate,
+      endDate,
+      category: categories[0]?.name || "FINANCE",
+      priority: "p3",
+      status: "idea",
+      notes: "",
+      milestone: null,
+      comments: []
+    };
+
+    const created = await addGoal(newGoal);
+    if (created) {
+      setSelectedGoalIds(new Set([created.id]));
+      // Calculate position for toolbar
+      const gridEl = timelineRef.current;
+      if (gridEl) {
+        const gridRect = gridEl.getBoundingClientRect();
+        const startPct = pct;
+        const endPct = ((endObj.getTime() - msStart) / msSpan) * 100;
+        const left = (Math.min(startPct, endPct) / 100) * gridRect.width;
+        const width = (Math.abs(endPct - startPct) / 100) * gridRect.width;
+
+        // We need to find the row index for the new goal. 
+        // Since we just added it, it will be packed in the next render.
+        // For now, we can just center the toolbar or put it at a default top.
+        // Ideally, we wait for layout effect, but this is a good approximation.
+        const top = 60;
+
+        setActiveGoalRect({ x: left, y: top, width });
+      }
+      handleOpenGoal(created);
+    }
+  }, [addGoal, categories, percentageToDate, msStart, msSpan]);
+
   const handleCanvasMouseUp = useCallback(async () => {
+    // Handle Marquee Finalization
+    if (marqueeBox) {
+      setMarqueeBox(null);
+      return;
+    }
+
     if (!tempGoal) return;
 
     // Ensure dates are in correct order
@@ -668,22 +890,35 @@ export default function Timeline() {
 
     // Create the real goal in the system (single API call + single notification)
     const { id, ...goalData } = finalGoal; // Remove ID for addGoal
-    await addGoal(goalData);
+    const createdGoal = await addGoal(goalData);
 
-    // Open editor with the final goal data
-    // The goal now exists in the system, we can edit it
-    setTimeout(() => {
-      // Find the created goal in the goals array (it was just added)
-      const createdGoal = goals.find(g =>
-        g.title === finalGoal.title &&
-        g.startDate === finalGoal.startDate &&
-        g.endDate === finalGoal.endDate
-      );
-      if (createdGoal) {
-        handleOpenGoal(createdGoal);
+    // Select the new goal immediately so the toolbar appears
+    if (createdGoal) {
+      setSelectedGoalIds(new Set([createdGoal.id]));
+
+      // We need to calculate where the bar will be
+      const gridEl = timelineRef.current;
+      if (gridEl) {
+        const gridRect = gridEl.getBoundingClientRect();
+        // Approximate position based on drag
+        const startPct = tempGoalStartPct.current;
+        const endDateObj = new Date(finalGoal.endDate);
+        const endPct = ((endDateObj.getTime() - msStart) / msSpan) * 100;
+
+        // Calculate pixel positions relative to the grid width
+        const left = (Math.min(startPct, endPct) / 100) * gridRect.width;
+        const width = (Math.abs(endPct - startPct) / 100) * gridRect.width;
+
+        // For top, we need to find the row. Since we don't have row logic here easily,
+        // we'll default to a safe position or try to find the element after render.
+        // A better approach is to let the toolbar find the element by ID, but for now:
+        const top = 60; // Approximate top for the first row or just a safe default
+
+        setActiveGoalRect({ x: left, y: top, width });
       }
-    }, 150);
-  }, [tempGoal, addGoal, handleOpenGoal, goals]);
+      handleOpenGoal(createdGoal);
+    }
+  }, [tempGoal, addGoal, handleOpenGoal, tempGoalStartPct, msStart, msSpan, percentageToDate, setSelectedGoalIds, setActiveGoalRect]);
 
   const { milestonePoints, milestoneWindows } = useMemo(() => {
     const points: MilestonePoint[] = [];
@@ -758,7 +993,7 @@ export default function Timeline() {
     balanced: 32,
     compact: 22,
   };
-  const rowCount = Math.max(spans.length, 1);
+  const rowCount = spans.reduce((max, span) => Math.max(max, span.rowIndex + 1), 1);
   const TARGET_VISUAL = focusMode ? 1100 : 520;
   const rawRow = Math.floor(TARGET_VISUAL / rowCount);
   const rowHeight = Math.max(18, Math.min(rawRow, densityMap[density]));
@@ -821,6 +1056,41 @@ export default function Timeline() {
     { key: "next-ytd", label: "Next year to date" },
     { key: "5y", label: "Next 5 years" },
   ];
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Delete" || e.key === "Backspace") {
+        // Don't delete if editing text or input
+        if (
+          document.activeElement?.tagName === "INPUT" ||
+          document.activeElement?.tagName === "TEXTAREA" ||
+          (document.activeElement as HTMLElement)?.isContentEditable
+        ) {
+          return;
+        }
+
+        if (selectedGoalIds.size > 0) {
+          e.preventDefault();
+          const count = selectedGoalIds.size;
+          if (confirm(`Are you sure you want to delete ${count} goal${count > 1 ? "s" : ""}?`)) {
+            selectedGoalIds.forEach((id) => deleteGoal(id));
+            setSelectedGoalIds(new Set());
+            setActiveGoalRect(null);
+          }
+        }
+      }
+
+      // Escape to clear selection
+      if (e.key === "Escape") {
+        setSelectedGoalIds(new Set());
+        setActiveGoalRect(null);
+        closeInlineEditor();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedGoalIds, deleteGoal, closeInlineEditor]);
 
   useEffect(() => {
     if (!focusMode) return;
@@ -955,17 +1225,32 @@ export default function Timeline() {
   // ESC key to cancel goal creation
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && tempGoal) {
-        // Cancel creation - just clear the temp goal (no API call needed!)
-        setTempGoal(null);
+      if (e.key === 'Escape') {
+        if (tempGoal) {
+          setTempGoal(null);
+        }
+        if (selectedGoalIds.size > 0) {
+          setSelectedGoalIds(new Set());
+          setActiveGoalRect(null);
+        }
+      }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedGoalIds.size > 0) {
+        // Don't delete if editing text (check active element)
+        const activeTag = document.activeElement?.tagName.toLowerCase();
+        if (activeTag === 'input' || activeTag === 'textarea') return;
+
+        if (window.confirm(`Are you sure you want to delete ${selectedGoalIds.size} goals?`)) {
+          selectedGoalIds.forEach(id => deleteGoal(id, true)); // Silent mode
+          setSelectedGoalIds(new Set());
+        }
       }
     };
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [tempGoal]);
+  }, [tempGoal, selectedGoalIds, deleteGoal]);
 
   // Drag handlers
-  const handleBarMouseDown = (span: SpanInfo, type: "move" | "resize-start" | "resize-end") => (e: ReactMouseEvent) => {
+  const handleBarMouseDown = (span: SpanInfo) => (e: ReactMouseEvent, type: "move" | "resize-start" | "resize-end") => {
     e.preventDefault();
     e.stopPropagation();
     closeInlineEditor();
@@ -1065,551 +1350,557 @@ export default function Timeline() {
           </div>
         ) : (
           <>
-        <div className="timeline__toolbar">
-          <div className="timeline__preset-group">
-            {buttons.map((button) => (
-              <button
-                key={button.key}
-                className={["btn", activePreset === button.key ? "btn--active" : ""].filter(Boolean).join(" ")}
-                onClick={() => {
-                  setActivePreset(button.key);
-                  centerOnToday("auto");
-                }}
-              >
-                {button.label}
-              </button>
-            ))}
-          </div>
-          <div className="timeline__toolbar-actions">
-            <button
-              type="button"
-              className="chip chip--interactive timeline__action-chip"
-              onClick={() => setShowMilestoneCreator(true)}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-              Add milestone
-            </button>
-            {milestones.length > 0 && (
-              <button
-                type="button"
-                className={`chip chip--interactive timeline__action-chip ${showMilestonesList ? 'chip--on' : ''}`}
-                onClick={() => setShowMilestonesList(!showMilestonesList)}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M3 12h18M3 6h18M3 18h18" />
-                </svg>
-                View milestones ({milestones.length})
-              </button>
-            )}
-            <button type="button" className="chip chip--interactive timeline__action-chip" onClick={() => centerOnToday("smooth")}>
-              Jump to today
-            </button>
-            <div className="timeline__grid-toggle" ref={gridToggleRef}>
-              <button
-                type="button"
-                className={`timeline__grid-trigger ${gridMenuOpen ? 'is-active' : ''}`}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setGridMenuOpen((prev) => !prev);
-                }}
-                onMouseDown={(event) => event.stopPropagation()}
-                aria-label="Grid settings"
-                title="Toggle grid visibility"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="3" width="7" height="7"/>
-                  <rect x="14" y="3" width="7" height="7"/>
-                  <rect x="14" y="14" width="7" height="7"/>
-                  <rect x="3" y="14" width="7" height="7"/>
-                </svg>
-              </button>
-              {gridMenuOpen && (
-                <div className="timeline__grid-menu">
-                  <label className="timeline__grid-option" onClick={(event) => event.stopPropagation()}>
-                    <input
-                      type="checkbox"
-                      onClick={(event) => event.stopPropagation()}
-                      checked={showMonthGrid}
-                      onChange={() => setShowMonthGrid((prev) => !prev)}
-                    />
-                    <span>Month grid</span>
-                  </label>
-                  <label className="timeline__grid-option" onClick={(event) => event.stopPropagation()}>
-                    <input
-                      type="checkbox"
-                      onClick={(event) => event.stopPropagation()}
-                      checked={showQuarterGrid}
-                      onChange={() => setShowQuarterGrid((prev) => !prev)}
-                    />
-                    <span>Quarter grid</span>
-                  </label>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="timeline__secondary">
-          <div className="timeline__density">
-            {(["cozy", "balanced", "compact"] as Density[]).map((option) => (
-              <button
-                key={option}
-                type="button"
-                className={[
-                  "chip",
-                  "chip--interactive",
-                  "chip--density",
-                  density === option ? "chip--on" : "",
-                ].join(" ")}
-                onClick={() => setDensity(option)}
-              >
-                {option === "cozy" ? "Comfort" : option === "balanced" ? "Balanced" : "Compact"}
-              </button>
-            ))}
-          </div>
-          <div className="timeline__secondary-actions">
-            <button
-              type="button"
-              className={[
-                "chip",
-                "chip--interactive",
-                "timeline__action-chip",
-                "timeline__action-chip--focus",
-                focusMode ? "chip--on" : "",
-              ].join(" ")}
-              onClick={() => setFocusMode((prev) => !prev)}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-              {focusMode ? "Exit focus" : "Focus view"}
-            </button>
-            <div className="timeline__history-buttons">
-              <button
-                type="button"
-                className={[
-                  "chip",
-                  "chip--interactive",
-                  "timeline__action-chip",
-                  "timeline__undo-btn",
-                  canUndo ? "" : "timeline__action-chip--disabled",
-                ].filter(Boolean).join(" ")}
-                disabled={!canUndo}
-                onClick={handleUndo}
-                title="Undo last change"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3 7v6h6"/>
-                  <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/>
-                </svg>
-              </button>
-              <button
-                type="button"
-                className={[
-                  "chip",
-                  "chip--interactive",
-                  "timeline__action-chip",
-                  "timeline__undo-btn",
-                  canRedo ? "" : "timeline__action-chip--disabled",
-                ].filter(Boolean).join(" ")}
-                disabled={!canRedo}
-                onClick={handleRedo}
-                title="Redo change"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 7v6h-6"/>
-                  <path d="M3 17a9 9 0 019-9 9 9 0 016 2.3L21 13"/>
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="timeline__grid" ref={timelineRef}>
-          <div className="timeline__shell">
-            <div className="timeline__viewport" ref={viewportRef}>
-              <div className="timeline__content" style={contentWidth ? { width: `${contentWidth}px` } : undefined}>
-                <div
-                  ref={canvasRef}
-                  className={`timeline__canvas ${isHoveringEmpty ? 'timeline__canvas--hovering' : ''}`}
-                  onMouseDown={handleCanvasMouseDown}
-                  onMouseMove={handleCanvasMouseMove}
-                  onMouseUp={handleCanvasMouseUp}
-                  onMouseLeave={() => {
-                    handleCanvasMouseUp();
-                    handleCanvasMouseLeave();
-                  }}
-                  style={{
-                    cursor: isHoveringEmpty ? 'crosshair' : 'default'
-                  }}
+            <div className="timeline__toolbar">
+              <div className="timeline__preset-group">
+                {buttons.map((button) => (
+                  <button
+                    key={button.key}
+                    className={["btn", activePreset === button.key ? "btn--active" : ""].filter(Boolean).join(" ")}
+                    onClick={() => {
+                      setActivePreset(button.key);
+                      centerOnToday("auto");
+                    }}
+                  >
+                    {button.label}
+                  </button>
+                ))}
+              </div>
+              <div className="timeline__toolbar-actions">
+                <button
+                  type="button"
+                  className="chip chip--interactive timeline__action-chip"
+                  onClick={() => setShowMilestoneCreator(true)}
                 >
-                  {(showMonthGrid || showQuarterGrid) && (
-                    <div className="timeline__gridlines">
-                      {showMonthGrid &&
-                        monthGridLines.map((pct, index) => (
-                          <span key={`month-${index}`} className="timeline__gridline timeline__gridline--month" style={{ left: `${pct}%` }} />
-                        ))}
-                      {showQuarterGrid &&
-                        quarterGridLines.map((pct, index) => (
-                          <span key={`quarter-${index}`} className="timeline__gridline timeline__gridline--quarter" style={{ left: `${pct}%` }} />
-                        ))}
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                  Add milestone
+                </button>
+                {milestones.length > 0 && (
+                  <button
+                    type="button"
+                    className={`chip chip--interactive timeline__action-chip ${showMilestonesList ? 'chip--on' : ''}`}
+                    onClick={() => setShowMilestonesList(!showMilestonesList)}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M3 12h18M3 6h18M3 18h18" />
+                    </svg>
+                    View milestones ({milestones.length})
+                  </button>
+                )}
+                <button type="button" className="chip chip--interactive timeline__action-chip" onClick={() => centerOnToday("smooth")}>
+                  Jump to today
+                </button>
+                <div className="timeline__grid-toggle" ref={gridToggleRef}>
+                  <button
+                    type="button"
+                    className={`timeline__grid-trigger ${gridMenuOpen ? 'is-active' : ''}`}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setGridMenuOpen((prev) => !prev);
+                    }}
+                    onMouseDown={(event) => event.stopPropagation()}
+                    aria-label="Grid settings"
+                    title="Toggle grid visibility"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="3" width="7" height="7" />
+                      <rect x="14" y="3" width="7" height="7" />
+                      <rect x="14" y="14" width="7" height="7" />
+                      <rect x="3" y="14" width="7" height="7" />
+                    </svg>
+                  </button>
+                  {gridMenuOpen && (
+                    <div className="timeline__grid-menu">
+                      <label className="timeline__grid-option" onClick={(event) => event.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          onClick={(event) => event.stopPropagation()}
+                          checked={showMonthGrid}
+                          onChange={() => setShowMonthGrid((prev) => !prev)}
+                        />
+                        <span>Month grid</span>
+                      </label>
+                      <label className="timeline__grid-option" onClick={(event) => event.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          onClick={(event) => event.stopPropagation()}
+                          checked={showQuarterGrid}
+                          onChange={() => setShowQuarterGrid((prev) => !prev)}
+                        />
+                        <span>Quarter grid</span>
+                      </label>
                     </div>
                   )}
-                  {showToday && (
-                    <button
-                      type="button"
-                      className="timeline__today"
-                      style={{ left: `${todayPct}%` }}
-                      aria-label={todayLabel}
-                      onMouseEnter={() => setShowTodayDetail(true)}
-                      onFocus={() => setShowTodayDetail(true)}
-                      onMouseLeave={() => setShowTodayDetail(false)}
-                      onBlur={() => setShowTodayDetail(false)}
-                      onClick={() => centerOnToday("smooth")}
-                    >
-                      <span className="timeline__today-beam" aria-hidden />
-                      <span className="timeline__today-dot" aria-hidden />
-                      <span className="timeline__today-pill" data-align={todayAlign}>
-                        TODAY
-                      </span>
-                      <span
-                        className={["timeline__today-detail", showTodayDetail ? "is-visible" : ""].join(" ")}
-                        data-align={todayAlign}
-                        aria-hidden={!showTodayDetail}
-                      >
-                        {todayReadable}
-                      </span>
-                    </button>
-                  )}
-                  {cursorGuide.show && !tempGoal && (
+                </div>
+              </div>
+            </div>
+
+            <div className="timeline__secondary">
+              <div className="timeline__density">
+                {(["cozy", "balanced", "compact"] as Density[]).map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    className={[
+                      "chip",
+                      "chip--interactive",
+                      "chip--density",
+                      density === option ? "chip--on" : "",
+                    ].join(" ")}
+                    onClick={() => setDensity(option)}
+                  >
+                    {option === "cozy" ? "Comfort" : option === "balanced" ? "Balanced" : "Compact"}
+                  </button>
+                ))}
+              </div>
+              <div className="timeline__secondary-actions">
+                <button
+                  type="button"
+                  className={[
+                    "chip",
+                    "chip--interactive",
+                    "timeline__action-chip",
+                    "timeline__action-chip--focus",
+                    focusMode ? "chip--on" : "",
+                  ].join(" ")}
+                  onClick={() => setFocusMode((prev) => !prev)}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                  {focusMode ? "Exit focus" : "Focus view"}
+                </button>
+                <div className="timeline__history-buttons">
+                  <button
+                    type="button"
+                    className={[
+                      "chip",
+                      "chip--interactive",
+                      "timeline__action-chip",
+                      "timeline__undo-btn",
+                      canUndo ? "" : "timeline__action-chip--disabled",
+                    ].filter(Boolean).join(" ")}
+                    disabled={!canUndo}
+                    onClick={handleUndo}
+                    title="Undo last change"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 7v6h6" />
+                      <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    className={[
+                      "chip",
+                      "chip--interactive",
+                      "timeline__action-chip",
+                      "timeline__undo-btn",
+                      canRedo ? "" : "timeline__action-chip--disabled",
+                    ].filter(Boolean).join(" ")}
+                    disabled={!canRedo}
+                    onClick={handleRedo}
+                    title="Redo change"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 7v6h-6" />
+                      <path d="M3 17a9 9 0 019-9 9 9 0 016 2.3L21 13" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="timeline__grid" ref={timelineRef}>
+              <div className="timeline__shell">
+                <div className="timeline__viewport" ref={viewportRef}>
+                  <div className="timeline__content" style={contentWidth ? { width: `${contentWidth}px` } : undefined}>
                     <div
-                      className="timeline__cursor-guide"
-                      style={{ left: `${cursorGuide.pct}%` }}
-                    />
-                  )}
-                  {hoverTooltip.show && !tempGoal && (
-                    <div
-                      className="timeline__create-tooltip"
+                      ref={canvasRef}
+                      className={`timeline__canvas ${isHoveringEmpty ? 'timeline__canvas--hovering' : ''}`}
+                      onMouseDown={handleCanvasMouseDown}
+                      onMouseMove={handleCanvasMouseMove}
+                      onMouseUp={handleCanvasMouseUp}
+                      onDoubleClick={handleCanvasDoubleClick}
+                      onMouseLeave={() => {
+                        handleCanvasMouseUp();
+                        handleCanvasMouseLeave();
+                      }}
                       style={{
-                        left: `${hoverTooltip.x}px`,
-                        top: `${hoverTooltip.y}px`,
+                        cursor: isHoveringEmpty ? 'crosshair' : 'default'
                       }}
                     >
-                      <div className="timeline__create-tooltip-content">
-                        <div className="timeline__create-tooltip-icon">
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                            <path d="M12 5v14M5 12h14" />
-                          </svg>
+                      {(showMonthGrid || showQuarterGrid) && (
+                        <div className="timeline__gridlines">
+                          {showMonthGrid &&
+                            monthGridLines.map((pct, index) => (
+                              <span key={`month-${index}`} className="timeline__gridline timeline__gridline--month" style={{ left: `${pct}%` }} />
+                            ))}
+                          {showQuarterGrid &&
+                            quarterGridLines.map((pct, index) => (
+                              <span key={`quarter-${index}`} className="timeline__gridline timeline__gridline--quarter" style={{ left: `${pct}%` }} />
+                            ))}
                         </div>
-                        <div className="timeline__create-tooltip-text">
-                          <span className="timeline__create-tooltip-action">Click & drag to create</span>
-                          <span className="timeline__create-tooltip-date">{hoverTooltip.date}</span>
+                      )}
+                      {showToday && (
+                        <button
+                          type="button"
+                          className="timeline__today"
+                          style={{ left: `${todayPct}%` }}
+                          aria-label={todayLabel}
+                          onMouseEnter={() => setShowTodayDetail(true)}
+                          onFocus={() => setShowTodayDetail(true)}
+                          onMouseLeave={() => setShowTodayDetail(false)}
+                          onBlur={() => setShowTodayDetail(false)}
+                          onClick={() => centerOnToday("smooth")}
+                        >
+                          <span className="timeline__today-beam" aria-hidden />
+                          <span className="timeline__today-dot" aria-hidden />
+                          <span className="timeline__today-pill" data-align={todayAlign}>
+                            TODAY
+                          </span>
+                          <span
+                            className={["timeline__today-detail", showTodayDetail ? "is-visible" : ""].join(" ")}
+                            data-align={todayAlign}
+                            aria-hidden={!showTodayDetail}
+                          >
+                            {todayReadable}
+                          </span>
+                        </button>
+                      )}
+                      {cursorGuide.show && !tempGoal && (
+                        <div
+                          className="timeline__cursor-guide"
+                          style={{ left: `${cursorGuide.pct}%` }}
+                        />
+                      )}
+                      {marqueeBox && (
+                        <div
+                          className="timeline__marquee"
+                          style={{
+                            left: marqueeBox.x,
+                            top: marqueeBox.y,
+                            width: marqueeBox.width,
+                            height: marqueeBox.height,
+                          }}
+                        />
+                      )}
+                      {selectedGoalIds.size > 0 && (
+                        <div className="timeline__selection-badge">
+                          {selectedGoalIds.size} {selectedGoalIds.size === 1 ? 'item' : 'items'} selected
+                        </div>
+                      )}
+                      {hoverTooltip.show && !tempGoal && (
+                        <div
+                          className="timeline__create-tooltip"
+                          style={{
+                            left: `${hoverTooltip.x}px`,
+                            top: `${hoverTooltip.y}px`,
+                          }}
+                        >
+                          <div className="timeline__create-tooltip-content">
+                            <div className="timeline__create-tooltip-icon">
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <path d="M12 5v14M5 12h14" />
+                              </svg>
+                            </div>
+                            <div className="timeline__create-tooltip-text">
+                              <span className="timeline__create-tooltip-action">Click & drag to create</span>
+                              <span className="timeline__create-tooltip-date">{hoverTooltip.date}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      <div className="timeline__rows-viewport" ref={rowsScrollRef}>
+                        <div className="timeline__head">
+                          <div className="timeline__header">
+                            {months.map((month) => (
+                              <div key={month.toISOString()} className="timeline__month">
+                                {fmtMonth(month)}
+                              </div>
+                            ))}
+                          </div>
+
+
+                          <div className="timeline__quarters" aria-hidden>
+                            {quarters.map((quarter) => (
+                              <span
+                                key={`${quarter.label}-${quarter.start.toISOString()}`}
+                                className="timeline__quarter"
+                                style={{ left: `${quarter.leftPct}%`, width: `${quarter.widthPct}%` }}
+                              >
+                                {quarter.label}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="timeline__rows" style={{ height: `${rowCount * (rowHeight + 14)}px` }}>
+                          {spans.map((span) => (
+                            <TimelineBar
+                              key={span.g.id}
+                              span={span}
+                              isSelected={selectedGoalIds.has(span.g.id)}
+                              isDragging={dragging?.goalId === span.g.id}
+                              onMouseDown={handleBarMouseDown(span)}
+                              onClick={(e) => handleBarClick(span, e as React.MouseEvent<HTMLDivElement>)}
+                              onDoubleClick={(e) => handleOpenGoal(span.g)}
+                              onContextMenu={(e) => handleContextMenu(span, e as React.MouseEvent<HTMLDivElement>)}
+                              rowHeight={rowHeight}
+                              gap={14}
+                            />
+                          ))}
                         </div>
                       </div>
                     </div>
-                  )}
-                <div className="timeline__rows-viewport" ref={rowsScrollRef}>
-                  <div className="timeline__head">
-                    <div className="timeline__header">
-                      {months.map((month) => (
-                        <div key={month.toISOString()} className="timeline__month">
-                          {fmtMonth(month)}
-                        </div>
-                      ))}
-                    </div>
 
-                    <div className="timeline__quarters" aria-hidden>
-                      {quarters.map((quarter) => (
-                        <span
-                          key={`${quarter.label}-${quarter.start.toISOString()}`}
-                          className="timeline__quarter"
-                          style={{ left: `${quarter.leftPct}%`, width: `${quarter.widthPct}%` }}
-                        >
-                          {quarter.label}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="timeline__rows">
-                    {spans.map((span) => {
-                      const statusText = statusLabel[span.stKey] ?? "Open";
-                      const rangeText = formatRange(span.start, span.end);
-                      const onHover = handleBarHover(span);
-                      const isHovering = hovered?.id === span.g.id;
-                      const title = span.title;
-                      const isDragging = dragging?.goalId === span.g.id;
-                      const statusBorder = hexToRgba(span.statusColor, 0.85);
-                      const statusGlow = hexToRgba(span.statusColor, 0.35);
-
+                    {milestoneWindows.map((window) => {
+                      const isCustom = milestones.some((m) => m.id === window.id);
                       return (
-                        <div key={span.g.id} className="timeline__row">
+                        <div
+                          key={window.id}
+                          className={`timeline__window-highlight ${isCustom ? 'timeline__window-highlight--custom' : ''}`}
+                          style={{
+                            left: `${window.leftPct}%`,
+                            width: `${window.widthPct}%`,
+                            background: `linear-gradient(120deg, ${window.fill}, ${hexToRgba(window.color, 0.05)})`,
+                            borderLeft: `2px solid ${window.border}`,
+                            borderRight: `2px solid ${window.border}`,
+                            boxShadow: `inset 0 0 40px -10px ${window.shadow}`,
+                            cursor: isCustom ? 'pointer' : 'default',
+                          }}
+                          onClick={() => {
+                            if (isCustom) {
+                              setEditingMilestoneId(window.id);
+                            }
+                          }}
+                          title={isCustom ? `${window.label} - Click to edit` : window.label}
+                        >
+                          <span className="timeline__window-label">{window.label}</span>
+                        </div>
+                      );
+                    })}
+
+                    {milestonePoints.map((point) => {
+                      const isCustom = milestones.some((m) => m.id === point.id);
+                      return (
+                        <div
+                          key={point.id}
+                          className={`timeline__milestone ${isCustom ? 'timeline__milestone--editable' : ''}`}
+                          style={{ left: `${point.leftPct}%` }}
+                          onClick={() => {
+                            if (isCustom) {
+                              setEditingMilestoneId(point.id);
+                            }
+                          }}
+                        >
                           <div
-                            className={[
-                              "timeline__bar",
-                              span.catClass,
-                              span.stClass,
-                              span.priClass,
-                              span.isCompact ? "timeline__bar--compact" : "",
-                              span.showOutside ? "timeline__bar--outside" : "",
-                              isHovering ? "timeline__bar--active" : "",
-                              isDragging ? "timeline__bar--dragging" : "",
-                            ].filter(Boolean).join(" ")}
+                            className="timeline__milestone-marker"
                             style={{
-                              left: `${span.leftPct}%`,
-                              width: `${span.widthPct}%`,
-                              ["--bar-color" as string]: span.priorityBg,
-                              ["--bar-color-strong" as string]: span.priorityBgStrong,
-                              ["--bar-border" as string]: statusBorder,
-                              ["--bar-shadow" as string]: `0 0 0 1px ${statusBorder}, 0 14px 32px -20px ${statusGlow}, inset 0 1px 0 rgba(255,255,255,.08)`,
+                              backgroundColor: point.color,
+                              borderColor: point.color,
                             }}
-                            aria-label={`${title} • ${statusText} • ${rangeText}`}
-                            onMouseEnter={onHover}
-                            onMouseMove={onHover}
-                            onMouseLeave={clearHover}
-                            onBlur={clearHover}
-                            onClick={(e) => handleBarClick(span, e)}
-                            onDoubleClick={() => handleBarDoubleClick(span)}
-                            onMouseDown={handleBarMouseDown(span, "move")}
-                            tabIndex={0}
                           >
-                            {!span.isCompact && (
-                              <>
-                                <div
-                                  className="timeline__bar-resize timeline__bar-resize--start"
-                                  onMouseDown={handleBarMouseDown(span, "resize-start")}
-                                  onClick={(e) => e.stopPropagation()}
-                                />
-                                <div
-                                  className="timeline__bar-resize timeline__bar-resize--end"
-                                  onMouseDown={handleBarMouseDown(span, "resize-end")}
-                                  onClick={(e) => e.stopPropagation()}
-                                />
-                              </>
-                            )}
-                            <div className="timeline__bar-body">
-                              <span
-                                className={[
-                                  "timeline__title",
-                                  span.isCompact && !span.showOutside ? "timeline__title--compact" : "",
-                                  span.showOutside ? "timeline__title--outside-right" : "",
-                                ].filter(Boolean).join(" ")}
-                              >
-                                {span.title}
-                              </span>
-                            </div>
+                            <span className="timeline__milestone-icon">{point.icon}</span>
                           </div>
+                          <span className="timeline__milestone-label">{point.label}</span>
                         </div>
                       );
                     })}
                   </div>
                 </div>
-
-                {milestoneWindows.map((window) => {
-                  const isCustom = milestones.some((m) => m.id === window.id);
-                  return (
-                    <div
-                      key={window.id}
-                      className={`timeline__window-highlight ${isCustom ? 'timeline__window-highlight--custom' : ''}`}
-                      style={{
-                        left: `${window.leftPct}%`,
-                        width: `${window.widthPct}%`,
-                        background: `linear-gradient(120deg, ${window.fill}, ${hexToRgba(window.color, 0.05)})`,
-                        borderLeft: `2px solid ${window.border}`,
-                        borderRight: `2px solid ${window.border}`,
-                        boxShadow: `inset 0 0 40px -10px ${window.shadow}`,
-                        cursor: isCustom ? 'pointer' : 'default',
-                      }}
-                      onClick={() => {
-                        if (isCustom) {
-                          setEditingMilestoneId(window.id);
-                        }
-                      }}
-                      title={isCustom ? `${window.label} - Click to edit` : window.label}
-                    >
-                      <span className="timeline__window-label">{window.label}</span>
-                    </div>
-                  );
-                })}
-
-                {milestonePoints.map((point) => {
-                  const isCustom = milestones.some((m) => m.id === point.id);
-                  return (
-                    <div
-                      key={point.id}
-                      className={`timeline__milestone ${isCustom ? 'timeline__milestone--editable' : ''}`}
-                      style={{ left: `${point.leftPct}%` }}
-                      onClick={() => {
-                        if (isCustom) {
-                          setEditingMilestoneId(point.id);
-                        }
-                      }}
-                    >
-                      <div
-                        className="timeline__milestone-marker"
-                        style={{
-                          backgroundColor: point.color,
-                          borderColor: point.color,
-                        }}
-                      >
-                        <span className="timeline__milestone-icon">{point.icon}</span>
-                      </div>
-                      <span className="timeline__milestone-label">{point.label}</span>
-                    </div>
-                  );
-                })}
               </div>
-            </div>
-          </div>
 
-          {hovered && (
-            <div
-              className="timeline__hover-card"
-              style={{ left: `${hovered.left}px`, top: `${hovered.top}px` }}
-            >
-              <div className="timeline__hover-title">{hovered.title}</div>
-              <div className="timeline__hover-meta">{hovered.status} • {hovered.dateRange}</div>
-            </div>
-          )}
-          {inlineEditor && inlineGoal && (
-            <div
-              className="timeline__inline-editor"
-              style={{ left: `${inlineEditor.left}px`, top: `${inlineEditor.top}px` }}
-            >
-              <div className="timeline__inline-head">
-                <div className="timeline__inline-info">
-                  <h4 className="timeline__inline-title">{inlineGoal.title || "Untitled goal"}</h4>
-                  <span className="timeline__inline-meta">{inlineRangeSummary}</span>
+              {hovered && (
+                <div
+                  className="timeline__hover-card"
+                  style={{ left: `${hovered.left}px`, top: `${hovered.top}px` }}
+                >
+                  <div className="timeline__hover-title">{hovered.title}</div>
+                  <div className="timeline__hover-meta">{hovered.status} • {hovered.dateRange}</div>
                 </div>
-                <button type="button" className="timeline__inline-close" onClick={closeInlineEditor} aria-label="Close quick editor">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              )}
+              {selectedGoalIds.size > 0 && activeGoalRect && (() => {
+                // If multiple selected, show bulk actions
+                if (selectedGoalIds.size > 1) {
+                  return (
+                    <GoalActionToolbar
+                      selectedCount={selectedGoalIds.size}
+                      position={activeGoalRect}
+                      onUpdate={() => { }} // Not implemented for bulk yet
+                      onDelete={() => {
+                        if (window.confirm(`Are you sure you want to delete ${selectedGoalIds.size} goals?`)) {
+                          selectedGoalIds.forEach(id => deleteGoal(id, true));
+                          setSelectedGoalIds(new Set());
+                          setActiveGoalRect(null);
+                        }
+                      }}
+                      onOpenFull={() => { }}
+                    />
+                  );
+                }
+
+                // Single selection
+                const goalId = Array.from(selectedGoalIds)[0];
+                const goal = items.find(g => g.id === goalId);
+                if (!goal) return null;
+
+                return (
+                  <GoalActionToolbar
+                    goal={goal}
+                    position={activeGoalRect}
+                    onUpdate={(updates) => {
+                      stageUndo(cloneGoal(goal));
+                      updateGoal({ ...goal, ...updates });
+                    }}
+                    onDelete={() => {
+                      if (window.confirm("Are you sure you want to delete this goal?")) {
+                        deleteGoal(goal.id);
+                        setSelectedGoalIds(new Set());
+                        setActiveGoalRect(null);
+                      }
+                    }}
+                    onOpenFull={() => handleOpenGoal(goal)}
+                  />
+                );
+              })()}
+              {contextMenu && (
+                (() => {
+                  const goal = items.find(g => g.id === contextMenu.goalId);
+                  if (!goal) return null;
+                  return (
+                    <TimelineContextMenu
+                      x={contextMenu.x}
+                      y={contextMenu.y}
+                      goal={goal}
+                      onClose={() => setContextMenu(null)}
+                      onDelete={() => {
+                        if (window.confirm("Are you sure you want to delete this goal?")) {
+                          deleteGoal(goal.id);
+                          setContextMenu(null);
+                        }
+                      }}
+                      onEdit={() => {
+                        handleOpenGoal(goal);
+                        setContextMenu(null);
+                      }}
+                      onStatusChange={(status) => {
+                        quickUpdateStatus(goal, status);
+                        setContextMenu(null);
+                      }}
+                      onPriorityChange={(priority) => {
+                        stageUndo(cloneGoal(goal));
+                        updateGoal({ ...goal, priority });
+                        setContextMenu(null);
+                      }}
+                      selectedCount={selectedGoalIds.size}
+                      onDeleteMultiple={() => {
+                        if (window.confirm(`Are you sure you want to delete ${selectedGoalIds.size} goals?`)) {
+                          selectedGoalIds.forEach(id => deleteGoal(id, true)); // Silent mode
+                          setSelectedGoalIds(new Set());
+                          setContextMenu(null);
+                        }
+                      }}
+                    />
+                  );
+                })()
+              )}
+            </div>
+          </>
+        )
+        }
+      </div >
+
+      {/* Milestone Creator/Editor */}
+      {
+        (showMilestoneCreator || editingMilestoneId) && (
+          <MilestoneCreator
+            milestone={editingMilestoneId ? milestones.find((m) => m.id === editingMilestoneId) : undefined}
+            onSave={(milestone) => {
+              if (editingMilestoneId) {
+                setMilestones((prev) => prev.map((m) => (m.id === editingMilestoneId ? { ...milestone, id: editingMilestoneId } : m)));
+                setEditingMilestoneId(null);
+              } else {
+                setMilestones((prev) => [...prev, { ...milestone, id: crypto.randomUUID() }]);
+                setShowMilestoneCreator(false);
+              }
+            }}
+            onCancel={() => {
+              setShowMilestoneCreator(false);
+              setEditingMilestoneId(null);
+            }}
+            onDelete={editingMilestoneId ? () => {
+              setMilestones((prev) => prev.filter((m) => m.id !== editingMilestoneId));
+              setEditingMilestoneId(null);
+            } : undefined}
+          />
+        )
+      }
+
+      {
+        showMilestonesList && milestones.length > 0 && (
+          <div className="timeline-milestones-panel">
+            <div className="timeline-milestones-panel__backdrop" onClick={() => setShowMilestonesList(false)} />
+            <div className="timeline-milestones-panel__content">
+              <header className="timeline-milestones-panel__header">
+                <h3>Milestones ({milestones.length})</h3>
+                <button
+                  type="button"
+                  className="timeline-milestones-panel__close"
+                  onClick={() => setShowMilestonesList(false)}
+                  aria-label="Close"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M18 6L6 18M6 6l12 12" />
                   </svg>
                 </button>
-              </div>
-              <div className="timeline__inline-section">
-                <label className="timeline__inline-label">Status</label>
-                <div className="timeline__inline-group">
-                  {INLINE_STATUS_ACTIONS.map((action) => {
-                    const statusKey = action.value === "in-progress" ? "inprog" : action.value;
-                    return (
-                      <button
-                        key={action.value}
-                        type="button"
-                        className={[
-                          "timeline__inline-button",
-                          "timeline__inline-button--status",
-                          `timeline__inline-button--${statusKey}`,
-                          inlineGoal.status === action.value ? "is-active" : "",
-                        ].join(" ")}
-                        onClick={() => quickUpdateStatus(inlineGoal, action.value)}
-                      >
-                        {action.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <button type="button" className="timeline__inline-edit-full" onClick={() => handleOpenGoal(inlineGoal)}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                </svg>
-                Full editor
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-          </>
-        )}
-      {/* Milestone Creator/Editor */}
-      {(showMilestoneCreator || editingMilestoneId) && (
-        <MilestoneCreator
-          milestone={editingMilestoneId ? milestones.find((m) => m.id === editingMilestoneId) : undefined}
-          onSave={(milestone) => {
-            if (editingMilestoneId) {
-              setMilestones((prev) => prev.map((m) => (m.id === editingMilestoneId ? { ...milestone, id: editingMilestoneId } : m)));
-              setEditingMilestoneId(null);
-            } else {
-              setMilestones((prev) => [...prev, { ...milestone, id: crypto.randomUUID() }]);
-              setShowMilestoneCreator(false);
-            }
-          }}
-          onCancel={() => {
-            setShowMilestoneCreator(false);
-            setEditingMilestoneId(null);
-          }}
-          onDelete={editingMilestoneId ? () => {
-            setMilestones((prev) => prev.filter((m) => m.id !== editingMilestoneId));
-            setEditingMilestoneId(null);
-          } : undefined}
-        />
-      )}
-
-      {showMilestonesList && milestones.length > 0 && (
-        <div className="timeline-milestones-panel">
-          <div className="timeline-milestones-panel__backdrop" onClick={() => setShowMilestonesList(false)} />
-          <div className="timeline-milestones-panel__content">
-            <header className="timeline-milestones-panel__header">
-              <h3>Milestones ({milestones.length})</h3>
-              <button
-                type="button"
-                className="timeline-milestones-panel__close"
-                onClick={() => setShowMilestonesList(false)}
-                aria-label="Close"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M18 6L6 18M6 6l12 12" />
-                </svg>
-              </button>
-            </header>
-            <div className="timeline-milestones-panel__list">
-              {milestones.map((milestone) => (
-                <div
-                  key={milestone.id}
-                  className="timeline-milestone-card"
-                  onClick={() => {
-                    setEditingMilestoneId(milestone.id);
-                    setShowMilestonesList(false);
-                  }}
-                >
-                  <div className="timeline-milestone-card__icon" style={{ backgroundColor: milestone.color }}>
-                    {milestone.type === 'point' && milestone.icon && (
-                      <span>{milestone.icon}</span>
-                    )}
-                    {milestone.type === 'window' && (
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <rect x="3" y="4" width="18" height="16" rx="2" />
-                      </svg>
-                    )}
-                  </div>
-                  <div className="timeline-milestone-card__content">
-                    <h4 className="timeline-milestone-card__title">{milestone.label}</h4>
-                    <p className="timeline-milestone-card__meta">
-                      {milestone.type === 'point' && milestone.date && (
-                        <span>{new Date(milestone.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+              </header>
+              <div className="timeline-milestones-panel__list">
+                {milestones.map((milestone) => (
+                  <div
+                    key={milestone.id}
+                    className="timeline-milestone-card"
+                    onClick={() => {
+                      setEditingMilestoneId(milestone.id);
+                      setShowMilestonesList(false);
+                    }}
+                  >
+                    <div className="timeline-milestone-card__icon" style={{ backgroundColor: milestone.color }}>
+                      {milestone.type === 'point' && milestone.icon && (
+                        <span>{milestone.icon}</span>
                       )}
-                      {milestone.type === 'window' && milestone.startDate && milestone.endDate && (
-                        <span>
-                          {new Date(milestone.startDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} → {new Date(milestone.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                        </span>
+                      {milestone.type === 'window' && (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <rect x="3" y="4" width="18" height="16" rx="2" />
+                        </svg>
                       )}
-                    </p>
+                    </div>
+                    <div className="timeline-milestone-card__content">
+                      <h4 className="timeline-milestone-card__title">{milestone.label}</h4>
+                      <p className="timeline-milestone-card__meta">
+                        {milestone.type === 'point' && milestone.date && (
+                          <span>{new Date(milestone.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                        )}
+                        {milestone.type === 'window' && milestone.startDate && milestone.endDate && (
+                          <span>
+                            {new Date(milestone.startDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} → {new Date(milestone.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="timeline-milestone-card__type">
+                      {milestone.type === 'point' ? 'Point' : 'Window'}
+                    </div>
                   </div>
-                  <div className="timeline-milestone-card__type">
-                    {milestone.type === 'point' ? 'Point' : 'Window'}
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
-    </div>
+
       <GoalEditor
         open={Boolean(editingGoal)}
         mode="edit"
@@ -1639,6 +1930,44 @@ export default function Timeline() {
         }}
         onClear={handleClearMilestone}
       />
+      <style jsx>{`
+        .timeline__marquee {
+          position: absolute;
+          background: rgba(59, 130, 246, 0.15);
+          .timeline__bar--temp {
+          background: rgba(59, 130, 246, 0.1) !important;
+          border: 2px dashed rgba(59, 130, 246, 0.5) !important;
+          box-shadow: none !important;
+          backdrop-filter: blur(2px);
+        }  z-index: 100;
+          border-radius: 4px;
+        }
+        .timeline__selection-badge {
+          position: fixed;
+          bottom: 24px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: rgba(0, 0, 0, 0.9);
+          backdrop-filter: blur(10px);
+          color: #fff;
+          padding: 8px 16px;
+          border-radius: 20px;
+          font-size: 13px;
+          font-weight: 500;
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+          z-index: 1000;
+          animation: badge-in 0.2s ease-out;
+        }
+        @keyframes badge-in {
+          from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+          to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        .timeline__bar--selected {
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3), 0 0 0 2px #fff !important;
+          z-index: 10;
+          filter: brightness(1.15);
+        }
+      `}</style>
     </>
   );
 }

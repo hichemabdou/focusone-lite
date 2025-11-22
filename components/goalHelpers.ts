@@ -11,9 +11,9 @@ export function createDefaultGoal(): Omit<Goal, "id"> {
   return {
     title: "",
     notes: "",
-    category: "PROJECT",
-    priority: "medium",
-    status: "open",
+    category: "FINANCE",
+    priority: "p3",
+    status: "idea",
     startDate: toISO(today),
     endDate: toISO(end),
     milestone: null,

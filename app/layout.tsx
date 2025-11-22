@@ -3,14 +3,16 @@ import "./globals.css";
 import type { Metadata } from "next";
 import { GoalsProvider } from "@/components/GoalsContext";
 import { CustomizationProvider } from "@/components/CustomizationContext";
+import { PreferencesProvider } from "@/components/PreferencesContext";
 import { ThemeProvider } from "@/components/ThemeContext";
 import SessionProvider from "@/components/SessionProvider";
 import ToastContainer from "@/components/Toast";
 import KeyboardShortcuts from "@/components/KeyboardShortcuts";
+import LifeOpsNav from "@/components/LifeOpsNav";
 
 export const metadata: Metadata = {
-  title: "Focus.One",
-  description: "Personal roadmap & goals",
+  title: "Life Ops Center - Focus.One",
+  description: "Your comprehensive life management platform",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -19,13 +21,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="bg-neutral-950 text-neutral-100">
         <SessionProvider>
           <ThemeProvider>
-            <CustomizationProvider>
-              <GoalsProvider>
-                {children}
-                <ToastContainer />
-                <KeyboardShortcuts />
-              </GoalsProvider>
-            </CustomizationProvider>
+            <PreferencesProvider>
+              <CustomizationProvider>
+                <GoalsProvider>
+                  <LifeOpsNav />
+                  {children}
+                  <ToastContainer />
+                  <KeyboardShortcuts />
+                </GoalsProvider>
+              </CustomizationProvider>
+            </PreferencesProvider>
           </ThemeProvider>
         </SessionProvider>
       </body>

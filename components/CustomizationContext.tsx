@@ -30,26 +30,30 @@ type CustomizationState = {
 const STORAGE_KEY = "focusone_customization_v1";
 
 // Default values
+// Default values
 const DEFAULT_CATEGORIES: CustomCategory[] = [
-  { id: "strategy", name: "STRATEGY", color: "#3b82f6" },
-  { id: "vision", name: "VISION", color: "#a855f7" },
-  { id: "tactical", name: "TACTICAL", color: "#14b8a6" },
-  { id: "project", name: "PROJECT", color: "#f97316" },
-  { id: "daily", name: "DAILY", color: "#facc15" },
+  { id: "finance", name: "FINANCE", color: "#34C759" }, // Apple Green
+  { id: "personal-dev", name: "PERSONAL DEV", color: "#AF52DE" }, // Apple Purple
+  { id: "health", name: "HEALTH", color: "#FF2D55" }, // Apple Pink
+  { id: "career", name: "CAREER", color: "#007AFF" }, // Apple Blue
+  { id: "social", name: "SOCIAL", color: "#FF9500" }, // Apple Orange
+  { id: "lifestyle", name: "LIFESTYLE", color: "#5856D6" }, // Apple Indigo
 ];
 
 const DEFAULT_PRIORITIES: CustomPriority[] = [
-  { id: "low", name: "low", color: "#94a3b8" },
-  { id: "medium", name: "medium", color: "#60a5fa" },
-  { id: "high", name: "high", color: "#facc15" },
-  { id: "critical", name: "critical", color: "#fb7185" },
+  { id: "p1", name: "P1 - Critical", color: "#FF3B30" }, // Apple Red
+  { id: "p2", name: "P2 - High", color: "#FF9500" }, // Apple Orange
+  { id: "p3", name: "P3 - Medium", color: "#FFCC00" }, // Apple Yellow
+  { id: "p4", name: "P4 - Low", color: "#34C759" }, // Apple Green
 ];
 
 const DEFAULT_STATUSES: CustomStatus[] = [
-  { id: "open", name: "open", color: "#38bdf8" },
-  { id: "in-progress", name: "in-progress", color: "#fbbf24" },
-  { id: "blocked", name: "blocked", color: "#f87171" },
-  { id: "done", name: "done", color: "#22c55e" },
+  { id: "idea", name: "Idea", color: "#8E8E93" }, // Apple Gray
+  { id: "planned", name: "Planned", color: "#007AFF" }, // Apple Blue
+  { id: "active", name: "Active", color: "#34C759" }, // Apple Green
+  { id: "on-hold", name: "On Hold", color: "#FF9500" }, // Apple Orange
+  { id: "completed", name: "Completed", color: "#30B0C7" }, // Apple Teal
+  { id: "cancelled", name: "Cancelled", color: "#FF3B30" }, // Apple Red
 ];
 
 // Normalize data to ensure all items have IDs
@@ -105,7 +109,7 @@ function load(): CustomizationState {
 function persist(state: CustomizationState) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch {}
+  } catch { }
 }
 
 type CustomizationContextType = {
@@ -117,6 +121,7 @@ type CustomizationContextType = {
   getStatusColor: (name: string) => string;
   addCategory: (name: string, color: string) => void;
   updateCategory: (id: string, updates: Partial<CustomCategory>) => void;
+  updateCategories: (newCategories: CustomCategory[]) => void;
   deleteCategory: (id: string) => void;
   updatePriority: (id: string, color: string) => void;
   updateStatus: (id: string, color: string) => void;
@@ -224,6 +229,13 @@ export function CustomizationProvider({ children }: { children: React.ReactNode 
     });
   };
 
+  const updateCategories = (newCategories: CustomCategory[]) => {
+    setState((prev) => {
+      saveToApi("categories", newCategories);
+      return { ...prev, categories: normalizeCategories(newCategories) };
+    });
+  };
+
   const updatePriority = (id: string, color: string) => {
     setState((prev) => {
       const newPriorities = prev.priorities.map((p) => (p.id === id ? { ...p, color } : p));
@@ -263,6 +275,7 @@ export function CustomizationProvider({ children }: { children: React.ReactNode 
     getStatusColor,
     addCategory,
     updateCategory,
+    updateCategories,
     deleteCategory,
     updatePriority,
     updateStatus,

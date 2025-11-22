@@ -4,31 +4,17 @@ import { useMemo } from "react";
 import { Goal, useGoals } from "./GoalsContext";
 import { useCustomization } from "./CustomizationContext";
 
-type Pri = "low" | "medium" | "high" | "critical";
-type St  = "open" | "in-progress" | "blocked" | "done";
-const PRIORITIES: Pri[] = ["low", "medium", "high", "critical"];
-
 export default function GoalFilters() {
   const { goals = [], filters, setFilters } = useGoals();
-  const { categories } = useCustomization();
+  const { categories, priorities, statuses } = useCustomization();
   const all: Goal[] = goals;
 
   const { counts, yearStats } = useMemo(() => {
     const accumulator = {
       total: 0,
-      status: {
-        open: 0,
-        "in-progress": 0,
-        blocked: 0,
-        done: 0,
-      } as Record<St, number>,
+      status: {} as Record<string, number>,
       categories: {} as Record<string, number>,
-      priorities: {
-        low: 0,
-        medium: 0,
-        high: 0,
-        critical: 0,
-      } as Record<Pri, number>,
+      priorities: {} as Record<string, number>,
     };
     const years: Record<number, { total: number; done: number }> = {};
     all.forEach((goal) => {
@@ -40,7 +26,7 @@ export default function GoalFilters() {
       if (!Number.isNaN(year)) {
         if (!years[year]) years[year] = { total: 0, done: 0 };
         years[year].total += 1;
-        if (goal.status === "done") years[year].done += 1;
+        if (goal.status === "completed") years[year].done += 1;
       }
     });
     const yearStats = Object.entries(years)
@@ -60,16 +46,15 @@ export default function GoalFilters() {
     yearStats.find((entry) => entry.year === currentYear) ?? { year: currentYear, percent: 0, total: 0, done: 0 };
   const nextYearInfo =
     yearStats.find((entry) => entry.year === nextYear) ?? { year: nextYear, percent: 0, total: 0, done: 0 };
-  
+
   const currentYearTotal = currentYearInfo.total || counts.total;
   const currentYearDone = currentYearInfo.done || counts.status.done;
   const completionPct = currentYearTotal ? Math.round((currentYearDone / currentYearTotal) * 100) : 0;
-  const statusPills: Array<{ key: St; label: string; className: string }> = [
-    { key: "open", label: "Open", className: "filters__status-pill--open" },
-    { key: "in-progress", label: "In progress", className: "filters__status-pill--inprog" },
-    { key: "blocked", label: "Blocked", className: "filters__status-pill--blocked" },
-    { key: "done", label: "Done", className: "filters__status-pill--done" },
-  ];
+  const statusPills = statuses.map(s => ({
+    key: s.id,
+    label: s.name,
+    className: `filters__status-pill--${s.id}`
+  }));
 
   const toggleCategory = (value: string) => {
     setFilters((prev) => {
@@ -83,7 +68,7 @@ export default function GoalFilters() {
     });
   };
 
-  const togglePriority = (value: Pri) => {
+  const togglePriority = (value: string) => {
     setFilters((prev) => {
       const next = new Set(prev.priorities ?? []);
       if (next.has(value)) {
@@ -95,7 +80,7 @@ export default function GoalFilters() {
     });
   };
 
-  const toggleStatus = (value: St) => {
+  const toggleStatus = (value: string) => {
     setFilters((prev) => {
       const next = new Set(prev.statuses ?? []);
       if (next.has(value)) {
@@ -184,14 +169,14 @@ export default function GoalFilters() {
           onClick={() => {
             setFilters(prev => ({
               ...prev,
-              statuses: new Set(["done"]),
+              statuses: new Set(["completed"]),
               categories: null,
               priorities: null
             }));
           }}
           title="Show done goals"
         >
-          <span className="filters__premium-stat-value">{counts.status.done}</span>
+          <span className="filters__premium-stat-value">{(counts.status["completed"] || 0)}</span>
           <span className="filters__premium-stat-label">Done</span>
         </button>
         <div className="filters__premium-stat-divider" />
@@ -201,14 +186,14 @@ export default function GoalFilters() {
           onClick={() => {
             setFilters(prev => ({
               ...prev,
-              statuses: new Set(["in-progress"]),
+              statuses: new Set(["active"]),
               categories: null,
               priorities: null
             }));
           }}
           title="Show active goals"
         >
-          <span className="filters__premium-stat-value">{counts.status["in-progress"]}</span>
+          <span className="filters__premium-stat-value">{counts.status["active"] || 0}</span>
           <span className="filters__premium-stat-label">Active</span>
         </button>
       </div>
@@ -303,20 +288,20 @@ export default function GoalFilters() {
           )}
         </div>
         <div className="filters__premium-pills">
-          {PRIORITIES.map(p => (
+          {priorities.map(p => (
             <button
-              key={p}
+              key={p.id}
               type="button"
               className={[
                 "filters__premium-pill",
-                `filters__premium-pill--pri-${p}`,
-                filters.priorities?.has(p) ? "is-active" : ""
+                `filters__premium-pill--pri-${p.id}`,
+                filters.priorities?.has(p.id) ? "is-active" : ""
               ].join(" ")}
-              onClick={() => togglePriority(p)}
-              aria-pressed={filters.priorities?.has(p) ?? false}
+              onClick={() => togglePriority(p.id)}
+              aria-pressed={filters.priorities?.has(p.id) ?? false}
             >
-              <span className="filters__premium-pill-label">{p.charAt(0).toUpperCase() + p.slice(1)}</span>
-              <span className="filters__premium-pill-count">{counts.priorities[p]}</span>
+              <span className="filters__premium-pill-label">{p.name}</span>
+              <span className="filters__premium-pill-count">{counts.priorities[p.id] || 0}</span>
             </button>
           ))}
         </div>
@@ -342,7 +327,7 @@ export default function GoalFilters() {
             >
               <div className="filters__premium-next-year-icon">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M5 12h14M12 5l7 7-7 7"/>
+                  <path d="M5 12h14M12 5l7 7-7 7" />
                 </svg>
               </div>
               <div className="filters__premium-next-year-content">

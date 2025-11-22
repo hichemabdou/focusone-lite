@@ -3,6 +3,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { Category, Priority, useGoals } from "./GoalsContext";
 import { useCustomization } from "./CustomizationContext";
+import EnhancedSelect from "./EnhancedSelect";
 
 type Draft = {
   title: string;
@@ -26,14 +27,14 @@ function createDraft(defaultCategory: Category): Draft {
     startDate: formatDate(today),
     endDate: formatDate(inSixWeeks),
     category: defaultCategory,
-    priority: "medium",
+    priority: "p3",
   };
 }
 
 export default function QuickGoalComposer() {
   const { addGoal } = useGoals();
-  const { categories } = useCustomization();
-  const fallbackCategory = (categories[0]?.name ?? "PROJECT") as Category;
+  const { categories, priorities, addCategory } = useCustomization();
+  const fallbackCategory = (categories[0]?.name ?? "FINANCE") as Category;
   const [isExpanded, setIsExpanded] = useState(false); // Start collapsed
   const [draft, setDraft] = useState<Draft>(() => createDraft(fallbackCategory));
   const [error, setError] = useState<string | null>(null);
@@ -41,10 +42,23 @@ export default function QuickGoalComposer() {
 
   const categoryOptions = useMemo(() => {
     if (!categories.length) {
-      return [{ id: "PROJECT", name: "PROJECT" }];
+      return [{ id: "PROJECT", name: "PROJECT", color: "#3b82f6" }];
     }
-    return categories;
+    return categories.map((cat) => ({
+      id: cat.id,
+      name: cat.name,
+      color: cat.color,
+    }));
   }, [categories]);
+
+  const priorityOptions = useMemo(() =>
+    priorities.map((pri) => ({
+      id: pri.id,
+      name: pri.name,
+      color: pri.color,
+    })),
+    [priorities]
+  );
 
   const handleChange = (field: keyof Draft, value: string) => {
     setError(null);
@@ -71,7 +85,7 @@ export default function QuickGoalComposer() {
       endDate: draft.endDate,
       category: draft.category,
       priority: draft.priority,
-      status: "open",
+      status: "idea",
       notes: "",
       milestone: null,
       comments: [],
@@ -152,28 +166,27 @@ export default function QuickGoalComposer() {
             }}
             className="quick-composer__date"
           />
-          <select
-            value={draft.category}
-            onChange={(event) => handleChange("category", event.target.value as Category)}
-            className="quick-composer__select"
-          >
-            {categoryOptions.map((option) => (
-              <option key={option.id} value={option.name}>
-                {option.name.charAt(0) + option.name.slice(1).toLowerCase()}
-              </option>
-            ))}
-          </select>
-          <select
-            value={draft.priority}
-            onChange={(event) => handleChange("priority", event.target.value as Priority)}
-            className="quick-composer__select"
-          >
-            {(["low", "medium", "high", "critical"] as Priority[]).map((option) => (
-              <option key={option} value={option}>
-                {option.charAt(0).toUpperCase() + option.slice(1)}
-              </option>
-            ))}
-          </select>
+          <div className="quick-composer__select-wrapper">
+            <EnhancedSelect
+              type="category"
+              value={draft.category}
+              options={categoryOptions}
+              onChange={(value) => handleChange("category", value as Category)}
+              allowCreate={true}
+              onCreateNew={(name: string, color?: string) => {
+                addCategory(name, color || `hsl(${Math.random() * 360}, 65%, 55%)`);
+                handleChange("category", name.toUpperCase());
+              }}
+            />
+          </div>
+          <div className="quick-composer__select-wrapper">
+            <EnhancedSelect
+              type="priority"
+              value={draft.priority}
+              options={priorityOptions}
+              onChange={(value) => handleChange("priority", value as Priority)}
+            />
+          </div>
         </div>
       </div>
 

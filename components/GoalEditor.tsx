@@ -6,8 +6,7 @@ import { Goal, Priority, Status, Category, useGoals } from "./GoalsContext";
 import { useCustomization } from "./CustomizationContext";
 import Modal from "./Modal";
 import { createDefaultGoal } from "./goalHelpers";
-import InlineSelect from "./InlineSelect";
-import { openCustomizationPanel } from "./customizationEvents";
+import EnhancedSelect from "./EnhancedSelect";
 
 type GoalDraft = Omit<Goal, "id"> & { id?: string };
 
@@ -18,9 +17,6 @@ type Props = {
   onCancel(): void;
   onSave(goal: Goal | Omit<Goal, "id">): void;
 };
-
-const PRIORITY_OPTIONS: Priority[] = ["low", "medium", "high", "critical"];
-const STATUS_OPTIONS: Status[] = ["open", "in-progress", "blocked", "done"];
 
 export default function GoalEditor({ mode, open, goal, onCancel, onSave }: Props) {
   if (!open) return null;
@@ -52,35 +48,38 @@ type FormProps = {
 
 function GoalEditorForm({ mode, initialDraft, goal, onCancel, onSave }: FormProps) {
   const { addComment, deleteComment, updateComment } = useGoals();
-  const { categories, addCategory } = useCustomization();
+  const { categories, priorities, statuses, addCategory } = useCustomization();
   const [draft, setDraft] = useState<GoalDraft>(initialDraft);
   const [error, setError] = useState<string | null>(null);
+
   const categoryOptions = useMemo(
     () =>
       categories.map((cat) => ({
-        value: cat.name,
-        label: cat.name.charAt(0) + cat.name.slice(1).toLowerCase(),
-        tone: `category-${cat.name.toLowerCase()}`,
+        id: cat.id,
+        name: cat.name,
+        color: cat.color,
       })),
     [categories]
   );
+
   const priorityOptions = useMemo(
     () =>
-      PRIORITY_OPTIONS.map((opt) => ({
-        value: opt,
-        label: opt.charAt(0).toUpperCase() + opt.slice(1),
-        tone: `priority-${opt}`,
+      priorities.map((pri) => ({
+        id: pri.id,
+        name: pri.name,
+        color: pri.color,
       })),
-    []
+    [priorities]
   );
+
   const statusOptions = useMemo(
     () =>
-      STATUS_OPTIONS.map((opt) => ({
-        value: opt,
-        label: opt === "in-progress" ? "In progress" : opt.charAt(0).toUpperCase() + opt.slice(1),
-        tone: opt === "in-progress" ? "status-inprog" : `status-${opt}`,
+      statuses.map((status) => ({
+        id: status.id,
+        name: status.name,
+        color: status.color,
       })),
-    []
+    [statuses]
   );
 
   const updateField = (field: keyof GoalDraft, value: string) => {
@@ -99,7 +98,18 @@ function GoalEditorForm({ mode, initialDraft, goal, onCancel, onSave }: FormProp
     }
 
     const payload = { ...draft };
+
+    // Optimistic update first
     onSave(mode === "edit" ? (payload as Goal) : payload);
+
+    // Trigger background sync if needed
+    if (payload.syncToGoogle || (goal?.syncToGoogle && !payload.syncToGoogle)) {
+      // We need the ID for sync. If creating, we might not have it yet unless we generated it.
+      // In GoalsContext, addGoal returns the new goal with ID.
+      // But here we just call onSave.
+      // Ideally, onSave should return the saved goal, or we handle sync in GoalsContext.
+      // Let's handle it in GoalsContext to keep this component pure UI.
+    }
   };
 
   const handleDateChange = (field: "startDate" | "endDate") => (event: ChangeEvent<HTMLInputElement>) => {
@@ -152,41 +162,136 @@ function GoalEditorForm({ mode, initialDraft, goal, onCancel, onSave }: FormProp
       <div className="goal-editor__grid goal-editor__grid--meta">
         <label className="goal-editor__field goal-editor__field--inline">
           <span>Category</span>
-          <InlineSelect
+          <EnhancedSelect
+            type="category"
             value={draft.category}
             options={categoryOptions}
-            onChange={(next) => updateField("category", next as Category)}
-            addLabel="Add category"
-            quickAddType="category"
-            onQuickAdd={(name, color) => {
-              addCategory(name, color);
+            onChange={(value) => updateField("category", value as Category)}
+            allowCreate={true}
+            onCreateNew={(name: string, color?: string) => {
+              addCategory(name, color || `hsl(${Math.random() * 360}, 65%, 55%)`);
               updateField("category", name.toUpperCase());
             }}
-            onAdd={() => openCustomizationPanel("categories")}
           />
         </label>
 
         <label className="goal-editor__field goal-editor__field--inline">
           <span>Priority</span>
-          <InlineSelect
+          <EnhancedSelect
+            type="priority"
             value={draft.priority}
             options={priorityOptions}
-            onChange={(next) => updateField("priority", next as Priority)}
-            addLabel="Add priority"
-            onAdd={() => openCustomizationPanel("priorities")}
+            onChange={(value) => updateField("priority", value as Priority)}
           />
         </label>
 
         <label className="goal-editor__field goal-editor__field--inline">
           <span>Status</span>
-          <InlineSelect
+          <EnhancedSelect
+            type="status"
             value={draft.status}
             options={statusOptions}
-            onChange={(next) => updateField("status", next as Status)}
-            addLabel="Add status"
-            onAdd={() => openCustomizationPanel("statuses")}
+            onChange={(value) => updateField("status", value as Status)}
           />
         </label>
+      </div>
+
+      {/* Sync & Reminders Section */}
+      <div className="goal-editor__section">
+        <h3 className="goal-editor__section-title">Integrations & Reminders</h3>
+
+        <div className="goal-editor__field goal-editor__field--checkbox">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={draft.syncToGoogle ?? false}
+              onChange={(e) => {
+                setDraft(prev => ({ ...prev, syncToGoogle: e.target.checked }));
+              }}
+              className="checkbox"
+            />
+            <span>Sync to Google Calendar</span>
+          </label>
+        </div>
+
+        <div className="goal-editor__field">
+          <div className="flex items-center justify-between mb-2">
+            <span>Reminders</span>
+            <button
+              type="button"
+              className="text-xs text-blue-400 hover:text-blue-300"
+              onClick={() => {
+                const newReminder = {
+                  id: crypto.randomUUID(),
+                  type: "email" as const,
+                  trigger: "24h" as const,
+                  offsetMinutes: 1440
+                };
+                setDraft(prev => ({
+                  ...prev,
+                  reminders: [...(prev.reminders || []), newReminder]
+                }));
+              }}
+            >
+              + Add Reminder
+            </button>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            {(draft.reminders || []).map((reminder, idx) => (
+              <div key={reminder.id} className="flex items-center gap-2 bg-white/5 p-2 rounded">
+                <select
+                  value={reminder.type}
+                  onChange={(e) => {
+                    const newReminders = [...(draft.reminders || [])];
+                    newReminders[idx] = { ...reminder, type: e.target.value as any };
+                    setDraft(prev => ({ ...prev, reminders: newReminders }));
+                  }}
+                  className="bg-transparent border border-white/10 rounded px-2 py-1 text-sm"
+                >
+                  <option value="email">Email</option>
+                  <option value="notification">In-app</option>
+                </select>
+
+                <select
+                  value={reminder.trigger}
+                  onChange={(e) => {
+                    const val = e.target.value as any;
+                    let offset = 0;
+                    if (val === "1h") offset = 60;
+                    if (val === "24h") offset = 1440;
+                    if (val === "1w") offset = 10080;
+
+                    const newReminders = [...(draft.reminders || [])];
+                    newReminders[idx] = { ...reminder, trigger: val, offsetMinutes: offset };
+                    setDraft(prev => ({ ...prev, reminders: newReminders }));
+                  }}
+                  className="bg-transparent border border-white/10 rounded px-2 py-1 text-sm"
+                >
+                  <option value="1h">1 hour before</option>
+                  <option value="24h">1 day before</option>
+                  <option value="1w">1 week before</option>
+                </select>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraft(prev => ({
+                      ...prev,
+                      reminders: (prev.reminders || []).filter(r => r.id !== reminder.id)
+                    }));
+                  }}
+                  className="ml-auto text-white/40 hover:text-red-400"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+            {(!draft.reminders || draft.reminders.length === 0) && (
+              <div className="text-xs text-white/30 italic">No reminders set</div>
+            )}
+          </div>
+        </div>
       </div>
 
       <GoalCommentsSection
@@ -305,7 +410,7 @@ function GoalCommentsSection({ mode, comments, onAdd, onDelete, onUpdate }: Goal
   const handleAddComment = () => {
     const trimmed = body.trim();
     if (!trimmed) return;
-    
+
     onAdd(trimmed);
     setBody("");
   };

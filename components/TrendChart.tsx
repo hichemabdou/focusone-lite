@@ -41,14 +41,13 @@ export default function TrendChart() {
   }, [goals]);
 
   const maxValue = Math.max(...weekData.map(w => Math.max(w.active, w.completed)), 1);
-  const chartHeight = 200;
 
   return (
     <div className="trend-chart">
       <div className="trend-chart__header">
         <div>
-          <h3 className="trend-chart__title">Goal Activity Trend</h3>
-          <p className="trend-chart__subtitle">Last 12 weeks</p>
+          <h3 className="trend-chart__title">Activity Trend</h3>
+          <p className="trend-chart__subtitle">Last 12 weeks performance</p>
         </div>
         <div className="trend-chart__legend">
           <div className="trend-chart__legend-item">
@@ -67,20 +66,22 @@ export default function TrendChart() {
           {weekData.map((week, i) => {
             const activeHeight = (week.active / maxValue) * 100;
             const completedHeight = (week.completed / maxValue) * 100;
-            
+
             return (
-              <div key={i} className="trend-chart__bar-group">
+              <div key={i} className="trend-chart__bar-group group">
                 <div className="trend-chart__bars-container">
-                  <div 
-                    className="trend-chart__bar trend-chart__bar--active" 
+                  <div
+                    className="trend-chart__bar trend-chart__bar--active"
                     style={{ height: `${activeHeight}%` }}
-                    title={`Active: ${week.active}`}
-                  />
-                  <div 
-                    className="trend-chart__bar trend-chart__bar--completed" 
+                  >
+                    <div className="trend-chart__tooltip">Active: {week.active}</div>
+                  </div>
+                  <div
+                    className="trend-chart__bar trend-chart__bar--completed"
                     style={{ height: `${completedHeight}%` }}
-                    title={`Completed: ${week.completed}`}
-                  />
+                  >
+                    <div className="trend-chart__tooltip">Done: {week.completed}</div>
+                  </div>
                 </div>
                 <div className="trend-chart__x-label">
                   {i % 2 === 0 ? week.label : ''}

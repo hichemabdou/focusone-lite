@@ -3,27 +3,29 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { showToast } from "./Toast";
+import { migrateGoals, getMigrationSummary } from "../lib/lifeOpsMigration";
 
-export type Priority = "low" | "medium" | "high" | "critical";
-export type Status = "open" | "in-progress" | "blocked" | "done";
-export type Category = string; // Now dynamic, can be any string
+// Life Ops Center - Dynamic Types
+export type Priority = string; // Dynamic: "p1", "p2", "p3", "p4" (from CustomizationContext)
+export type Status = string; // Dynamic: "idea", "planned", "active", "on-hold", "completed", "cancelled"
+export type Category = string; // Dynamic: "FINANCE", "PERSONAL DEV", "HEALTH", "CAREER", "SOCIAL", "LIFESTYLE"
 
 export type Milestone =
   | {
-      id: string;
-      type: "point";
-      label: string;
-      date: string;
-      color?: string;
-    }
+    id: string;
+    type: "point";
+    label: string;
+    date: string;
+    color?: string;
+  }
   | {
-      id: string;
-      type: "window";
-      label: string;
-      windowStart: string;
-      windowEnd: string;
-      color?: string;
-    };
+    id: string;
+    type: "window";
+    label: string;
+    windowStart: string;
+    windowEnd: string;
+    color?: string;
+  };
 
 export type GoalComment = {
   id: string;
@@ -37,6 +39,13 @@ type AddCommentInput = {
   createdAt?: string;
 };
 
+export type Reminder = {
+  id: string;
+  type: "email" | "notification";
+  trigger: "1h" | "24h" | "1w" | "custom";
+  offsetMinutes: number; // e.g. 60 for 1h
+};
+
 export type Goal = {
   id: string;
   title: string;
@@ -48,18 +57,14 @@ export type Goal = {
   notes?: string;
   milestone?: Milestone | null;
   comments: GoalComment[];
+  // New fields
+  googleEventId?: string;
+  syncToGoogle?: boolean;
+  reminders?: Reminder[];
 };
 
 const STORAGE_KEY = "focusone_goals_v1";
 
-export const PRIORITY_OPACITY: Record<Priority, string> = {
-  low: "opacity-50",
-  medium: "opacity-70",
-  high: "opacity-90",
-  critical: "opacity-100",
-};
-const PRIORITY_VALUES: Priority[] = ["low", "medium", "high", "critical"];
-const STATUS_VALUES: Status[] = ["open", "in-progress", "blocked", "done"];
 
 type Filters = {
   categories: Set<Category> | null; // null => all
@@ -74,9 +79,9 @@ type Ctx = {
   visibleGoals: Goal[];
   filters: Filters;
   setFilters: React.Dispatch<React.SetStateAction<Filters>>;
-  addGoal(g: Omit<Goal, "id">): void;
+  addGoal(g: Omit<Goal, "id">): Promise<Goal | null>;
   updateGoal(g: Goal): void;
-  deleteGoal(id: string): void;
+  deleteGoal(id: string, silent?: boolean): void;
   addComment(goalId: string, input: AddCommentInput): void;
   updateComment(goalId: string, commentId: string, body: string): void;
   deleteComment(goalId: string, commentId: string): void;
@@ -86,16 +91,16 @@ type Ctx = {
 
 const GoalsCtx = createContext<Ctx | null>(null);
 
-// A couple of safe defaults so the timeline renders immediately
+// Sample goals using Life Ops Center system
 const sample: Goal[] = [
   {
     id: "g1",
     title: "Define Life Vision",
     startDate: "2025-11-01",
     endDate: "2025-12-15",
-    category: "STRATEGY",
-    priority: "medium",
-    status: "open",
+    category: "CAREER",
+    priority: "p3",
+    status: "idea",
     milestone: {
       id: "m1",
       type: "point",
@@ -103,17 +108,21 @@ const sample: Goal[] = [
       date: "2025-11-20",
     },
     comments: [],
+    syncToGoogle: false,
+    reminders: [],
   },
   {
     id: "g2",
     title: "A2 German Course",
     startDate: "2025-11-02",
     endDate: "2026-02-07",
-    category: "TACTICAL",
-    priority: "critical",
-    status: "open",
+    category: "PERSONAL DEV",
+    priority: "p1",
+    status: "idea",
     milestone: null,
     comments: [],
+    syncToGoogle: false,
+    reminders: [],
   },
 ];
 
@@ -145,12 +154,15 @@ function sanitizeGoal(goalInput: RawGoal): Goal {
     title: goalInput.title ?? "Untitled",
     startDate,
     endDate,
-    category: goalInput.category ?? "PROJECT",
-    priority: goalInput.priority ?? "medium",
-    status: goalInput.status ?? "open",
+    category: goalInput.category ?? "FINANCE",
+    priority: goalInput.priority ?? "p3",
+    status: goalInput.status ?? "idea",
     notes: goalInput.notes,
     milestone: normalizedMilestone,
     comments: sanitizeComments(goalInput.comments),
+    googleEventId: typeof goalInput.googleEventId === "string" ? goalInput.googleEventId : undefined,
+    syncToGoogle: typeof goalInput.syncToGoogle === "boolean" ? goalInput.syncToGoogle : false,
+    reminders: Array.isArray(goalInput.reminders) ? (goalInput.reminders as Reminder[]) : [],
   };
 }
 
@@ -202,6 +214,9 @@ function dbGoalToFrontend(dbGoal: any): Goal {
     notes: dbGoal.notes,
     milestone: dbGoal.milestone,
     comments,
+    googleEventId: dbGoal.google_event_id,
+    syncToGoogle: dbGoal.sync_to_google,
+    reminders: dbGoal.reminders,
   });
 }
 
@@ -211,8 +226,19 @@ function load(): Goal[] {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return sample;
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) return parsed.map((item) => sanitizeGoal(item as RawGoal));
-  } catch {}
+    if (Array.isArray(parsed)) {
+      const sanitized = parsed.map((item) => sanitizeGoal(item as RawGoal));
+      // Migrate old goals to Life Ops system
+      const migrated = migrateGoals(sanitized);
+      const summary = getMigrationSummary(sanitized);
+      if (summary.includes("Migrated")) {
+        console.log("📦 " + summary);
+        // Save migrated goals back to localStorage
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+      }
+      return migrated;
+    }
+  } catch { }
   return sample;
 }
 
@@ -220,7 +246,7 @@ function persist(goals: Goal[]) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(goals));
     window.dispatchEvent(new Event("goals-updated"));
-  } catch {}
+  } catch { }
 }
 
 export function GoalsProvider({ children }: { children: React.ReactNode }) {
@@ -273,10 +299,12 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
     if (filters.categories && filters.categories.size > 0) {
       arr = arr.filter((g) => filters.categories!.has(g.category));
     }
-    if (filters.priorities && filters.priorities.size > 0 && filters.priorities.size < PRIORITY_VALUES.length) {
+    // Filter by priority if any priorities are selected
+    if (filters.priorities && filters.priorities.size > 0) {
       arr = arr.filter((g) => filters.priorities!.has(g.priority));
     }
-    if (filters.statuses && filters.statuses.size > 0 && filters.statuses.size < STATUS_VALUES.length) {
+    // Filter by status if any statuses are selected
+    if (filters.statuses && filters.statuses.size > 0) {
       arr = arr.filter((g) => filters.statuses!.has(g.status));
     }
     if (filters.year !== null) {
@@ -295,7 +323,7 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
     return arr;
   }, [goals, filters]);
 
-  const addGoal = async (g: Omit<Goal, "id">) => {
+  const addGoal = async (g: Omit<Goal, "id">): Promise<Goal | null> => {
     if (isAuthenticated) {
       try {
         const response = await fetch("/api/goals", {
@@ -310,6 +338,8 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
             status: g.status,
             notes: g.notes,
             milestone: g.milestone,
+            sync_to_google: g.syncToGoogle,
+            reminders: g.reminders,
           }),
         });
         if (response.ok) {
@@ -317,16 +347,42 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
           const newGoal = dbGoalToFrontend(data.goal);
           setGoals((s) => [...s, newGoal]);
           showToast("Goal created successfully!", "success");
+
+          // Sync to Google Calendar if requested
+          if (newGoal.syncToGoogle) {
+            try {
+              await fetch("/api/integrations/google/sync", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  goalId: newGoal.id,
+                  title: newGoal.title,
+                  startDate: newGoal.startDate,
+                  endDate: newGoal.endDate,
+                  notes: newGoal.notes,
+                  shouldSync: true,
+                }),
+              });
+            } catch (e) {
+              console.error("Failed to sync new goal to Google Calendar", e);
+            }
+          }
+
+          return newGoal;
         } else {
           showToast("Failed to create goal", "error");
+          return null;
         }
       } catch (error) {
         console.error("Error adding goal:", error);
         showToast("Failed to create goal", "error");
+        return null;
       }
     } else {
-      setGoals((s) => [...s, sanitizeGoal({ ...g, id: crypto.randomUUID() })]);
+      const newGoal = sanitizeGoal({ ...g, id: crypto.randomUUID() });
+      setGoals((s) => [...s, newGoal]);
       showToast("Goal created!", "success");
+      return newGoal;
     }
   };
 
@@ -345,6 +401,8 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
             status: g.status,
             notes: g.notes,
             milestone: g.milestone,
+            sync_to_google: g.syncToGoogle,
+            reminders: g.reminders,
           }),
         });
         if (response.ok) {
@@ -352,6 +410,27 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
           const updatedGoal = dbGoalToFrontend(data.goal);
           setGoals((s) => s.map((x) => (x.id === g.id ? updatedGoal : x)));
           showToast("Goal updated!", "success");
+
+          // Sync to Google Calendar
+          if (updatedGoal.syncToGoogle || (g.googleEventId && !updatedGoal.syncToGoogle)) {
+            try {
+              await fetch("/api/integrations/google/sync", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  goalId: updatedGoal.id,
+                  title: updatedGoal.title,
+                  startDate: updatedGoal.startDate,
+                  endDate: updatedGoal.endDate,
+                  notes: updatedGoal.notes,
+                  googleEventId: updatedGoal.googleEventId,
+                  shouldSync: updatedGoal.syncToGoogle,
+                }),
+              });
+            } catch (e) {
+              console.error("Failed to sync updated goal to Google Calendar", e);
+            }
+          }
         } else {
           // API failed, fall back to localStorage mode
           console.warn("API unavailable, using localStorage");
@@ -368,7 +447,7 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const deleteGoal = async (id: string) => {
+  const deleteGoal = async (id: string, silent = false) => {
     if (isAuthenticated) {
       try {
         const response = await fetch(`/api/goals/${id}`, {
@@ -376,12 +455,16 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
         });
         if (response.ok) {
           setGoals((s) => s.filter((x) => x.id !== id));
-          showToast("Goal deleted", "info");
+          if (!silent) {
+            showToast("Goal deleted", "info");
+          }
         } else {
           // API failed, fall back to localStorage mode
           console.warn("API unavailable, using localStorage");
           setGoals((s) => s.filter((x) => x.id !== id));
-          showToast("Goal deleted", "info");
+          if (!silent) {
+            showToast("Goal deleted", "info");
+          }
         }
       } catch (error) {
         console.error("Error deleting goal, falling back to localStorage:", error);
@@ -451,16 +534,16 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
         s.map((goal) =>
           goal.id === goalId
             ? {
-                ...goal,
-                comments: [
-                  ...goal.comments,
-                  {
-                    id: input.id ?? crypto.randomUUID(),
-                    body: trimmed,
-                    createdAt: input.createdAt ?? new Date().toISOString(),
-                  },
-                ],
-              }
+              ...goal,
+              comments: [
+                ...goal.comments,
+                {
+                  id: input.id ?? crypto.randomUUID(),
+                  body: trimmed,
+                  createdAt: input.createdAt ?? new Date().toISOString(),
+                },
+              ],
+            }
             : goal
         )
       );
@@ -476,11 +559,11 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
       s.map((goal) =>
         goal.id === goalId
           ? {
-              ...goal,
-              comments: goal.comments.map((comment) =>
-                comment.id === commentId ? { ...comment, body: trimmed } : comment
-              ),
-            }
+            ...goal,
+            comments: goal.comments.map((comment) =>
+              comment.id === commentId ? { ...comment, body: trimmed } : comment
+            ),
+          }
           : goal
       )
     );
