@@ -381,98 +381,10 @@ function GoalCard({
   updateComment,
   deleteComment,
 }: GoalCardProps) {
-  const notesValue = goal.notes ?? "";
   const commentCount = goal.comments?.length ?? 0;
   const latestComment = commentCount > 0 ? goal.comments[commentCount - 1] : null;
-  const latestCommentPreview =
-    latestComment?.body?.length && latestComment.body.length > 120
-      ? `${latestComment.body.slice(0, 120).trim()}…`
-      : latestComment?.body ?? "";
-  const [isCommenting, setIsCommenting] = useState(false);
-  const [inlineComment, setInlineComment] = useState("");
-  const [showCommentPreview, setShowCommentPreview] = useState(false);
-  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
-  const [editCommentBody, setEditCommentBody] = useState("");
-  const commentBoxRef = useRef<HTMLDivElement>(null);
-  const hoverTimer = useRef<number | null>(null);
-  const sortedComments = useMemo(
-    () =>
-      [...(goal.comments ?? [])].sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      ),
-    [goal.comments]
-  );
-
-  useEffect(() => {
-    if (!isCommenting) return;
-    const handleClick = (event: MouseEvent) => {
-      if (!commentBoxRef.current) return;
-      if (!commentBoxRef.current.contains(event.target as Node)) {
-        setIsCommenting(false);
-        setInlineComment("");
-      }
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [isCommenting]);
-
-  useEffect(() => {
-    return () => {
-      if (hoverTimer.current) window.clearTimeout(hoverTimer.current);
-    };
-  }, []);
-
-  const handleHoverState = (next: boolean) => {
-    if (next) {
-      if (hoverTimer.current) window.clearTimeout(hoverTimer.current);
-      setShowCommentPreview(true);
-      return;
-    }
-    if (editingCommentId) return;
-    hoverTimer.current = window.setTimeout(() => setShowCommentPreview(false), 200);
-  };
-
-  const toggleCommentComposer = (event: ReactMouseEvent) => {
-    event.stopPropagation();
-    setShowCommentPreview(false);
-    setIsCommenting((prev) => !prev);
-  };
-
-  const submitInlineComment = () => {
-    const trimmed = inlineComment.trim();
-    if (!trimmed) return;
-    addComment(goal.id, { body: trimmed });
-    setInlineComment("");
-    setIsCommenting(false);
-  };
-
-  const startEditingComment = (commentId: string, body: string) => {
-    setEditingCommentId(commentId);
-    setEditCommentBody(body);
-    setShowCommentPreview(true);
-  };
-
-  const saveCommentEdit = () => {
-    if (!editingCommentId) return;
-    const trimmed = editCommentBody.trim();
-    if (!trimmed) return;
-    updateComment(goal.id, editingCommentId, trimmed);
-    setEditingCommentId(null);
-    setEditCommentBody("");
-  };
-
-  const cancelCommentEdit = () => {
-    setEditingCommentId(null);
-    setEditCommentBody("");
-    setShowCommentPreview(false);
-  };
-
-  const handleDeleteComment = (commentId: string) => {
-    deleteComment(goal.id, commentId);
-  };
-
-  const formatCommentStamp = (value: string) =>
-    new Date(value).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  const [showComments, setShowComments] = useState(false);
+  const [newComment, setNewComment] = useState("");
 
   const handleTitleBlur = (event: FocusEvent<HTMLInputElement>) => {
     const next = event.target.value.trim();
@@ -493,316 +405,170 @@ function GoalCard({
     }
   };
 
-  return (
-    <article
-      className="goal-row goal-row--lite goal-row--compact"
-      onClick={() => onEdit(goal)}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(event) => {
-        if (event.key === "Enter") onEdit(goal);
-      }}
-    >
-      <button
-        type="button"
-        className="goal-row__delete"
-        aria-label="Delete goal"
-        onClick={(event) => {
-          event.stopPropagation();
-          deleteGoal(goal.id);
-        }}
-      >
-        ×
-        <span className="goal-row__delete-tip">Delete goal</span>
-      </button>
-      <div className="goal-row__heading" onClick={(event) => event.stopPropagation()}>
-        <input
-          key={`${goal.id}-title-${goal.title}`}
-          className="goal-row__title-input"
-          defaultValue={goal.title}
-          onBlur={handleTitleBlur}
-          onKeyDown={handleTitleKey}
-          placeholder="Untitled goal"
-        />
-        <GoalDateEditor goal={goal} updateGoal={updateGoal} onStageUndo={onStageUndo} />
-      </div>
-
-      <div className="goal-row__meta">
-        <InlineSelect
-          value={goal.status}
-          onChange={(next) => {
-            if (goal.status === next) return;
-            onStageUndo(goal);
-            updateGoal({ ...goal, status: next as Status });
-          }}
-          options={[
-            { value: "open", label: "Open", tone: "status-open" },
-            { value: "in-progress", label: "In progress", tone: "status-inprog" },
-            { value: "blocked", label: "Blocked", tone: "status-blocked" },
-            { value: "done", label: "Done", tone: "status-done" },
-          ]}
-          addLabel="Add status"
-          onAdd={() => openCustomizationPanel("statuses")}
-        />
-        <InlineSelect
-          value={goal.priority}
-          onChange={(next) => {
-            if (goal.priority === next) return;
-            onStageUndo(goal);
-            updateGoal({ ...goal, priority: next as Priority });
-          }}
-          options={[
-            { value: "low", label: "Low", tone: "priority-low" },
-            { value: "medium", label: "Medium", tone: "priority-medium" },
-            { value: "high", label: "High", tone: "priority-high" },
-            { value: "critical", label: "Critical", tone: "priority-critical" },
-          ]}
-          addLabel="Add priority"
-          onAdd={() => openCustomizationPanel("priorities")}
-        />
-        <CategorySelect goal={goal} updateGoal={updateGoal} onStageUndo={onStageUndo} />
-        <div
-          className={[
-            "goal-row__comments",
-            commentCount === 0 ? "goal-row__comments--minimal" : "",
-            isCommenting ? "is-open" : "",
-          ].join(" ")}
-          ref={commentBoxRef}
-          onClick={(event) => event.stopPropagation()}
-          onMouseEnter={() => handleHoverState(true)}
-          onMouseLeave={() => handleHoverState(false)}
-        >
-          <button
-            type="button"
-            className="goal-row__comments-trigger"
-            onClick={toggleCommentComposer}
-            aria-label={
-              commentCount > 0
-                ? `${commentCount} ${commentCount === 1 ? "comment" : "comments"}. Click to add another.`
-                : "Add a quick comment"
-            }
-          >
-            <span className="goal-row__comments-icon" aria-hidden>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-                <path d="M21 15a3 3 0 0 1-3 3H7l-4 4V6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3Z" />
-                <path d="M8 8h8M8 12h5" />
-              </svg>
-            </span>
-            {commentCount > 0 && (
-              <div className="goal-row__comments-meta">
-                <span className="goal-row__comments-count">
-                  {`${commentCount} ${commentCount === 1 ? "comment" : "comments"}`}
-                </span>
-                <span className="goal-row__comments-preview" title={latestComment?.body ?? "No comments yet"}>
-                  {latestComment ? latestCommentPreview : "Capture a quick progress note"}
-                </span>
-              </div>
-            )}
-          </button>
-
-          {showCommentPreview && (
-            <div
-              className="goal-row__comment-popover goal-row__comment-popover--history"
-              onMouseEnter={() => handleHoverState(true)}
-              onMouseLeave={() => handleHoverState(false)}
-            >
-              {sortedComments.length === 0 ? (
-                <p className="goal-row__comment-empty">No comments yet. Hover to capture one.</p>
-              ) : (
-                <ul className="goal-row__comment-list">
-                  {sortedComments.slice(0, 4).map((comment) => (
-                    <li key={comment.id} className="goal-row__comment-item">
-                      <div className="goal-row__comment-meta">
-                        <span>{formatCommentStamp(comment.createdAt)}</span>
-                        <div className="goal-row__comment-actions-inline">
-                          <button type="button" onClick={() => startEditingComment(comment.id, comment.body)}>
-                            Edit
-                          </button>
-                          <button type="button" onClick={() => handleDeleteComment(comment.id)}>
-                            Remove
-                          </button>
-                        </div>
-                      </div>
-                      {editingCommentId === comment.id ? (
-                        <div className="goal-row__comment-edit">
-                          <textarea
-                            value={editCommentBody}
-                            onChange={(event) => setEditCommentBody(event.target.value)}
-                            rows={2}
-                          />
-                          <div className="goal-row__comment-edit-actions">
-                            <button type="button" className="btn btn--ghost" onClick={cancelCommentEdit}>
-                              Cancel
-                            </button>
-                            <button type="button" className="btn btn--primary" onClick={saveCommentEdit} disabled={!editCommentBody.trim()}>
-                              Save
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <p className="goal-row__comment-text">{comment.body}</p>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <span className="goal-row__comment-hint">Hover to view history. Click to add a fresh update.</span>
-            </div>
-          )}
-
-          {isCommenting && (
-            <div className="goal-row__comment-popover">
-              <textarea
-                value={inlineComment}
-                onChange={(event) => setInlineComment(event.target.value)}
-                placeholder="Add a quick note..."
-                autoFocus
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-                    event.preventDefault();
-                    submitInlineComment();
-                  }
-                }}
-              />
-              <span className="goal-row__comment-hint">Cmd/Ctrl + Enter to add</span>
-              <div className="goal-row__comment-actions">
-                <button
-                  type="button"
-                  className="btn btn--ghost"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setIsCommenting(false);
-                    setInlineComment("");
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="btn btn--primary"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    submitInlineComment();
-                  }}
-                  disabled={!inlineComment.trim()}
-                >
-                  Add comment
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {notesValue && <p className="goal-row__note-text">{notesValue}</p>}
-    </article>
-  );
-}
-
-type GoalDateEditorProps = {
-  goal: Goal;
-  updateGoal: (goal: Goal) => void;
-  onStageUndo(goal: Goal): void;
-};
-
-function GoalDateEditor({ goal, updateGoal, onStageUndo }: GoalDateEditorProps) {
-  const [open, setOpen] = useState(false);
-  const [draftStart, setDraftStart] = useState(goal.startDate);
-  const [draftEnd, setDraftEnd] = useState(goal.endDate);
-  const [error, setError] = useState<string | null>(null);
-  const wrapperRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handleClick = (event: globalThis.MouseEvent) => {
-      if (!wrapperRef.current) return;
-      if (!wrapperRef.current.contains(event.target as Node)) {
-        setOpen(false);
-        setError(null);
-      }
-    };
-    const handleEsc = (event: globalThis.KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setOpen(false);
-        setError(null);
-      }
-    };
-    document.addEventListener("mousedown", handleClick);
-    document.addEventListener("keydown", handleEsc);
-    return () => {
-      document.removeEventListener("mousedown", handleClick);
-      document.removeEventListener("keydown", handleEsc);
-    };
-  }, [open]);
-
-  const handleSave = () => {
-    if (draftStart > draftEnd) {
-      setError("End date must be after start date.");
-      return;
-    }
-    if (draftStart === goal.startDate && draftEnd === goal.endDate) {
-      setOpen(false);
-      return;
-    }
-    onStageUndo(goal);
-    updateGoal({ ...goal, startDate: draftStart, endDate: draftEnd });
-    setOpen(false);
-    setError(null);
+  const handleAddComment = () => {
+    const trimmed = newComment.trim();
+    if (!trimmed) return;
+    addComment(goal.id, { body: trimmed });
+    setNewComment("");
   };
 
   return (
-    <div className={["goal-date", open ? "is-open" : ""].join(" ")} ref={wrapperRef}>
-      <button
-        type="button"
-        className="goal-date__chip"
-        onClick={(event) => {
-          event.stopPropagation();
-          setOpen((prev) => {
-            const next = !prev;
-            if (next) {
-              setDraftStart(goal.startDate);
-              setDraftEnd(goal.endDate);
-              setError(null);
-            }
-            return next;
-          });
-        }}
-      >
-        {prettyRange(goal)}
-      </button>
-      {open && (
-        <div
-          className="goal-date__popover"
-          onClick={(event) => event.stopPropagation()}
-        >
-          <div className="goal-date__fields">
-            <label>
-              <span>Start</span>
-              <input type="date" value={draftStart} onChange={(e) => setDraftStart(e.target.value)} />
-            </label>
-            <label>
-              <span>End</span>
-              <input type="date" value={draftEnd} onChange={(e) => setDraftEnd(e.target.value)} />
-            </label>
-          </div>
-          {error && <p className="goal-date__error">{error}</p>}
-          <div className="goal-date__actions">
+    <article className="goal-card">
+      <div className="goal-card__layout">
+        <div className="goal-card__column goal-card__column--main">
+          <div className="goal-card__header">
+            <input
+              type="text"
+              key={`${goal.id}-title-${goal.title}`}
+              className="goal-card__title-input"
+              defaultValue={goal.title}
+              onBlur={handleTitleBlur}
+              onKeyDown={handleTitleKey}
+              placeholder="Untitled goal"
+              onClick={(e) => e.stopPropagation()}
+            />
             <button
               type="button"
-              className="btn"
-              onClick={() => {
-                setOpen(false);
-                setError(null);
+              className="goal-card__delete"
+              aria-label="Delete goal"
+              onClick={(event) => {
+                event.stopPropagation();
+                deleteGoal(goal.id);
               }}
             >
-              Cancel
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+              </svg>
             </button>
-            <button type="button" className="btn btn--primary" onClick={handleSave}>
-              Save dates
-            </button>
+          </div>
+          {/* Meta row with status, priority, category */}
+          <div className="goal-card__meta" onClick={(event) => event.stopPropagation()}>
+            <InlineSelect
+              value={goal.status}
+              onChange={(next) => {
+                if (goal.status === next) return;
+                onStageUndo(goal);
+                updateGoal({ ...goal, status: next as Status });
+              }}
+              options={[
+                { value: "open", label: "Open", tone: "status-open" },
+                { value: "in-progress", label: "In progress", tone: "status-inprog" },
+                { value: "blocked", label: "Blocked", tone: "status-blocked" },
+                { value: "done", label: "Done", tone: "status-done" },
+              ]}
+              addLabel="Add status"
+              onAdd={() => openCustomizationPanel("statuses")}
+            />
+            <InlineSelect
+              value={goal.priority}
+              onChange={(next) => {
+                if (goal.priority === next) return;
+                onStageUndo(goal);
+                updateGoal({ ...goal, priority: next as Priority });
+              }}
+              options={[
+                { value: "low", label: "Low", tone: "priority-low" },
+                { value: "medium", label: "Medium", tone: "priority-medium" },
+                { value: "high", label: "High", tone: "priority-high" },
+                { value: "critical", label: "Critical", tone: "priority-critical" },
+              ]}
+              addLabel="Add priority"
+              onAdd={() => openCustomizationPanel("priorities")}
+            />
+            <CategorySelect goal={goal} updateGoal={updateGoal} onStageUndo={onStageUndo} />
+          </div>
+        </div>
+
+        <div className="goal-card__column goal-card__column--dates">
+          {/* Date editor - simplified inline */}
+          <div className="goal-card__date-row" onClick={(e) => e.stopPropagation()}>
+            <div className="goal-card__date-field">
+              <label className="goal-card__date-label">Start</label>
+              <input
+                type="date"
+                className="goal-card__date-input"
+                value={goal.startDate}
+                onChange={(e) => {
+                  onStageUndo(goal);
+                  updateGoal({ ...goal, startDate: e.target.value });
+                }}
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+            <div className="goal-card__date-field">
+              <label className="goal-card__date-label">End</label>
+              <input
+                type="date"
+                className="goal-card__date-input"
+                value={goal.endDate}
+                onChange={(e) => {
+                  onStageUndo(goal);
+                  updateGoal({ ...goal, endDate: e.target.value });
+                }}
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+          </div>
+
+          {/* Comments - compact inline */}
+          <div className="goal-card__comments" onClick={(e) => e.stopPropagation()}>
+            <input
+              type="text"
+              className="goal-card__comment-quick-input"
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              placeholder="Add note..."
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && newComment.trim()) {
+                  e.preventDefault();
+                  handleAddComment();
+                }
+              }}
+            />
+            {commentCount > 0 && (
+              <button
+                type="button"
+                className="goal-card__comments-toggle"
+                onClick={() => setShowComments(!showComments)}
+              >
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M21 15a3 3 0 0 1-3 3H7l-4 4V6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3Z" />
+                </svg>
+                {commentCount}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {showComments && commentCount > 0 && (
+        <div className="goal-card__comments-expanded" onClick={(e) => e.stopPropagation()}>
+          <div className="goal-card__comments-list">
+            {[...goal.comments].reverse().map((comment) => (
+              <div key={comment.id} className="goal-card__comment-item">
+                <div className="goal-card__comment-header">
+                  <span className="goal-card__comment-date">
+                    {new Date(comment.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => deleteComment(goal.id, comment.id)}
+                    className="goal-card__comment-delete"
+                  >
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M18 6L6 18M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                <p className="goal-card__comment-body">{comment.body}</p>
+              </div>
+            ))}
           </div>
         </div>
       )}
-    </div>
+
+      {/* Click anywhere else on card to open full editor */}
+      <div className="goal-card__click-overlay" onClick={() => onEdit(goal)} />
+    </article>
   );
 }
