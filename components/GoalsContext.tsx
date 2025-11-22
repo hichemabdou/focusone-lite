@@ -66,6 +66,7 @@ type Filters = {
   priorities: Set<Priority> | null; // null => all
   statuses: Set<Status> | null; // null => all
   query: string;
+  year: number | null; // null => all years
 };
 
 type Ctx = {
@@ -232,6 +233,7 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
     priorities: null,
     statuses: null,
     query: "",
+    year: null,
   });
 
   // Fetch goals from API when authenticated
@@ -276,6 +278,9 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
     }
     if (filters.statuses && filters.statuses.size > 0 && filters.statuses.size < STATUS_VALUES.length) {
       arr = arr.filter((g) => filters.statuses!.has(g.status));
+    }
+    if (filters.year !== null) {
+      arr = arr.filter((g) => new Date(g.endDate).getFullYear() === filters.year);
     }
     if (filters.query.trim()) {
       const q = filters.query.trim().toLowerCase();
@@ -348,11 +353,14 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
           setGoals((s) => s.map((x) => (x.id === g.id ? updatedGoal : x)));
           showToast("Goal updated!", "success");
         } else {
-          showToast("Failed to update goal", "error");
+          // API failed, fall back to localStorage mode
+          console.warn("API unavailable, using localStorage");
+          setGoals((s) => s.map((x) => (x.id === g.id ? sanitizeGoal(g) : x)));
         }
       } catch (error) {
-        console.error("Error updating goal:", error);
-        showToast("Failed to update goal", "error");
+        console.error("Error updating goal, falling back to localStorage:", error);
+        // Fall back to localStorage mode on network error
+        setGoals((s) => s.map((x) => (x.id === g.id ? sanitizeGoal(g) : x)));
       }
     } else {
       setGoals((s) => s.map((x) => (x.id === g.id ? sanitizeGoal(g) : x)));
@@ -370,11 +378,16 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
           setGoals((s) => s.filter((x) => x.id !== id));
           showToast("Goal deleted", "info");
         } else {
-          showToast("Failed to delete goal", "error");
+          // API failed, fall back to localStorage mode
+          console.warn("API unavailable, using localStorage");
+          setGoals((s) => s.filter((x) => x.id !== id));
+          showToast("Goal deleted", "info");
         }
       } catch (error) {
-        console.error("Error deleting goal:", error);
-        showToast("Failed to delete goal", "error");
+        console.error("Error deleting goal, falling back to localStorage:", error);
+        // Fall back to localStorage mode on network error
+        setGoals((s) => s.filter((x) => x.id !== id));
+        showToast("Goal deleted", "info");
       }
     } else {
       setGoals((s) => s.filter((x) => x.id !== id));
@@ -405,9 +418,33 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
               goal.id === goalId ? { ...goal, comments: [...goal.comments, newComment] } : goal
             )
           );
+        } else {
+          // API failed, fall back to localStorage mode
+          console.warn("API unavailable, using localStorage");
+          const newComment = {
+            id: input.id ?? crypto.randomUUID(),
+            body: trimmed,
+            createdAt: input.createdAt ?? new Date().toISOString(),
+          };
+          setGoals((s) =>
+            s.map((goal) =>
+              goal.id === goalId ? { ...goal, comments: [...goal.comments, newComment] } : goal
+            )
+          );
         }
       } catch (error) {
-        console.error("Error adding comment:", error);
+        console.error("Error adding comment, falling back to localStorage:", error);
+        // Fall back to localStorage mode on network error
+        const newComment = {
+          id: input.id ?? crypto.randomUUID(),
+          body: trimmed,
+          createdAt: input.createdAt ?? new Date().toISOString(),
+        };
+        setGoals((s) =>
+          s.map((goal) =>
+            goal.id === goalId ? { ...goal, comments: [...goal.comments, newComment] } : goal
+          )
+        );
       }
     } else {
       setGoals((s) =>
@@ -463,11 +500,30 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
                 : goal
             )
           );
+        } else {
+          // API failed, fall back to localStorage mode
+          console.warn("API unavailable, using localStorage");
+          setGoals((s) =>
+            s.map((goal) =>
+              goal.id === goalId
+                ? { ...goal, comments: goal.comments.filter((comment) => comment.id !== commentId) }
+                : goal
+            )
+          );
         }
       } catch (error) {
-        console.error("Error deleting comment:", error);
+        console.error("Error deleting comment, falling back to localStorage:", error);
+        // Fall back to localStorage mode on network error
+        setGoals((s) =>
+          s.map((goal) =>
+            goal.id === goalId
+              ? { ...goal, comments: goal.comments.filter((comment) => comment.id !== commentId) }
+              : goal
+          )
+        );
       }
     } else {
+      // Guest mode - direct localStorage
       setGoals((s) =>
         s.map((goal) =>
           goal.id === goalId ? { ...goal, comments: goal.comments.filter((comment) => comment.id !== commentId) } : goal

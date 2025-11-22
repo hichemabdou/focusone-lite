@@ -136,14 +136,20 @@ export default function QuickGoalComposer() {
           <input
             type="date"
             value={draft.startDate}
-            onChange={(event) => handleChange("startDate", event.target.value)}
+            onChange={(event) => {
+              handleChange("startDate", event.target.value);
+              event.currentTarget.blur();
+            }}
             className="quick-composer__date"
           />
           <span className="quick-composer__arrow">→</span>
           <input
             type="date"
             value={draft.endDate}
-            onChange={(event) => handleChange("endDate", event.target.value)}
+            onChange={(event) => {
+              handleChange("endDate", event.target.value);
+              event.currentTarget.blur();
+            }}
             className="quick-composer__date"
           />
           <select

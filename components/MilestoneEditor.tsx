@@ -118,7 +118,7 @@ function MilestoneEditorForm({ open, goal, onClose, onSave }: { open: boolean; g
           {type === "point" && (
             <label className="goal-editor__field">
               <span>Date</span>
-              <input type="date" className="field" value={pointDate} onChange={(e) => setPointDate(e.target.value)} />
+              <input type="date" className="field" value={pointDate} onChange={(e) => { setPointDate(e.target.value); e.currentTarget.blur(); }} />
             </label>
           )}
 
@@ -126,11 +126,11 @@ function MilestoneEditorForm({ open, goal, onClose, onSave }: { open: boolean; g
             <div className="goal-editor__milestone-grid">
               <label className="goal-editor__field">
                 <span>Window start</span>
-                <input type="date" className="field" value={windowStart} onChange={(e) => setWindowStart(e.target.value)} />
+                <input type="date" className="field" value={windowStart} onChange={(e) => { setWindowStart(e.target.value); e.currentTarget.blur(); }} />
               </label>
               <label className="goal-editor__field">
                 <span>Window end</span>
-                <input type="date" className="field" value={windowEnd} onChange={(e) => setWindowEnd(e.target.value)} />
+                <input type="date" className="field" value={windowEnd} onChange={(e) => { setWindowEnd(e.target.value); e.currentTarget.blur(); }} />
               </label>
             </div>
           )}

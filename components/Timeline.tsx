@@ -159,9 +159,23 @@ function getFitAllRange(goals: Goal[]): Range {
 }
 
 export default function Timeline() {
-  const { visibleGoals, goals, updateGoal } = useGoals();
-  const { getCategoryColor, getPriorityColor, getStatusColor } = useCustomization();
-  const items = useMemo(() => (visibleGoals ?? goals ?? []) as Goal[], [visibleGoals, goals]);
+  const { visibleGoals, goals, updateGoal, addGoal } = useGoals();
+  const { getCategoryColor, getPriorityColor, getStatusColor, categories } = useCustomization();
+
+  // Direct goal creation (smooth temporary goal - no notification spam)
+  const [tempGoal, setTempGoal] = useState<Goal | null>(null);
+  const [hoverTooltip, setHoverTooltip] = useState<{ x: number; y: number; pct: number; date: string; show: boolean }>({ x: 0, y: 0, pct: 0, date: '', show: false });
+  const [cursorGuide, setCursorGuide] = useState<{ pct: number; show: boolean }>({ pct: 0, show: false });
+  const [isHoveringEmpty, setIsHoveringEmpty] = useState(false);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const tempGoalStartPct = useRef<number>(0);
+
+  // Include temp goal in items if it exists (so it renders while dragging)
+  const items = useMemo(() => {
+    const baseItems = (visibleGoals ?? goals ?? []) as Goal[];
+    return tempGoal ? [...baseItems, tempGoal] : baseItems;
+  }, [visibleGoals, goals, tempGoal]);
   
   // Drag state
   const [dragging, setDragging] = useState<{ goalId: string; type: "move" | "resize-start" | "resize-end" } | null>(null);
@@ -442,6 +456,235 @@ export default function Timeline() {
     handleOpenGoal(span.g);
   }, [dragging, handleOpenGoal, closeInlineEditor]);
 
+  // Direct drawing: Convert percentage to date
+  const percentageToDate = useCallback((pct: number): string => {
+    const clampedPct = Math.max(0, Math.min(100, pct));
+    const timestamp = msStart + ((clampedPct / 100) * msSpan);
+    const date = new Date(timestamp);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  }, [msStart, msSpan]);
+
+  const handleCanvasHover = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    // Don't show tooltip if creating goal or dragging
+    if (tempGoal || dragging) {
+      setHoverTooltip({ x: 0, y: 0, pct: 0, date: '', show: false });
+      setCursorGuide({ pct: 0, show: false });
+      setIsHoveringEmpty(false);
+      return;
+    }
+
+    // Check if hovering over empty space (not on bars, milestones, etc.)
+    const target = e.target as HTMLElement;
+    const isOverElement = target.closest('.timeline__bar') ||
+                          target.closest('.timeline__milestone-marker') ||
+                          target.closest('.timeline__today') ||
+                          target.closest('button') ||
+                          target.closest('.timeline__header') ||
+                          target.closest('.timeline__quarters');
+
+    if (isOverElement) {
+      setHoverTooltip({ x: 0, y: 0, pct: 0, date: '', show: false });
+      setCursorGuide({ pct: 0, show: false });
+      setIsHoveringEmpty(false);
+      return;
+    }
+
+    // Calculate cursor position
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+
+    const relativeX = e.clientX - rect.left + viewport.scrollLeft;
+    const pct = (relativeX / rect.width) * 100;
+    const cursorDate = percentageToDate(pct);
+
+    // Format date for display
+    const dateObj = new Date(cursorDate);
+    const formattedDate = dateObj.toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+
+    // Show cursor guide and hover state immediately
+    setCursorGuide({ pct, show: true });
+    setIsHoveringEmpty(true);
+
+    // Clear any existing timeout
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+
+    // Show tooltip instantly for better discoverability
+    setHoverTooltip({
+      x: e.clientX,
+      y: e.clientY,
+      pct,
+      date: formattedDate,
+      show: true
+    });
+  }, [tempGoal, dragging, percentageToDate]);
+
+  const handleCanvasMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    // Hide tooltip and cursor guide when clicking
+    setHoverTooltip({ x: 0, y: 0, pct: 0, date: '', show: false });
+    setCursorGuide({ pct: 0, show: false });
+    setIsHoveringEmpty(false);
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+
+    // Don't start creating if already creating or dragging
+    if (dragging || tempGoal) return;
+
+    // Don't start creating if clicking on a goal bar, milestone, or interactive element
+    const target = e.target as HTMLElement;
+    if (target.closest('.timeline__bar') ||
+        target.closest('.timeline__milestone-marker') ||
+        target.closest('.timeline__today') ||
+        target.closest('button')) {
+      return;
+    }
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+
+    // Calculate position accounting for scroll
+    const relativeX = e.clientX - rect.left + viewport.scrollLeft;
+    const pct = (relativeX / rect.width) * 100;
+    const startDate = percentageToDate(pct);
+
+    // Create a very small initial bar (1 hour) that will extend as you drag
+    // This makes it feel like the bar is appearing right where you click
+    const startDateObj = new Date(startDate);
+    const endDateObj = new Date(startDateObj);
+    endDateObj.setHours(endDateObj.getHours() + 1); // Just 1 hour initially
+    const endDate = `${endDateObj.getFullYear()}-${String(endDateObj.getMonth() + 1).padStart(2, '0')}-${String(endDateObj.getDate()).padStart(2, '0')}`;
+
+    // Create temporary goal (no API call = smooth!)
+    const newTempGoal: Goal = {
+      id: `temp-${Date.now()}`,
+      title: "✨ New Goal",
+      startDate,
+      endDate: startDate, // Start with same date, will extend as you drag
+      category: categories[0]?.name || "STRATEGY",
+      priority: "medium",
+      status: "open",
+      notes: "",
+      milestone: null,
+      comments: []
+    };
+
+    setTempGoal(newTempGoal);
+    tempGoalStartPct.current = pct;
+  }, [dragging, tempGoal, percentageToDate, categories]);
+
+  const handleCanvasMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    // If we're creating a goal, resize it as we drag (smooth local update!)
+    if (tempGoal) {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const viewport = viewportRef.current;
+      if (!viewport) return;
+
+      const relativeX = e.clientX - rect.left + viewport.scrollLeft;
+      const pct = (relativeX / rect.width) * 100;
+      const currentDate = percentageToDate(pct);
+
+      // Always extend from the start point where you clicked
+      // The bar grows in the direction you're dragging
+      const startDate = percentageToDate(tempGoalStartPct.current);
+      const isDraggingRight = pct >= tempGoalStartPct.current;
+
+      // Update temp goal to extend from click point to cursor
+      setTempGoal(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          startDate: isDraggingRight ? startDate : currentDate,
+          endDate: isDraggingRight ? currentDate : startDate
+        };
+      });
+    } else {
+      // Otherwise, handle hover tooltip
+      handleCanvasHover(e);
+    }
+  }, [tempGoal, percentageToDate, handleCanvasHover]);
+
+  const handleCanvasMouseLeave = useCallback(() => {
+    setHoverTooltip({ x: 0, y: 0, pct: 0, date: '', show: false });
+    setCursorGuide({ pct: 0, show: false });
+    setIsHoveringEmpty(false);
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+  }, []);
+
+  const handleCanvasMouseUp = useCallback(async () => {
+    if (!tempGoal) return;
+
+    // Ensure dates are in correct order
+    const start = new Date(tempGoal.startDate);
+    const end = new Date(tempGoal.endDate);
+
+    // If the bar is too small (less than 1 day), make it at least 7 days
+    const daysDiff = Math.abs((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+
+    let finalStartDate = tempGoal.startDate;
+    let finalEndDate = tempGoal.endDate;
+
+    if (daysDiff < 1) {
+      // Make it a reasonable default size (7 days)
+      const baseDate = new Date(start < end ? tempGoal.startDate : tempGoal.endDate);
+      const extendedDate = new Date(baseDate);
+      extendedDate.setDate(extendedDate.getDate() + 7);
+      finalStartDate = start < end ? tempGoal.startDate : `${extendedDate.getFullYear()}-${String(extendedDate.getMonth() + 1).padStart(2, '0')}-${String(extendedDate.getDate()).padStart(2, '0')}`;
+      finalEndDate = start < end ? `${extendedDate.getFullYear()}-${String(extendedDate.getMonth() + 1).padStart(2, '0')}-${String(extendedDate.getDate()).padStart(2, '0')}` : tempGoal.endDate;
+    }
+
+    const finalGoal: Goal = start > end ? {
+      ...tempGoal,
+      id: crypto.randomUUID(), // Generate proper ID
+      startDate: finalEndDate,
+      endDate: finalStartDate
+    } : {
+      ...tempGoal,
+      id: crypto.randomUUID(), // Generate proper ID
+      startDate: finalStartDate,
+      endDate: finalEndDate
+    };
+
+    // Clear temp goal immediately for smooth UI
+    setTempGoal(null);
+
+    // Create the real goal in the system (single API call + single notification)
+    const { id, ...goalData } = finalGoal; // Remove ID for addGoal
+    await addGoal(goalData);
+
+    // Open editor with the final goal data
+    // The goal now exists in the system, we can edit it
+    setTimeout(() => {
+      // Find the created goal in the goals array (it was just added)
+      const createdGoal = goals.find(g =>
+        g.title === finalGoal.title &&
+        g.startDate === finalGoal.startDate &&
+        g.endDate === finalGoal.endDate
+      );
+      if (createdGoal) {
+        handleOpenGoal(createdGoal);
+      }
+    }, 150);
+  }, [tempGoal, addGoal, handleOpenGoal, goals]);
+
   const { milestonePoints, milestoneWindows } = useMemo(() => {
     const points: MilestonePoint[] = [];
     const windows: MilestoneWindowOverlay[] = [];
@@ -553,12 +796,7 @@ export default function Timeline() {
   const today = new Date();
   const todayPct = clampNum(((today.getTime() - msStart) / msSpan) * 100, -5, 105);
   const showToday = todayPct >= 0 && todayPct <= 100;
-  const todayReadable = today.toLocaleString(undefined, {
-    weekday: "short",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
+  const todayReadable = `Today ${today.getDate()} ${today.toLocaleDateString(undefined, { month: "short" })} ${today.getFullYear()}`;
   const todayLabel = `Today · ${todayReadable}`;
   const todayAlign: "left" | "center" | "right" = todayPct < 6 ? "left" : todayPct > 94 ? "right" : "center";
 
@@ -713,6 +951,18 @@ export default function Timeline() {
     viewportEl.addEventListener("wheel", handleWheel, { passive: false });
     return () => viewportEl.removeEventListener("wheel", handleWheel);
   }, []);
+
+  // ESC key to cancel goal creation
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && tempGoal) {
+        // Cancel creation - just clear the temp goal (no API call needed!)
+        setTempGoal(null);
+      }
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [tempGoal]);
 
   // Drag handlers
   const handleBarMouseDown = (span: SpanInfo, type: "move" | "resize-start" | "resize-end") => (e: ReactMouseEvent) => {
@@ -981,7 +1231,20 @@ export default function Timeline() {
           <div className="timeline__shell">
             <div className="timeline__viewport" ref={viewportRef}>
               <div className="timeline__content" style={contentWidth ? { width: `${contentWidth}px` } : undefined}>
-                <div className="timeline__canvas">
+                <div
+                  ref={canvasRef}
+                  className={`timeline__canvas ${isHoveringEmpty ? 'timeline__canvas--hovering' : ''}`}
+                  onMouseDown={handleCanvasMouseDown}
+                  onMouseMove={handleCanvasMouseMove}
+                  onMouseUp={handleCanvasMouseUp}
+                  onMouseLeave={() => {
+                    handleCanvasMouseUp();
+                    handleCanvasMouseLeave();
+                  }}
+                  style={{
+                    cursor: isHoveringEmpty ? 'crosshair' : 'default'
+                  }}
+                >
                   {(showMonthGrid || showQuarterGrid) && (
                     <div className="timeline__gridlines">
                       {showMonthGrid &&
@@ -1009,7 +1272,7 @@ export default function Timeline() {
                       <span className="timeline__today-beam" aria-hidden />
                       <span className="timeline__today-dot" aria-hidden />
                       <span className="timeline__today-pill" data-align={todayAlign}>
-                        Today
+                        TODAY
                       </span>
                       <span
                         className={["timeline__today-detail", showTodayDetail ? "is-visible" : ""].join(" ")}
@@ -1019,6 +1282,33 @@ export default function Timeline() {
                         {todayReadable}
                       </span>
                     </button>
+                  )}
+                  {cursorGuide.show && !tempGoal && (
+                    <div
+                      className="timeline__cursor-guide"
+                      style={{ left: `${cursorGuide.pct}%` }}
+                    />
+                  )}
+                  {hoverTooltip.show && !tempGoal && (
+                    <div
+                      className="timeline__create-tooltip"
+                      style={{
+                        left: `${hoverTooltip.x}px`,
+                        top: `${hoverTooltip.y}px`,
+                      }}
+                    >
+                      <div className="timeline__create-tooltip-content">
+                        <div className="timeline__create-tooltip-icon">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <path d="M12 5v14M5 12h14" />
+                          </svg>
+                        </div>
+                        <div className="timeline__create-tooltip-text">
+                          <span className="timeline__create-tooltip-action">Click & drag to create</span>
+                          <span className="timeline__create-tooltip-date">{hoverTooltip.date}</span>
+                        </div>
+                      </div>
+                    </div>
                   )}
                 <div className="timeline__rows-viewport" ref={rowsScrollRef}>
                   <div className="timeline__head">

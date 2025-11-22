@@ -258,13 +258,6 @@ export default function GoalsList() {
                   <span>{section.label}</span>
                   <span className="goal-section__count">{section.items.length}</span>
                 </button>
-                <button
-                  type="button"
-                  className="btn goal-section__collapse"
-                  onClick={() => toggleSection(section.key)}
-                >
-                  {collapsed ? "Expand" : "Collapse"}
-                </button>
               </header>
               {!collapsed && (
                 <div className="goal-section__body">
@@ -415,33 +408,89 @@ function GoalCard({
   return (
     <article className="goal-card">
       <div className="goal-card__layout">
-        <div className="goal-card__column goal-card__column--main">
-          <div className="goal-card__header">
-            <input
-              type="text"
-              key={`${goal.id}-title-${goal.title}`}
-              className="goal-card__title-input"
-              defaultValue={goal.title}
-              onBlur={handleTitleBlur}
-              onKeyDown={handleTitleKey}
-              placeholder="Untitled goal"
-              onClick={(e) => e.stopPropagation()}
-            />
-            <button
-              type="button"
-              className="goal-card__delete"
-              aria-label="Delete goal"
-              onClick={(event) => {
-                event.stopPropagation();
-                deleteGoal(goal.id);
-              }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-              </svg>
-            </button>
+        {/* Row 1: Title and Dates */}
+        <div className="goal-card__top-row">
+          {/* Title section */}
+          <div className="goal-card__column goal-card__column--main">
+            <div className="goal-card__header">
+              <input
+                type="text"
+                key={`${goal.id}-title-${goal.title}`}
+                className="goal-card__title-input"
+                defaultValue={goal.title}
+                onBlur={handleTitleBlur}
+                onKeyDown={handleTitleKey}
+                placeholder="Untitled goal"
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
           </div>
-          {/* Meta row with status, priority, category */}
+
+          {/* Dates - horizontal side by side on the right */}
+          <div className="goal-card__date-row" onClick={(e) => e.stopPropagation()}>
+            <div className="goal-card__date-field">
+              <label className="goal-card__date-label">Start</label>
+              <input
+                type="date"
+                value={goal.startDate}
+                onChange={(e) => {
+                  onStageUndo(goal);
+                  updateGoal({ ...goal, startDate: e.target.value });
+                  e.currentTarget.blur();
+                }}
+                className="goal-card__date-input"
+              />
+            </div>
+            <div className="goal-card__date-field">
+              <label className="goal-card__date-label">End</label>
+              <input
+                type="date"
+                value={goal.endDate}
+                onChange={(e) => {
+                  onStageUndo(goal);
+                  updateGoal({ ...goal, endDate: e.target.value });
+                  e.currentTarget.blur();
+                }}
+                className="goal-card__date-input"
+              />
+            </div>
+
+            {/* Action buttons inline with dates */}
+            <div className="goal-card__actions">
+              <button
+                type="button"
+                className="goal-card__edit"
+                aria-label="Edit goal"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onEdit(goal);
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                className="goal-card__delete"
+                aria-label="Delete goal"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  deleteGoal(goal.id);
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Row 2: Status, Priority, Category pills and Comments */}
+        <div className="goal-card__bottom-row">
+          {/* Status, Priority, Category pills */}
           <div className="goal-card__meta" onClick={(event) => event.stopPropagation()}>
             <InlineSelect
               value={goal.status}
@@ -477,98 +526,77 @@ function GoalCard({
             />
             <CategorySelect goal={goal} updateGoal={updateGoal} onStageUndo={onStageUndo} />
           </div>
-        </div>
 
-        <div className="goal-card__column goal-card__column--dates">
-          {/* Date editor - simplified inline */}
-          <div className="goal-card__date-row" onClick={(e) => e.stopPropagation()}>
-            <div className="goal-card__date-field">
-              <label className="goal-card__date-label">Start</label>
-              <input
-                type="date"
-                className="goal-card__date-input"
-                value={goal.startDate}
-                onChange={(e) => {
-                  onStageUndo(goal);
-                  updateGoal({ ...goal, startDate: e.target.value });
-                }}
-                onClick={(e) => e.stopPropagation()}
-              />
-            </div>
-            <div className="goal-card__date-field">
-              <label className="goal-card__date-label">End</label>
-              <input
-                type="date"
-                className="goal-card__date-input"
-                value={goal.endDate}
-                onChange={(e) => {
-                  onStageUndo(goal);
-                  updateGoal({ ...goal, endDate: e.target.value });
-                }}
-                onClick={(e) => e.stopPropagation()}
-              />
-            </div>
-          </div>
-
-          {/* Comments - compact inline */}
+          {/* Comments - fills remaining space */}
           <div className="goal-card__comments" onClick={(e) => e.stopPropagation()}>
-            <input
-              type="text"
-              className="goal-card__comment-quick-input"
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              placeholder="Add note..."
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && newComment.trim()) {
-                  e.preventDefault();
-                  handleAddComment();
-                }
-              }}
-            />
-            {commentCount > 0 && (
-              <button
-                type="button"
-                className="goal-card__comments-toggle"
-                onClick={() => setShowComments(!showComments)}
-              >
-                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M21 15a3 3 0 0 1-3 3H7l-4 4V6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3Z" />
-                </svg>
-                {commentCount}
-              </button>
-            )}
+            <div className="goal-card__comment-input-wrapper">
+              <input
+                type="text"
+                className="goal-card__comment-quick-input"
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                placeholder="Add comment..."
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newComment.trim()) {
+                    e.preventDefault();
+                    handleAddComment();
+                  }
+                }}
+              />
+            </div>
           </div>
         </div>
       </div>
 
-      {showComments && commentCount > 0 && (
+      {commentCount > 0 && (
         <div className="goal-card__comments-expanded" onClick={(e) => e.stopPropagation()}>
           <div className="goal-card__comments-list">
-            {[...goal.comments].reverse().map((comment) => (
-              <div key={comment.id} className="goal-card__comment-item">
-                <div className="goal-card__comment-header">
-                  <span className="goal-card__comment-date">
-                    {new Date(comment.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => deleteComment(goal.id, comment.id)}
-                    className="goal-card__comment-delete"
-                  >
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <path d="M18 6L6 18M6 6l12 12" />
-                    </svg>
-                  </button>
+            {[...goal.comments].reverse().map((comment) => {
+              const commentDate = new Date(comment.createdAt);
+              const now = new Date();
+              const diffMs = now.getTime() - commentDate.getTime();
+              const diffMins = Math.floor(diffMs / 60000);
+              const diffHours = Math.floor(diffMs / 3600000);
+              const diffDays = Math.floor(diffMs / 86400000);
+
+              let dateLabel = "";
+              if (diffMins < 1) dateLabel = "Just now";
+              else if (diffMins < 60) dateLabel = `${diffMins}m ago`;
+              else if (diffHours < 24) dateLabel = `${diffHours}h ago`;
+              else if (diffDays < 7) dateLabel = `${diffDays}d ago`;
+              else dateLabel = commentDate.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+
+              return (
+                <div key={comment.id} className="goal-card__comment-item">
+                  <div className="goal-card__comment-header">
+                    <span className="goal-card__comment-date" title={commentDate.toLocaleString()}>
+                      {dateLabel}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        deleteComment(goal.id, comment.id);
+                      }}
+                      className="goal-card__comment-delete"
+                      aria-label="Delete comment"
+                    >
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M18 6L6 18M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  <p className="goal-card__comment-body">{comment.body}</p>
                 </div>
-                <p className="goal-card__comment-body">{comment.body}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
 
-      {/* Click anywhere else on card to open full editor */}
-      <div className="goal-card__click-overlay" onClick={() => onEdit(goal)} />
+      {/* Double-click anywhere else on card to open full editor */}
+      <div className="goal-card__click-overlay" onDoubleClick={() => onEdit(goal)} />
     </article>
   );
 }

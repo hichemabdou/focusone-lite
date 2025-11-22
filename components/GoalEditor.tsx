@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, type ChangeEvent } from "react";
+import { useSession } from "next-auth/react";
 import { Goal, Priority, Status, Category, useGoals } from "./GoalsContext";
 import { useCustomization } from "./CustomizationContext";
 import Modal from "./Modal";
@@ -250,9 +251,25 @@ type GoalCommentsSectionProps = {
 };
 
 function GoalCommentsSection({ mode, comments, onAdd, onDelete, onUpdate }: GoalCommentsSectionProps) {
+  const { data: session } = useSession();
   const [body, setBody] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editBody, setEditBody] = useState("");
+
+  // Get user initials for avatar
+  const getUserInitials = () => {
+    if (session?.user?.name) {
+      const parts = session.user.name.split(' ');
+      if (parts.length >= 2) {
+        return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+      }
+      return parts[0][0].toUpperCase();
+    }
+    if (session?.user?.email) {
+      return session.user.email[0].toUpperCase();
+    }
+    return 'U';
+  };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -319,111 +336,130 @@ function GoalCommentsSection({ mode, comments, onAdd, onDelete, onUpdate }: Goal
     <section className="goal-comments">
       <header className="goal-comments__header">
         <span>{mode === "create" ? "Add context" : "Comments"}</span>
-        <span className="goal-comments__count">{comments.length}</span>
+        {comments.length > 0 && <span className="goal-comments__count">{comments.length}</span>}
       </header>
-      <div className="goal-comments__content">
-        {sortedComments.length === 0 ? (
-          <p className="goal-comments__empty">No comments yet. Add a reflection or progress note below.</p>
-        ) : (
+
+      {/* Composer - now at top with avatar */}
+      <div className="goal-comments__composer">
+        <div className="goal-comments__avatar">
+          {getUserInitials()}
+        </div>
+        <div className="goal-comments__composer-input-wrapper">
+          <input
+            type="text"
+            value={body}
+            onChange={(event) => setBody(event.target.value)}
+            placeholder="Add a comment..."
+            className="goal-comments__composer-input"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleAddComment();
+              }
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Comments List */}
+      {sortedComments.length > 0 && (
+        <div className="goal-comments__content">
           <ul className="goal-comments__list">
             {sortedComments.map((comment) => (
               <li key={comment.id} className="goal-comments__item">
                 {editingId === comment.id ? (
                   <div className="goal-comments__edit">
-                    <textarea
-                      value={editBody}
-                      onChange={(e) => setEditBody(e.target.value)}
-                      className="field goal-comments__edit-textarea"
-                      rows={3}
-                      autoFocus
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                          saveEdit(comment.id);
-                        }
-                        if (e.key === 'Escape') {
-                          cancelEdit();
-                        }
-                      }}
-                    />
-                    <div className="goal-comments__edit-actions">
-                      <button 
-                        type="button" 
-                        className="btn btn--ghost"
-                        onClick={cancelEdit}
-                      >
-                        Cancel
-                      </button>
-                      <button 
-                        type="button" 
-                        className="btn btn--primary"
-                        onClick={() => saveEdit(comment.id)}
-                        disabled={!editBody.trim()}
-                      >
-                        Save
-                      </button>
+                    <div className="goal-comments__avatar">
+                      {getUserInitials()}
+                    </div>
+                    <div className="goal-comments__edit-content">
+                      <input
+                        type="text"
+                        value={editBody}
+                        onChange={(e) => setEditBody(e.target.value)}
+                        className="goal-comments__edit-input"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            saveEdit(comment.id);
+                          }
+                          if (e.key === 'Escape') {
+                            cancelEdit();
+                          }
+                        }}
+                      />
+                      <div className="goal-comments__edit-actions">
+                        <button
+                          type="button"
+                          className="goal-comments__edit-cancel"
+                          onClick={cancelEdit}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          className="goal-comments__edit-save"
+                          onClick={() => saveEdit(comment.id)}
+                          disabled={!editBody.trim()}
+                        >
+                          Save
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ) : (
-                  <div className="goal-comments__item-body">
-                    <button
-                      type="button"
-                      className="goal-comments__delete-btn"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        onDelete(comment.id);
-                      }}
-                      aria-label="Delete comment"
-                    >
-                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                        <path d="M2 2L10 10M10 2L2 10"/>
-                      </svg>
-                    </button>
-                    <div className="goal-comments__date-row">
-                      <span className="goal-comments__date" title={new Date(comment.createdAt).toLocaleString()}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <rect x="3" y="4" width="18" height="18" rx="2" />
-                          <path d="M16 2v4M8 2v4M3 10h18" />
-                        </svg>
-                        {formatDate(comment.createdAt)}
-                      </span>
+                  <div className="goal-comments__item-content">
+                    <div className="goal-comments__avatar">
+                      {getUserInitials()}
                     </div>
-                    <p 
-                      className="goal-comments__body"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        startEdit(comment);
-                      }}
-                      role="button"
-                      tabIndex={0}
-                      title="Click to edit"
-                    >
-                      {comment.body}
-                    </p>
+                    <div className="goal-comments__item-main">
+                      <div className="goal-comments__item-header">
+                        <span className="goal-comments__date">
+                          {formatDate(comment.createdAt)}
+                        </span>
+                        <div className="goal-comments__item-actions">
+                          <button
+                            type="button"
+                            className="goal-comments__action-btn"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              startEdit(comment);
+                            }}
+                            aria-label="Edit comment"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            className="goal-comments__action-btn goal-comments__action-btn--delete"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              onDelete(comment.id);
+                            }}
+                            aria-label="Delete comment"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                              <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                      <p className="goal-comments__body">
+                        {comment.body}
+                      </p>
+                    </div>
                   </div>
                 )}
               </li>
             ))}
           </ul>
-        )}
-      </div>
-      <div className="goal-comments__composer">
-        <textarea
-          value={body}
-          onChange={(event) => setBody(event.target.value)}
-          placeholder="Write a comment..."
-          rows={3}
-          className="field"
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              handleAddComment();
-            }
-          }}
-        />
-        <span className="goal-comments__composer-hint">Press Enter to submit • Shift + Enter for a new line</span>
-      </div>
+        </div>
+      )}
     </section>
   );
 }

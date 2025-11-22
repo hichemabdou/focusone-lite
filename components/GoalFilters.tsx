@@ -113,6 +113,7 @@ export default function GoalFilters() {
       priorities: null,
       statuses: null,
       query: "",
+      year: null,
     });
 
   const Chip = ({
@@ -147,7 +148,7 @@ export default function GoalFilters() {
     </button>
   );
 
-  const hasActiveFilters = filters.categories || filters.priorities || filters.statuses;
+  const hasActiveFilters = filters.categories || filters.priorities || filters.statuses || filters.year !== null;
 
   return (
     <div className="filters">
@@ -165,22 +166,51 @@ export default function GoalFilters() {
         </div>
       </div>
 
-      {/* Quick Stats */}
+      {/* Quick Stats - Clickable */}
       <div className="filters__premium-stats">
-        <div className="filters__premium-stat">
+        <button
+          type="button"
+          className="filters__premium-stat filters__premium-stat--clickable"
+          onClick={() => reset()}
+          title="Show all goals"
+        >
           <span className="filters__premium-stat-value">{currentYearTotal}</span>
           <span className="filters__premium-stat-label">Goals</span>
-        </div>
+        </button>
         <div className="filters__premium-stat-divider" />
-        <div className="filters__premium-stat">
+        <button
+          type="button"
+          className="filters__premium-stat filters__premium-stat--clickable"
+          onClick={() => {
+            setFilters(prev => ({
+              ...prev,
+              statuses: new Set(["done"]),
+              categories: null,
+              priorities: null
+            }));
+          }}
+          title="Show done goals"
+        >
           <span className="filters__premium-stat-value">{counts.status.done}</span>
           <span className="filters__premium-stat-label">Done</span>
-        </div>
+        </button>
         <div className="filters__premium-stat-divider" />
-        <div className="filters__premium-stat">
+        <button
+          type="button"
+          className="filters__premium-stat filters__premium-stat--clickable"
+          onClick={() => {
+            setFilters(prev => ({
+              ...prev,
+              statuses: new Set(["in-progress"]),
+              categories: null,
+              priorities: null
+            }));
+          }}
+          title="Show active goals"
+        >
           <span className="filters__premium-stat-value">{counts.status["in-progress"]}</span>
           <span className="filters__premium-stat-label">Active</span>
-        </div>
+        </button>
       </div>
 
       {/* Filters */}
@@ -296,7 +326,20 @@ export default function GoalFilters() {
       {(nextYearInfo.total > 0 || hasActiveFilters) && (
         <div className="filters__premium-footer">
           {nextYearInfo.total > 0 && (
-            <div className="filters__premium-next-year">
+            <button
+              type="button"
+              className="filters__premium-next-year"
+              onClick={() => {
+                setFilters(prev => ({
+                  ...prev,
+                  year: nextYear,
+                  categories: null,
+                  priorities: null,
+                  statuses: null
+                }));
+              }}
+              title={`Show ${nextYear} goals`}
+            >
               <div className="filters__premium-next-year-icon">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M5 12h14M12 5l7 7-7 7"/>
@@ -306,7 +349,7 @@ export default function GoalFilters() {
                 <span>{nextYear}</span>
                 <span>{nextYearInfo.total} planned</span>
               </div>
-            </div>
+            </button>
           )}
           {hasActiveFilters && (
             <button type="button" className="filters__premium-reset" onClick={reset}>

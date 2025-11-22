@@ -179,7 +179,10 @@ export default function MilestonesList({ milestones, editingMilestone, onAdd, on
                     type="date"
                     className="field"
                     value={draft.date || ""}
-                    onChange={(e) => setDraft({ ...draft, date: e.target.value })}
+                    onChange={(e) => {
+                      setDraft({ ...draft, date: e.target.value });
+                      e.currentTarget.blur();
+                    }}
                   />
                 </div>
               ) : (
@@ -190,7 +193,10 @@ export default function MilestonesList({ milestones, editingMilestone, onAdd, on
                       type="date"
                       className="field"
                       value={draft.windowStart || ""}
-                      onChange={(e) => setDraft({ ...draft, windowStart: e.target.value })}
+                      onChange={(e) => {
+                        setDraft({ ...draft, windowStart: e.target.value });
+                        e.currentTarget.blur();
+                      }}
                     />
                   </div>
                   <div className="milestone-form__field">
@@ -199,7 +205,10 @@ export default function MilestonesList({ milestones, editingMilestone, onAdd, on
                       type="date"
                       className="field"
                       value={draft.windowEnd || ""}
-                      onChange={(e) => setDraft({ ...draft, windowEnd: e.target.value })}
+                      onChange={(e) => {
+                        setDraft({ ...draft, windowEnd: e.target.value });
+                        e.currentTarget.blur();
+                      }}
                     />
                   </div>
                 </div>

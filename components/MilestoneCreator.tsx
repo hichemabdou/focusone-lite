@@ -108,7 +108,10 @@ export default function MilestoneCreator({ milestone, onSave, onCancel, onDelete
               type="date"
               className="field"
               value={date}
-              onChange={(e) => setDate(e.target.value)}
+              onChange={(e) => {
+                setDate(e.target.value);
+                e.currentTarget.blur();
+              }}
             />
           </div>
         ) : (
@@ -119,7 +122,10 @@ export default function MilestoneCreator({ milestone, onSave, onCancel, onDelete
                 type="date"
                 className="field"
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  e.currentTarget.blur();
+                }}
               />
             </div>
             <div className="milestone-creator__field">
@@ -128,7 +134,10 @@ export default function MilestoneCreator({ milestone, onSave, onCancel, onDelete
                 type="date"
                 className="field"
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                onChange={(e) => {
+                  setEndDate(e.target.value);
+                  e.currentTarget.blur();
+                }}
               />
             </div>
           </div>

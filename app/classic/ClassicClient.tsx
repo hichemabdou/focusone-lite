@@ -13,6 +13,42 @@ import IntegrationsModal from "@/components/IntegrationsModal";
 import CustomizationPanel from "@/components/CustomizationPanel";
 import { openCustomizationPanel } from "@/components/customizationEvents";
 
+// Helper function to get user initials
+function getUserInitials(name: string): string {
+  if (!name) return 'U';
+
+  // If it's an email, use the first letter
+  if (name.includes('@')) {
+    return name.charAt(0).toUpperCase();
+  }
+
+  // Split by space and get first letter of each word (up to 2)
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  }
+  return parts[0].charAt(0).toUpperCase();
+}
+
+// Helper function to generate a deterministic color from a string
+function generateAvatarColor(str: string): string {
+  // Simple hash function
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+
+  // Generate two colors for gradient
+  const hue1 = Math.abs(hash % 360);
+  const hue2 = (hue1 + 60) % 360;
+
+  const saturation = 65;
+  const lightness1 = 55;
+  const lightness2 = 45;
+
+  return `hsl(${hue1}, ${saturation}%, ${lightness1}%), hsl(${hue2}, ${saturation}%, ${lightness2}%)`;
+}
+
 export default function ClassicClient() {
   const { data: session } = useSession();
   const { importJson, exportJson, filters, setFilters } = useGoals();
@@ -105,16 +141,24 @@ export default function ClassicClient() {
         <div className="workspace__account">
           {session?.user ? (
             <>
-              <div className="workspace__avatar" aria-hidden>
+              <div
+                className="workspace__avatar"
+                aria-hidden
+                style={session.user.image ? {} : {
+                  background: `linear-gradient(135deg, ${generateAvatarColor(session.user.name || session.user.email || 'User')})`,
+                  fontWeight: 600,
+                  fontSize: '14px',
+                  letterSpacing: '0.5px'
+                }}
+              >
                 {session.user.image ? (
                   <img src={session.user.image} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%' }} />
                 ) : (
-                  session.user.name?.charAt(0).toUpperCase() || session.user.email?.charAt(0).toUpperCase() || 'U'
+                  getUserInitials(session.user.name || session.user.email || 'User')
                 )}
               </div>
               <div className="workspace__account-meta">
-                <span className="workspace__account-label">{session.user.name || session.user.email}</span>
-                <span className="workspace__account-status">{session.user.email}</span>
+                <span className="workspace__account-label">{session.user.name || 'User'}</span>
               </div>
             </>
           ) : (
@@ -188,7 +232,7 @@ export default function ClassicClient() {
                       type="button"
                       className="workspace__tools-item"
                       onClick={() => {
-                        openCustomizationPanel();
+                        openCustomizationPanel("categories");
                         setToolsOpen(false);
                       }}
                     >
