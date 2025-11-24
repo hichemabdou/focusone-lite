@@ -8,6 +8,7 @@ import { useTheme } from "./ThemeContext";
 import { useGoals } from "./GoalsContext";
 import { ChangeEvent } from "react";
 import { openCustomizationPanel } from "./customizationEvents";
+import { motion, AnimatePresence } from "framer-motion";
 
 type NavSection = {
     id: string;
@@ -22,11 +23,8 @@ const NAV_SECTIONS: NavSection[] = [
         label: "Dashboard",
         href: "/dashboard",
         icon: (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="7" height="7" />
-                <rect x="14" y="3" width="7" height="7" />
-                <rect x="14" y="14" width="7" height="7" />
-                <rect x="3" y="14" width="7" height="7" />
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z" />
             </svg>
         ),
     },
@@ -35,9 +33,10 @@ const NAV_SECTIONS: NavSection[] = [
         label: "Goals",
         href: "/classic",
         icon: (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2v20M2 12h20" />
-                <circle cx="12" cy="12" r="9" />
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <circle cx="12" cy="12" r="6" />
+                <circle cx="12" cy="12" r="2" />
             </svg>
         ),
     },
@@ -46,9 +45,8 @@ const NAV_SECTIONS: NavSection[] = [
         label: "Tasks",
         href: "/tasks",
         icon: (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 11l3 3L22 4" />
-                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
         ),
     },
@@ -57,9 +55,9 @@ const NAV_SECTIONS: NavSection[] = [
         label: "Finances",
         href: "/finances",
         icon: (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="1" x2="12" y2="23" />
-                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
+                <path d="M2 12h20" opacity="0.3" />
             </svg>
         ),
     },
@@ -68,8 +66,9 @@ const NAV_SECTIONS: NavSection[] = [
         label: "Health",
         href: "/health",
         icon: (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                <path d="M12 5.5v7M8.5 9h7" opacity="0.5" />
             </svg>
         ),
     },
@@ -78,8 +77,9 @@ const NAV_SECTIONS: NavSection[] = [
         label: "Growth",
         href: "/personal-dev",
         icon: (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3v18M3 12h18" />
+                <path d="M12 3l3 3m-3-3L9 6M12 21l3-3m-3 3l-3-3M21 12l-3 3m3-3l-3-3M3 12l3 3m-3-3l3-3" />
             </svg>
         ),
     },
@@ -114,6 +114,12 @@ function generateAvatarColor(str: string): string {
 
 export default function LifeOpsNav() {
     const pathname = usePathname();
+
+    // Hide navigation on auth pages
+    if (pathname?.startsWith("/auth")) {
+        return null;
+    }
+
     const { data: session } = useSession();
     const { theme, toggleTheme } = useTheme();
     const { importJson, exportJson } = useGoals();
@@ -165,94 +171,269 @@ export default function LifeOpsNav() {
         <nav className="lifeops-nav">
             <div className="lifeops-nav__container">
                 <div className="lifeops-nav__brand">
-                    <Link href="/dashboard" className="lifeops-nav__logo">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                            <path
-                                d="M12 2L2 7L12 12L22 7L12 2Z"
-                                fill="url(#logo-gradient)"
-                                stroke="currentColor"
-                                strokeWidth="1.5"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                            />
-                            <path
-                                d="M2 17L12 22L22 17"
-                                stroke="currentColor"
-                                strokeWidth="1.5"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                            />
-                            <path
-                                d="M2 12L12 17L22 12"
-                                stroke="currentColor"
-                                strokeWidth="1.5"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                            />
-                            <defs>
-                                <linearGradient id="logo-gradient" x1="2" y1="2" x2="22" y2="12">
-                                    <stop offset="0%" stopColor="#3b82f6" />
-                                    <stop offset="100%" stopColor="#2563eb" />
-                                </linearGradient>
-                            </defs>
-                        </svg>
-                        <span className="lifeops-nav__brand-text">Life Ops</span>
+                    <Link href="/dashboard" className="lifeops-nav__logo flex items-center gap-3 group">
+                        {/* Animated 3D Logo - exact same as auth page, just smaller */}
+                        <div style={{
+                            perspective: '400px',
+                            width: '32px',
+                            height: '32px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                        }}>
+                            {/* Outer cube */}
+                            <div style={{
+                                position: 'absolute',
+                                width: '24px',
+                                height: '24px',
+                                transformStyle: 'preserve-3d',
+                                animation: 'rotateCube 25s linear infinite',
+                            }}>
+                                <div style={{ position: 'absolute', width: '24px', height: '24px', background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.08))', border: '1px solid rgba(255, 255, 255, 0.2)', transform: 'translateZ(12px)' }} />
+                                <div style={{ position: 'absolute', width: '24px', height: '24px', background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.05))', border: '1px solid rgba(255, 255, 255, 0.15)', transform: 'translateZ(-12px) rotateY(180deg)' }} />
+                                <div style={{ position: 'absolute', width: '24px', height: '24px', background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.06))', border: '1px solid rgba(255, 255, 255, 0.18)', transform: 'rotateY(90deg) translateZ(12px)' }} />
+                                <div style={{ position: 'absolute', width: '24px', height: '24px', background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05))', border: '1px solid rgba(255, 255, 255, 0.15)', transform: 'rotateY(-90deg) translateZ(12px)' }} />
+                                <div style={{ position: 'absolute', width: '24px', height: '24px', background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.1))', border: '1px solid rgba(255, 255, 255, 0.22)', transform: 'rotateX(90deg) translateZ(12px)' }} />
+                                <div style={{ position: 'absolute', width: '24px', height: '24px', background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.03))', border: '1px solid rgba(255, 255, 255, 0.12)', transform: 'rotateX(-90deg) translateZ(12px)' }} />
+                            </div>
+
+                            {/* Inner triangle - same positioning as auth */}
+                            <div style={{
+                                position: 'absolute',
+                                left: '50%',
+                                top: '50%',
+                                width: '19px',
+                                height: '16px',
+                                marginLeft: '-9.5px',
+                                marginTop: '-8px',
+                                transformOrigin: 'center center',
+                                animation: 'rotateTriangle 15s linear infinite',
+                            }}>
+                                <div style={{
+                                    position: 'absolute',
+                                    top: '-2.7px',
+                                    left: '0',
+                                    width: 0,
+                                    height: 0,
+                                    borderLeft: '9.5px solid transparent',
+                                    borderRight: '9.5px solid transparent',
+                                    borderBottom: '16px solid rgba(255, 255, 255, 0.35)',
+                                    filter: 'drop-shadow(0 0 3px rgba(255, 255, 255, 0.4))',
+                                }} />
+                            </div>
+
+                            {/* Center sphere - exact same positioning as auth */}
+                            <div style={{
+                                position: 'absolute',
+                                width: '4px',
+                                height: '4px',
+                                background: 'radial-gradient(circle, rgba(255, 255, 255, 1), rgba(255, 255, 255, 0.9))',
+                                borderRadius: '50%',
+                                left: '50%',
+                                top: '50%',
+                                marginLeft: '-1.5px', // Scaled from -3.5px (auth) to match smaller size
+                                marginTop: '-1.5px',  // Scaled from -3.5px (auth) to match smaller size
+                                transform: 'translate(-50%, -50%)',
+                                animation: 'pulseSphere 2s ease-in-out infinite',
+                                boxShadow: '0 0 6px rgba(255, 255, 255, 0.5)',
+                            }} />
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <span style={{
+                                fontSize: '20px',
+                                fontWeight: '600',
+                                color: '#ffffff',
+                                letterSpacing: '-0.01em',
+                            }}>Focus One</span>
+                            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-white/5 text-white/40 border border-white/10">Lite</span>
+                        </div>
                     </Link>
+
+                    <style jsx>{`
+                        @keyframes rotateCube {
+                            from { transform: rotateX(0deg) rotateY(0deg); }
+                            to { transform: rotateX(360deg) rotateY(360deg); }
+                        }
+                        @keyframes rotateTriangle {
+                            from { transform: rotateZ(0deg); }
+                            to { transform: rotateZ(360deg); }
+                        }
+                        @keyframes pulseSphere {
+                            0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.85; box-shadow: 0 0 6px rgba(255, 255, 255, 0.5); }
+                            50% { transform: translate(-50%, -50%) scale(1.3); opacity: 1; box-shadow: 0 0 12px rgba(255, 255, 255, 0.9); }
+                        }
+                    `}</style>
                 </div>
 
                 <div className="lifeops-nav__sections">
-                    {NAV_SECTIONS.map((section) => (
-                        <Link
-                            key={section.id}
-                            href={section.href}
-                            className={`lifeops-nav__item ${isActive(section.href) ? "lifeops-nav__item--active" : ""
-                                }`}
-                        >
-                            <span className="lifeops-nav__icon">{section.icon}</span>
-                            <span className="lifeops-nav__label">{section.label}</span>
-                        </Link>
-                    ))}
+                    {NAV_SECTIONS.map((section, index) => {
+                        const active = isActive(section.href);
+                        return (
+                            <Link
+                                key={section.id}
+                                href={section.href}
+                                className={`lifeops-nav__item ${active ? "lifeops-nav__item--active" : ""}`}
+                            >
+                                <motion.div
+                                    initial={{ opacity: 0, y: -10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{
+                                        duration: 0.3,
+                                        delay: index * 0.05,
+                                        ease: [0.19, 1, 0.22, 1]
+                                    }}
+                                    className="lifeops-nav__item-content"
+                                >
+                                    {/* Icon with hover scale effect */}
+                                    <motion.span
+                                        className="lifeops-nav__icon"
+                                        whileHover={{
+                                            scale: 1.1,
+                                            rotate: [0, -5, 5, 0],
+                                            transition: { duration: 0.3 }
+                                        }}
+                                        whileTap={{ scale: 0.95 }}
+                                    >
+                                        {section.icon}
+                                    </motion.span>
+
+                                    <span className="lifeops-nav__label">{section.label}</span>
+
+                                    {/* Active indicator with smooth animation */}
+                                    <AnimatePresence>
+                                        {active && (
+                                            <motion.div
+                                                className="lifeops-nav__active-indicator"
+                                                layoutId="activeTab"
+                                                initial={{ opacity: 0, scale: 0.8 }}
+                                                animate={{ opacity: 1, scale: 1 }}
+                                                exit={{ opacity: 0, scale: 0.8 }}
+                                                transition={{
+                                                    type: "spring",
+                                                    stiffness: 500,
+                                                    damping: 30
+                                                }}
+                                            />
+                                        )}
+                                    </AnimatePresence>
+                                </motion.div>
+                            </Link>
+                        );
+                    })}
                 </div>
 
                 <div className="lifeops-nav__actions">
-                    <button className="lifeops-nav__action-btn" aria-label="Search">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <motion.button
+                        className="lifeops-nav__action-btn"
+                        aria-label="Search"
+                        whileHover={{ scale: 1.05, y: -2 }}
+                        whileTap={{ scale: 0.95 }}
+                        transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                    >
+                        <motion.svg
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            whileHover={{ rotate: 15 }}
+                            transition={{ duration: 0.2 }}
+                        >
                             <circle cx="11" cy="11" r="8" />
                             <path d="m21 21-4.35-4.35" />
-                        </svg>
-                    </button>
+                        </motion.svg>
+                    </motion.button>
 
-                    <button
+                    <motion.button
                         className="lifeops-nav__action-btn"
                         aria-label="Toggle theme"
                         onClick={toggleTheme}
+                        whileHover={{ scale: 1.05, y: -2 }}
+                        whileTap={{ scale: 0.95 }}
+                        transition={{ type: "spring", stiffness: 400, damping: 17 }}
                     >
-                        {theme === "dark" ? (
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M12 5.5V3M12 21v-2.5M5.5 12H3M21 12h-2.5M5.99 5.99 4.57 4.57M19.43 19.43l-1.41-1.41M18.01 5.99l1.42-1.42M4.57 19.43l1.41-1.41" />
-                                <circle cx="12" cy="12" r="4" />
-                            </svg>
-                        ) : (
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M21 15.5A8.5 8.5 0 0 1 8.5 3a8.5 8.5 0 1 0 12.5 12.5Z" />
-                            </svg>
-                        )}
-                    </button>
+                        <AnimatePresence mode="wait">
+                            {theme === "dark" ? (
+                                <motion.svg
+                                    key="sun"
+                                    width="18"
+                                    height="18"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    initial={{ rotate: -90, opacity: 0 }}
+                                    animate={{ rotate: 0, opacity: 1 }}
+                                    exit={{ rotate: 90, opacity: 0 }}
+                                    transition={{ duration: 0.2 }}
+                                    whileHover={{ rotate: 180 }}
+                                >
+                                    <path d="M12 5.5V3M12 21v-2.5M5.5 12H3M21 12h-2.5M5.99 5.99 4.57 4.57M19.43 19.43l-1.41-1.41M18.01 5.99l1.42-1.42M4.57 19.43l1.41-1.41" />
+                                    <circle cx="12" cy="12" r="4" />
+                                </motion.svg>
+                            ) : (
+                                <motion.svg
+                                    key="moon"
+                                    width="18"
+                                    height="18"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    initial={{ rotate: 90, opacity: 0 }}
+                                    animate={{ rotate: 0, opacity: 1 }}
+                                    exit={{ rotate: -90, opacity: 0 }}
+                                    transition={{ duration: 0.2 }}
+                                    whileHover={{ rotate: -15 }}
+                                >
+                                    <path d="M21 15.5A8.5 8.5 0 0 1 8.5 3a8.5 8.5 0 1 0 12.5 12.5Z" />
+                                </motion.svg>
+                            )}
+                        </AnimatePresence>
+                    </motion.button>
 
                     <div className="lifeops-nav__account-settings" ref={settingsRef}>
-                        <button
+                        <motion.button
                             type="button"
                             className={`lifeops-nav__action-btn ${toolsOpen ? "lifeops-nav__action-btn--active" : ""}`}
                             aria-label="Settings"
                             aria-expanded={toolsOpen}
                             onClick={() => setToolsOpen((prev) => !prev)}
+                            whileHover={{ scale: 1.05, y: -2 }}
+                            whileTap={{ scale: 0.95 }}
+                            transition={{ type: "spring", stiffness: 400, damping: 17 }}
                         >
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <motion.svg
+                                width="18"
+                                height="18"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                animate={{ rotate: toolsOpen ? 90 : 0 }}
+                                transition={{ duration: 0.3, ease: [0.19, 1, 0.22, 1] }}
+                            >
                                 <path d="M12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Zm9 2.5a7 7 0 0 0-.2-1.7l2.2-1.7-2-3.4-2.6 1a7.2 7.2 0 0 0-2.9-1.6l-.4-2.8H9.9l-.4 2.8a7.2 7.2 0 0 0-2.9 1.6l-2.6-1-2 3.4 2.2 1.7a7 7 0 0 0 0 3.4l-2.2 1.7 2 3.4 2.6-1a7.2 7.2 0 0 0 2.9 1.6l.4 2.8h4.2l.4-2.8a7.2 7.2 0 0 0 2.9-1.6l2.6 1 2-3.4-2.2-1.7c.13-.55.2-1.12.2-1.7Z" strokeLinejoin="round" />
-                            </svg>
-                        </button>
-                        {toolsOpen && (
-                            <div className="lifeops-nav__tools" role="menu">
+                            </motion.svg>
+                        </motion.button>
+                        <AnimatePresence>
+                            {toolsOpen && (
+                                <motion.div
+                                    className="lifeops-nav__tools"
+                                    role="menu"
+                                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                                    transition={{ duration: 0.2, ease: [0.19, 1, 0.22, 1] }}
+                                >
                                 <p className="lifeops-nav__tools-title">Control Center</p>
 
                                 <div className="lifeops-nav__tools-group">
@@ -327,8 +508,9 @@ export default function LifeOpsNav() {
                                         </Link>
                                     </div>
                                 )}
-                            </div>
-                        )}
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </div>
 
                     {session?.user ? (

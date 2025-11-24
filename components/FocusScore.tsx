@@ -68,53 +68,54 @@ export default function FocusScore({ variant = 'full' }: { variant?: 'full' | 'c
 
     if (variant === 'compact') {
         return (
-            <div className="focus-score-compact" style={{ borderColor: `${color}40`, background: `${color}10` }}>
-                <div className="focus-score-compact__value" style={{ color }}>{scoreData.score}</div>
-                <div className="focus-score-compact__label">Focus Score</div>
+            <div className="flex items-center gap-3 px-3 py-1.5 rounded-full border bg-opacity-10 backdrop-blur-sm transition-all duration-300 hover:bg-opacity-20"
+                style={{ borderColor: `${color}30`, backgroundColor: `${color}10` }}>
+                <div className="text-lg font-bold leading-none" style={{ color }}>{scoreData.score}</div>
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Focus Score</div>
             </div>
         );
     }
 
     return (
-        <div className="focus-score-card">
-            <div className="focus-score-card__header">
-                <h3 className="focus-score-card__title">Focus Score</h3>
-                <div className="focus-score-card__badge" style={{ color: color, borderColor: color, backgroundColor: `${color}15` }}>
+        <div className="w-full p-6 rounded-2xl bg-slate-900/50 border border-white/5 flex flex-col h-full">
+            <div className="flex items-center justify-between mb-6">
+                <h3 className="text-base font-semibold text-slate-200">Focus Score</h3>
+                <div className="px-2.5 py-1 rounded-lg text-xs font-bold border"
+                    style={{ color: color, borderColor: `${color}30`, backgroundColor: `${color}10` }}>
                     {scoreData.grade}
                 </div>
             </div>
 
-            <div className="focus-score-card__main">
-                <div className="focus-score-card__gauge">
-                    <svg viewBox="0 0 36 36" className="focus-gauge">
+            <div className="flex items-center gap-6 flex-1">
+                <div className="w-24 h-24 shrink-0 relative">
+                    <svg viewBox="0 0 36 36" className="transform -rotate-90 w-full h-full drop-shadow-lg">
                         <path
-                            d="M18 2.0845
-                        a 15.9155 15.9155 0 0 1 0 31.831
-                        a 15.9155 15.9155 0 0 1 0 -31.831"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                             fill="none"
-                            stroke="rgba(255,255,255,0.1)"
-                            strokeWidth="3"
+                            stroke="rgba(255,255,255,0.05)"
+                            strokeWidth="2.5"
                         />
                         <path
-                            d="M18 2.0845
-                        a 15.9155 15.9155 0 0 1 0 31.831
-                        a 15.9155 15.9155 0 0 1 0 -31.831"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                             fill="none"
                             stroke={color}
-                            strokeWidth="3"
+                            strokeWidth="2.5"
                             strokeDasharray={`${scoreData.score}, 100`}
-                            className="focus-gauge__fill"
+                            className="transition-all duration-1000 ease-out"
+                            strokeLinecap="round"
                         />
-                        <text x="18" y="20.5" className="focus-gauge__text" fill={color}>{scoreData.score}</text>
                     </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-xl font-bold" style={{ color }}>{scoreData.score}</span>
+                    </div>
                 </div>
-                <div className="focus-score-card__details">
-                    <p className="focus-score-card__message">{scoreData.message}</p>
-                    <div className="focus-score-card__stats">
-                        {scoreData.inProgressCount > 5 && <span className="text-red-400">Overloaded ({scoreData.inProgressCount} active)</span>}
-                        {scoreData.blockedCount > 0 && <span className="text-red-400">{scoreData.blockedCount} Blocked</span>}
-                        {scoreData.overdueCount > 0 && <span className="text-orange-400">{scoreData.overdueCount} Overdue</span>}
-                        {scoreData.inProgressCount <= 5 && scoreData.blockedCount === 0 && scoreData.overdueCount === 0 && <span className="text-gray-400">All systems go</span>}
+                <div className="flex flex-col gap-2">
+                    <p className="text-lg font-semibold text-slate-100 leading-tight">{scoreData.message}</p>
+                    <div className="flex flex-col gap-1 text-xs">
+                        {scoreData.inProgressCount > 5 && <span className="text-red-400 font-medium">Overloaded ({scoreData.inProgressCount} active)</span>}
+                        {scoreData.blockedCount > 0 && <span className="text-red-400 font-medium">{scoreData.blockedCount} Blocked</span>}
+                        {scoreData.overdueCount > 0 && <span className="text-orange-400 font-medium">{scoreData.overdueCount} Overdue</span>}
+                        {scoreData.inProgressCount <= 5 && scoreData.blockedCount === 0 && scoreData.overdueCount === 0 && <span className="text-slate-500 italic">All systems go</span>}
                     </div>
                 </div>
             </div>

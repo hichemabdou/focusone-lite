@@ -1,47 +1,77 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { calculateFinancialMetrics, calculateCategoryBreakdown } from "@/lib/finance/calculator";
 
 type Transaction = {
     id: string;
-    date: string;
+    transaction_date: string;
     description: string;
     amount: number;
     category: string;
-    type: "income" | "expense";
+    transaction_type: string;
 };
 
 export default function IncomeExpenses() {
-    const [transactions] = useState<Transaction[]>([
-        { id: "1", date: "2024-11-20", description: "Salary", amount: 5000, category: "Salary", type: "income" },
-        { id: "2", date: "2024-11-18", description: "Freelance Project", amount: 1500, category: "Freelance", type: "income" },
-        { id: "3", date: "2024-11-15", description: "Rent", amount: 1800, category: "Housing", type: "expense" },
-        { id: "4", date: "2024-11-12", description: "Groceries", amount: 450, category: "Food", type: "expense" },
-        { id: "5", date: "2024-11-10", description: "Electric Bill", amount: 120, category: "Utilities", type: "expense" },
-        { id: "6", date: "2024-11-08", description: "Restaurant", amount: 85, category: "Dining", type: "expense" },
-        { id: "7", date: "2024-11-05", description: "Gas", amount: 60, category: "Transportation", type: "expense" },
-    ]);
+    const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [accounts, setAccounts] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        fetchData();
+    }, []);
+
+    const fetchData = async () => {
+        try {
+            setIsLoading(true);
+            setError(null);
+
+            // Fetch transactions
+            const transactionsResponse = await fetch('/api/finance/transactions?limit=100');
+            if (!transactionsResponse.ok) throw new Error('Failed to fetch transactions');
+            const transactionsData = await transactionsResponse.json();
+            setTransactions(transactionsData.transactions || []);
+
+            // Fetch accounts for metrics calculation
+            const accountsResponse = await fetch('/api/finance/accounts');
+            if (!accountsResponse.ok) throw new Error('Failed to fetch accounts');
+            const accountsData = await accountsResponse.json();
+            setAccounts(accountsData.accounts || []);
+        } catch (err) {
+            console.error('Error fetching data:', err);
+            setError(err instanceof Error ? err.message : 'Failed to load data');
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     const currentMonth = new Date().toLocaleString("default", { month: "long", year: "numeric" });
 
-    const monthlyIncome = transactions
-        .filter((t) => t.type === "income")
-        .reduce((sum, t) => sum + t.amount, 0);
+    // Calculate metrics using the calculator
+    const metrics = accounts.length > 0 && transactions.length > 0
+        ? calculateFinancialMetrics(accounts, transactions)
+        : {
+            monthlyIncome: 0,
+            monthlyExpenses: 0,
+            monthlySavings: 0,
+            savingsRate: 0,
+            netWorth: 0,
+            totalAssets: 0,
+            totalLiabilities: 0,
+            debtToIncomeRatio: 0,
+            emergencyFundMonths: 0,
+        };
 
-    const monthlyExpenses = transactions
-        .filter((t) => t.type === "expense")
-        .reduce((sum, t) => sum + t.amount, 0);
+    // Get category breakdown
+    const categoryBreakdown = transactions.length > 0
+        ? calculateCategoryBreakdown(transactions)
+        : [];
 
-    const monthlySavings = monthlyIncome - monthlyExpenses;
-    const savingsRate = monthlyIncome > 0 ? (monthlySavings / monthlyIncome) * 100 : 0;
-
-    // Group expenses by category
-    const expensesByCategory = transactions
-        .filter((t) => t.type === "expense")
-        .reduce((acc, t) => {
-            acc[t.category] = (acc[t.category] || 0) + t.amount;
-            return acc;
-        }, {} as Record<string, number>);
+    // Get recent transactions (last 10)
+    const recentTransactions = [...transactions]
+        .sort((a, b) => new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime())
+        .slice(0, 10);
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat("en-US", {
@@ -52,6 +82,40 @@ export default function IncomeExpenses() {
         }).format(amount);
     };
 
+    const formatDate = (dateStr: string) => {
+        return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    };
+
+    if (isLoading) {
+        return (
+            <div className="income-expenses">
+                <div className="loading-state">
+                    <div className="spinner"></div>
+                    <p>Loading transactions...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="income-expenses">
+                <div className="error-state">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="8" x2="12" y2="12" />
+                        <line x1="12" y1="16" x2="12.01" y2="16" />
+                    </svg>
+                    <h3>Failed to load data</h3>
+                    <p>{error}</p>
+                    <button className="btn btn--primary" onClick={fetchData}>
+                        Try Again
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="income-expenses">
             {/* Monthly Summary */}
@@ -59,102 +123,101 @@ export default function IncomeExpenses() {
                 <div className="financial-card">
                     <div className="financial-card__label">Monthly Income</div>
                     <div className="financial-card__value financial-card__value--success">
-                        {formatCurrency(monthlyIncome)}
+                        {formatCurrency(metrics.monthlyIncome)}
                     </div>
                 </div>
 
                 <div className="financial-card">
                     <div className="financial-card__label">Monthly Expenses</div>
                     <div className="financial-card__value financial-card__value--danger">
-                        {formatCurrency(monthlyExpenses)}
+                        {formatCurrency(metrics.monthlyExpenses)}
                     </div>
                 </div>
 
                 <div className="financial-card financial-card--primary">
                     <div className="financial-card__label">Monthly Savings</div>
-                    <div className="financial-card__value">{formatCurrency(monthlySavings)}</div>
+                    <div className="financial-card__value">{formatCurrency(metrics.monthlySavings)}</div>
                     <div className="financial-card__change">
-                        Savings Rate: {savingsRate.toFixed(1)}%
+                        Savings Rate: {metrics.savingsRate.toFixed(1)}%
                     </div>
                 </div>
             </div>
 
             {/* Expense Breakdown */}
             <div className="expense-breakdown">
-                <div className="expense-breakdown__header">
-                    <h3>Expenses by Category</h3>
-                    <span className="text-muted">{currentMonth}</span>
-                </div>
-                <div className="expense-categories">
-                    {Object.entries(expensesByCategory)
-                        .sort(([, a], [, b]) => b - a)
-                        .map(([category, amount]) => (
-                            <div key={category} className="expense-category">
-                                <div className="expense-category__header">
-                                    <span className="expense-category__name">{category}</span>
-                                    <span className="expense-category__amount">{formatCurrency(amount)}</span>
+                <h3>Spending by Category ({currentMonth})</h3>
+                <div className="category-list">
+                    {categoryBreakdown.length > 0 ? (
+                        categoryBreakdown.slice(0, 8).map((category) => (
+                            <div key={category.category} className="category-item">
+                                <div className="category-item__header">
+                                    <span className="category-item__name">{category.category}</span>
+                                    <span className="category-item__amount">{formatCurrency(category.amount)}</span>
                                 </div>
-                                <div className="expense-category__bar">
+                                <div className="category-item__bar">
                                     <div
-                                        className="expense-category__fill"
-                                        style={{ width: `${(amount / monthlyExpenses) * 100}%` }}
-                                    ></div>
+                                        className="category-item__fill"
+                                        style={{ width: `${category.percentage}%` }}
+                                    />
                                 </div>
-                                <div className="expense-category__percentage">
-                                    {((amount / monthlyExpenses) * 100).toFixed(1)}% of expenses
+                                <div className="category-item__details">
+                                    <span>{category.transactionCount} transaction{category.transactionCount !== 1 ? 's' : ''}</span>
+                                    <span>{category.percentage.toFixed(1)}%</span>
                                 </div>
                             </div>
-                        ))}
+                        ))
+                    ) : (
+                        <div className="empty-state">
+                            <p>No transactions to categorize yet</p>
+                        </div>
+                    )}
                 </div>
             </div>
 
             {/* Recent Transactions */}
-            <div className="financial-table-container">
-                <div className="financial-table-header">
+            <div className="recent-transactions">
+                <div className="recent-transactions__header">
                     <h3>Recent Transactions</h3>
                     <button className="btn btn--sm btn--ghost">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M12 5v14M5 12h14" />
                         </svg>
                         Add Transaction
                     </button>
                 </div>
-                <div className="financial-table">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Date</th>
-                                <th>Description</th>
-                                <th>Category</th>
-                                <th className="text-right">Amount</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {transactions.map((transaction) => (
-                                <tr key={transaction.id}>
-                                    <td className="text-muted">
-                                        {new Date(transaction.date).toLocaleDateString("en-US", {
-                                            month: "short",
-                                            day: "numeric",
-                                        })}
-                                    </td>
-                                    <td>{transaction.description}</td>
-                                    <td>
-                                        <span className={`transaction-category transaction-category--${transaction.type}`}>
-                                            {transaction.category}
-                                        </span>
-                                    </td>
-                                    <td
-                                        className={`text-right font-mono ${transaction.type === "income" ? "text-success" : "text-danger"
-                                            }`}
-                                    >
-                                        {transaction.type === "income" ? "+" : "-"}
-                                        {formatCurrency(Math.abs(transaction.amount))}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                <div className="transactions-list">
+                    {recentTransactions.length > 0 ? (
+                        recentTransactions.map((transaction) => (
+                            <div key={transaction.id} className="transaction-item">
+                                <div className="transaction-item__icon">
+                                    {transaction.amount > 0 ? (
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <path d="M12 19V5M5 12l7-7 7 7" />
+                                        </svg>
+                                    ) : (
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <path d="M12 5v14M19 12l-7 7-7-7" />
+                                        </svg>
+                                    )}
+                                </div>
+                                <div className="transaction-item__details">
+                                    <div className="transaction-item__description">{transaction.description}</div>
+                                    <div className="transaction-item__meta">
+                                        <span>{formatDate(transaction.transaction_date)}</span>
+                                        <span className="transaction-item__category">{transaction.category}</span>
+                                    </div>
+                                </div>
+                                <div className={`transaction-item__amount ${transaction.amount > 0 ? 'transaction-item__amount--income' : 'transaction-item__amount--expense'}`}>
+                                    {transaction.amount > 0 ? '+' : ''}{formatCurrency(transaction.amount)}
+                                </div>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="empty-state">
+                            <p>No transactions yet</p>
+                            <button className="btn btn--sm btn--primary">Add Your First Transaction</button>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

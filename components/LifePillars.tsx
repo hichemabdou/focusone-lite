@@ -31,43 +31,53 @@ export default function LifePillars() {
     });
 
     return (
-        <div className="life-pillars">
-            <div className="life-pillars__header">
-                <h3>Life Pillars</h3>
-                <p>Balance across key areas</p>
+        <div className="life-pillars flex flex-col gap-4">
+            <div className="life-pillars__header flex items-center justify-between">
+                <div>
+                    <h3 className="text-lg font-semibold text-slate-100">Life Pillars</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">Balance across key areas</p>
+                </div>
             </div>
-            <div className="life-pillars__grid">
+            <div className="life-pillars__grid grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                 {pillars.map(pillar => (
-                    <div key={pillar.id} className="pillar-card" style={{ borderColor: `${pillar.color}30` }}>
-                        <div className="pillar-card__header">
-                            <div className="pillar-card__icon" style={{ backgroundColor: `${pillar.color}20`, color: pillar.color }}>
-                                {/* Placeholder icon logic - ideally categories have icons */}
-                                {pillar.name.charAt(0)}
-                            </div>
-                            <div className="pillar-card__title-group">
-                                <h4 className="pillar-card__title">{pillar.name}</h4>
-                                <span className="pillar-card__count">{pillar.active} active</span>
-                            </div>
-                        </div>
+                    <div
+                        key={pillar.id}
+                        className="pillar-card group relative overflow-hidden rounded-xl bg-white/5 border border-white/5 p-4 hover:bg-white/10 transition-all duration-300"
+                    >
+                        <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: pillar.color }} />
 
-                        <div className="pillar-card__progress-wrapper">
-                            <div className="pillar-card__progress-bg">
+                        <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-3">
                                 <div
-                                    className="pillar-card__progress-fill"
-                                    style={{ width: `${pillar.progress}%`, backgroundColor: pillar.color }}
-                                />
+                                    className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shadow-sm"
+                                    style={{ backgroundColor: `${pillar.color}20`, color: pillar.color }}
+                                >
+                                    {pillar.name.charAt(0)}
+                                </div>
+                                <div>
+                                    <h4 className="text-sm font-semibold text-slate-200 leading-tight">{pillar.name}</h4>
+                                    <span className="text-[11px] text-slate-400 font-medium">{pillar.active} active</span>
+                                </div>
                             </div>
+                            <span className="text-xs font-bold text-slate-300">{pillar.progress}%</span>
                         </div>
 
-                        <div className="pillar-card__footer">
+                        <div className="relative h-1.5 bg-white/10 rounded-full overflow-hidden mb-3">
+                            <div
+                                className="absolute top-0 left-0 h-full rounded-full transition-all duration-500 ease-out"
+                                style={{ width: `${pillar.progress}%`, backgroundColor: pillar.color }}
+                            />
+                        </div>
+
+                        <div className="flex items-center justify-between text-[11px]">
                             {pillar.nextDeadline ? (
-                                <span className="pillar-card__deadline">
-                                    Next: {pillar.nextDeadline.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                <span className="text-slate-400 flex items-center gap-1.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+                                    Next: <span className="text-slate-300 font-medium">{pillar.nextDeadline.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
                                 </span>
                             ) : (
-                                <span className="pillar-card__deadline text-muted">No active goals</span>
+                                <span className="text-slate-600 italic">No active goals</span>
                             )}
-                            <span className="pillar-card__percent">{pillar.progress}%</span>
                         </div>
                     </div>
                 ))}

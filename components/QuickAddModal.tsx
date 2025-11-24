@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { hexToRgba } from "./colorUtils";
+
 type QuickAddType = "category" | "priority" | "status";
 
 type Props = {
@@ -59,8 +61,8 @@ export default function QuickAddModal({ type, open, onClose, onAdd }: Props) {
 
   return (
     <div className="quick-add-backdrop" onClick={handleClose}>
-      <div 
-        className="quick-add-modal" 
+      <div
+        className="quick-add-modal"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -75,7 +77,7 @@ export default function QuickAddModal({ type, open, onClose, onAdd }: Props) {
             aria-label="Close"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M2 2L12 12M12 2L2 12"/>
+              <path d="M2 2L12 12M12 2L2 12" />
             </svg>
           </button>
         </div>
@@ -127,10 +129,10 @@ export default function QuickAddModal({ type, open, onClose, onAdd }: Props) {
 
           <div className="quick-add-preview">
             <span>Preview</span>
-            <div className="chip" style={{ 
-              background: `${color}20`, 
-              borderColor: `${color}40`,
-              color: color 
+            <div className="chip" style={{
+              backgroundColor: hexToRgba(color, 0.2),
+              borderColor: hexToRgba(color, 0.55),
+              color: "#ffffff"
             }}>
               {name || 'Preview'}
             </div>
@@ -141,9 +143,9 @@ export default function QuickAddModal({ type, open, onClose, onAdd }: Props) {
           <button type="button" className="btn" onClick={handleClose}>
             Cancel
           </button>
-          <button 
-            type="button" 
-            className="btn btn--primary" 
+          <button
+            type="button"
+            className="btn btn--primary"
             onClick={handleSave}
             disabled={!name.trim()}
           >

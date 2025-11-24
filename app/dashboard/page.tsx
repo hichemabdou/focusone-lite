@@ -13,6 +13,8 @@ import SmartSuggestions from "@/components/SmartSuggestions";
 import GoalEditor from "@/components/GoalEditor";
 import GoalListModal from "@/components/GoalListModal";
 import { createDefaultGoal } from "@/components/goalHelpers";
+import PageTransition from "@/components/PageTransition";
+import { motion } from "framer-motion";
 
 export default function DashboardPage() {
   const { goals } = useGoals();
@@ -69,58 +71,112 @@ export default function DashboardPage() {
   };
 
   return (
-    <main className="workspace">
-      <div className="dashboard-grid">
+    <PageTransition>
+      <main className="workspace">
+        <div className="dashboard-grid">
         {/* 1. Control Bar */}
-        <header className="control-bar">
+        <motion.header
+          className="control-bar"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: [0.22, 0.61, 0.36, 1] }}
+        >
           <div className="control-bar__left">
-            <h1 className="control-bar__title">{greeting}.</h1>
+            <motion.h1
+              className="control-bar__title"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5, delay: 0.1, ease: [0.22, 0.61, 0.36, 1] }}
+            >
+              {greeting}.
+            </motion.h1>
             <div className="control-bar__divider" />
-            <FocusScore variant="compact" />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.4, delay: 0.15, ease: [0.22, 0.61, 0.36, 1] }}
+            >
+              <FocusScore variant="compact" />
+            </motion.div>
             <div className="control-bar__divider" />
-            <span className="text-sm text-muted">Focus: <span className="text-slate-200 font-medium">{topCategory}</span></span>
+            <motion.span
+              className="text-sm text-muted"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.4, delay: 0.2 }}
+            >
+              Focus: <span className="text-slate-200 font-medium">{topCategory}</span>
+            </motion.span>
           </div>
 
-          <div className="control-bar__right">
+          <motion.div
+            className="control-bar__right"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, delay: 0.1, ease: [0.22, 0.61, 0.36, 1] }}
+          >
             <div className="date-display text-sm text-muted font-medium">
               {now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
             </div>
             <Link href="/classic" className="btn btn--secondary btn--sm">
               Workspace
             </Link>
-          </div>
-        </header>
+          </motion.div>
+        </motion.header>
 
         {/* 2. Strategic Horizon */}
-        <section className="dashboard-section--strategic">
+        <motion.section
+          className="dashboard-section--strategic"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2, ease: [0.22, 0.61, 0.36, 1] }}
+        >
           <StrategicOverview />
-        </section>
+        </motion.section>
 
         {/* 3. Main Content Grid */}
-        <div className="dashboard-main-grid">
+        <div className="dashboard-main-grid grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           {/* Left Column: Pillars & Suggestions */}
-          <div className="dashboard-column dashboard-column--main">
-            <LifePillars />
-            <SmartSuggestions onAction={handleSuggestionAction} />
+          <div className="dashboard-column dashboard-column--main lg:col-span-7 flex flex-col gap-8">
+            <motion.div
+              initial={{ opacity: 0, x: -30 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6, delay: 0.3, ease: [0.22, 0.61, 0.36, 1] }}
+            >
+              <LifePillars />
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, x: -30 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6, delay: 0.4, ease: [0.22, 0.61, 0.36, 1] }}
+            >
+              <SmartSuggestions onAction={handleSuggestionAction} />
+            </motion.div>
           </div>
 
           {/* Right Column: Bottlenecks & Balance */}
-          <div className="dashboard-column dashboard-column--side">
-            <div className="dashboard-card">
-              <div className="dashboard-card__header">
-                <h3>Bottlenecks</h3>
-              </div>
+          <div className="dashboard-column dashboard-column--side lg:col-span-5 flex flex-col gap-8">
+            <motion.div
+              className="dashboard-card-premium"
+              initial={{ opacity: 0, x: 30 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6, delay: 0.35, ease: [0.22, 0.61, 0.36, 1] }}
+              whileHover={{ y: -4, transition: { duration: 0.2 } }}
+            >
               <GoalsAtRisk onEditGoal={handleEditGoal} />
-            </div>
+            </motion.div>
 
-            <div className="dashboard-card">
-              <div className="dashboard-card__header">
-                <h3>Balance Check</h3>
-              </div>
-              <div className="flex justify-center h-48 items-center">
+            <motion.div
+              className="dashboard-card-premium"
+              initial={{ opacity: 0, x: 30 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6, delay: 0.45, ease: [0.22, 0.61, 0.36, 1] }}
+              whileHover={{ y: -4, transition: { duration: 0.2 } }}
+            >
+              <div className="flex justify-center items-center min-h-[300px]">
                 <CategoryRadar variant="compact" />
               </div>
-            </div>
+            </motion.div>
           </div>
         </div>
       </div>
@@ -151,6 +207,7 @@ export default function DashboardPage() {
           setEditingGoal(goal);
         }}
       />
-    </main>
+      </main>
+    </PageTransition>
   );
 }

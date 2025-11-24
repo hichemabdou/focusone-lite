@@ -24,12 +24,7 @@ function cloneGoalForUndo(goal: Goal): Goal {
   };
 }
 
-const STATUS_LABELS: Record<Status, string> = {
-  open: "Open",
-  "in-progress": "In progress",
-  blocked: "Blocked",
-  done: "Done",
-};
+// Removed hardcoded STATUS_LABELS in favor of dynamic ones
 type GroupMode = "status" | "priority" | "flow";
 
 /* ---------- component ---------- */
@@ -44,6 +39,7 @@ export default function GoalsList() {
     updateComment,
     deleteComment,
   } = useGoals();
+  const { statuses, priorities } = useCustomization();
   const items = useMemo(() => (visibleGoals ?? goals ?? []) as Goal[], [visibleGoals, goals]);
   const [groupMode, setGroupMode] = useState<GroupMode>("flow");
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
@@ -73,25 +69,23 @@ export default function GoalsList() {
     }
 
     if (groupMode === "priority") {
-      const order: Priority[] = ["critical", "high", "medium", "low"];
-      return order
+      return priorities
         .map((pri) => ({
-          key: `priority-${pri}`,
-          label: pri.charAt(0).toUpperCase() + pri.slice(1),
-          items: sortedItems.filter((goal) => goal.priority === pri),
+          key: `priority-${pri.id}`,
+          label: pri.name,
+          items: sortedItems.filter((goal) => goal.priority === pri.id),
         }))
         .filter((section) => section.items.length > 0);
     }
 
-    const order: Status[] = ["open", "in-progress", "blocked", "done"];
-    return order
+    return statuses
       .map((status) => ({
-        key: `status-${status}`,
-        label: STATUS_LABELS[status],
-        items: sortedItems.filter((goal) => goal.status === status),
+        key: `status-${status.id}`,
+        label: status.name,
+        items: sortedItems.filter((goal) => goal.status === status.id),
       }))
       .filter((section) => section.items.length > 0);
-  }, [groupMode, sortedItems]);
+  }, [groupMode, sortedItems, priorities, statuses]);
 
   const toggleSection = (key: string) => {
     setCollapsedSections((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -200,8 +194,8 @@ export default function GoalsList() {
               title="Undo last change"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 7v6h6"/>
-                <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/>
+                <path d="M3 7v6h6" />
+                <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13" />
               </svg>
             </button>
             <button
@@ -212,8 +206,8 @@ export default function GoalsList() {
               title="Redo change"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 7v6h-6"/>
-                <path d="M3 17a9 9 0 019-9 9 9 0 016 2.3L21 13"/>
+                <path d="M21 7v6h-6" />
+                <path d="M3 17a9 9 0 019-9 9 9 0 016 2.3L21 13" />
               </svg>
             </button>
           </div>
@@ -300,16 +294,16 @@ export default function GoalsList() {
           <div className="undo-toast__actions">
             <button type="button" onClick={undoLastChange} className="undo-toast__btn" disabled={!canUndo}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 7v6h6"/>
-                <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/>
+                <path d="M3 7v6h6" />
+                <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13" />
               </svg>
               Undo
             </button>
             <button type="button" onClick={redoLastChange} className="undo-toast__btn" disabled={!canRedo}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 7v6h-6"/>
-                <path d="M3 17a9 9 0 019-9 9 9 0 016 2.3L21 13"/>
-            </svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 7v6h-6" />
+                <path d="M3 17a9 9 0 019-9 9 9 0 016 2.3L21 13" />
+              </svg>
               Redo
             </button>
           </div>
@@ -339,6 +333,7 @@ function CategorySelect({ goal, updateGoal, onStageUndo }: CategorySelectProps) 
         value: cat.name,
         label: cat.name.charAt(0) + cat.name.slice(1).toLowerCase(),
         tone: `category-${cat.name.toLowerCase()}`,
+        color: cat.color,
       }))}
       addLabel="Add category"
       quickAddType="category"
@@ -374,6 +369,7 @@ function GoalCard({
   updateComment,
   deleteComment,
 }: GoalCardProps) {
+  const { statuses, priorities } = useCustomization();
   const commentCount = goal.comments?.length ?? 0;
   const latestComment = commentCount > 0 ? goal.comments[commentCount - 1] : null;
   const [showComments, setShowComments] = useState(false);
@@ -499,12 +495,12 @@ function GoalCard({
                 onStageUndo(goal);
                 updateGoal({ ...goal, status: next as Status });
               }}
-              options={[
-                { value: "open", label: "Open", tone: "status-open" },
-                { value: "in-progress", label: "In progress", tone: "status-inprog" },
-                { value: "blocked", label: "Blocked", tone: "status-blocked" },
-                { value: "done", label: "Done", tone: "status-done" },
-              ]}
+              options={statuses.map(s => ({
+                value: s.id,
+                label: s.name,
+                tone: `status-${s.id}`,
+                color: s.color
+              }))}
               addLabel="Add status"
               onAdd={() => openCustomizationPanel("statuses")}
             />
@@ -515,12 +511,12 @@ function GoalCard({
                 onStageUndo(goal);
                 updateGoal({ ...goal, priority: next as Priority });
               }}
-              options={[
-                { value: "low", label: "Low", tone: "priority-low" },
-                { value: "medium", label: "Medium", tone: "priority-medium" },
-                { value: "high", label: "High", tone: "priority-high" },
-                { value: "critical", label: "Critical", tone: "priority-critical" },
-              ]}
+              options={priorities.map(p => ({
+                value: p.id,
+                label: p.name,
+                tone: `priority-${p.id}`,
+                color: p.color
+              }))}
               addLabel="Add priority"
               onAdd={() => openCustomizationPanel("priorities")}
             />

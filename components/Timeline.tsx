@@ -188,15 +188,23 @@ export default function Timeline() {
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const tempGoalStartPct = useRef<number>(0);
 
-  // Include temp goal in items if it exists (so it renders while dragging)
-  const items = useMemo(() => {
-    const baseItems = (visibleGoals ?? goals ?? []) as Goal[];
-    return tempGoal ? [...baseItems, tempGoal] : baseItems;
-  }, [visibleGoals, goals, tempGoal]);
-
   // Drag state
   const [dragging, setDragging] = useState<{ goalId: string; type: "move" | "resize-start" | "resize-end" } | null>(null);
   const [dragStart, setDragStart] = useState<{ x: number; startDate: Date; endDate: Date } | null>(null);
+  const [optimisticDragGoal, setOptimisticDragGoal] = useState<Goal | null>(null); // Optimistic update state
+
+  // Include temp goal in items if it exists (so it renders while dragging)
+  // Also replace the dragged goal with the optimistic version if dragging
+  const items = useMemo(() => {
+    const baseItems = (visibleGoals ?? goals ?? []) as Goal[];
+    let finalItems = tempGoal ? [...baseItems, tempGoal] : baseItems;
+
+    if (optimisticDragGoal) {
+      finalItems = finalItems.map(g => g.id === optimisticDragGoal.id ? optimisticDragGoal : g);
+    }
+
+    return finalItems;
+  }, [visibleGoals, goals, tempGoal, optimisticDragGoal]);
 
   type PresetKey = "fit" | "month" | "6m" | "ytd" | "next-ytd" | "5y";
   const [activePreset, setActivePreset] = useState<PresetKey>("fit");
@@ -259,20 +267,20 @@ export default function Timeline() {
   }, [months, msStart, msSpan, showMonthGrid]);
   const { pixelBasis, contentWidth } = useMemo(() => {
     const monthsCount = Math.max(months.length, 1);
-    const monthWidth = focusMode ? 170 : 140;
+    // Significantly increased width per month to ensure scrolling and better visibility
+    const monthWidth = focusMode ? 600 : 500;
     const naturalWidth = Math.max(monthWidth, monthsCount * monthWidth);
-    const maxWidth = focusMode ? 4200 : 2600;
+    // Increased max width to allow for longer ranges
+    const maxWidth = focusMode ? 12000 : 8000;
     const clampedNatural = Math.min(naturalWidth, maxWidth);
-    const measuredWidth = viewportWidth ?? 0;
-    const fallbackWidth = focusMode ? 1400 : 1100;
-    const baseWidth = measuredWidth > 0 ? measuredWidth : Math.min(clampedNatural, fallbackWidth);
-    const needsScroll = measuredWidth > 0 && clampedNatural > measuredWidth + 40;
-    const basis = needsScroll ? clampedNatural : baseWidth || fallbackWidth;
+
+    // Always use the calculated natural width as the basis
+    // This ensures that if the content is wider than the viewport, it will scroll
     return {
-      pixelBasis: basis,
-      contentWidth: needsScroll ? clampedNatural : undefined,
+      pixelBasis: clampedNatural,
+      contentWidth: clampedNatural,
     };
-  }, [months.length, viewportWidth, focusMode]);
+  }, [months.length, focusMode]);
   const contentPixelWidth = contentWidth ?? pixelBasis;
 
   const quarters = useMemo(() => {
@@ -653,39 +661,39 @@ export default function Timeline() {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    // CHECK FOR CREATION (Cmd/Ctrl + Drag)
-    if (e.metaKey || e.ctrlKey) {
-      const viewport = viewportRef.current;
-      if (!viewport) return;
-
-      // Calculate position accounting for scroll
-      const relativeX = e.clientX - rect.left + viewport.scrollLeft;
-      const pct = (relativeX / rect.width) * 100;
-      const startDate = percentageToDate(pct);
-
-      // Create temporary goal
-      const newTempGoal: Goal = {
-        id: `temp-${Date.now()}`,
-        title: "✨ New Goal",
-        startDate,
-        endDate: startDate,
-        category: categories[0]?.name || "FINANCE",
-        priority: "p3",
-        status: "idea",
-        notes: "",
-        milestone: null,
-        comments: []
-      };
-
-      setTempGoal(newTempGoal);
-      tempGoalStartPct.current = pct;
+    // MARQUEE SELECTION (Shift or Cmd/Ctrl + Drag)
+    if (e.shiftKey || e.metaKey || e.ctrlKey) {
+      setMarqueeBox({
+        x, y, width: 0, height: 0, startX: x, startY: y
+      });
       return;
     }
 
-    // DEFAULT: MARQUEE SELECTION (No modifier or Shift)
-    setMarqueeBox({
-      x, y, width: 0, height: 0, startX: x, startY: y
-    });
+    // DEFAULT: CREATE GOAL (Drag on empty space)
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+
+    // Calculate position accounting for scroll
+    const relativeX = e.clientX - rect.left + viewport.scrollLeft;
+    const pct = (relativeX / rect.width) * 100;
+    const startDate = percentageToDate(pct);
+
+    // Create temporary goal
+    const newTempGoal: Goal = {
+      id: `temp-${Date.now()}`,
+      title: "✨ New Goal",
+      startDate,
+      endDate: startDate,
+      category: categories[0]?.name || "FINANCE",
+      priority: "p3",
+      status: "idea",
+      notes: "",
+      milestone: null,
+      comments: []
+    };
+
+    setTempGoal(newTempGoal);
+    tempGoalStartPct.current = pct;
   }, [dragging, tempGoal, percentageToDate, categories]);
 
   const handleCanvasMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -1029,8 +1037,15 @@ export default function Timeline() {
   const clearHover = () => setHovered(null);
 
   const today = new Date();
-  const todayPct = clampNum(((today.getTime() - msStart) / msSpan) * 100, -5, 105);
-  const showToday = todayPct >= 0 && todayPct <= 100;
+  const [todayPct, setTodayPct] = useState(-10); // Default off-screen to avoid hydration mismatch
+  const [showToday, setShowToday] = useState(false);
+
+  useEffect(() => {
+    const pct = clampNum(((today.getTime() - msStart) / msSpan) * 100, -5, 105);
+    setTodayPct(pct);
+    setShowToday(pct >= 0 && pct <= 100);
+  }, [msStart, msSpan]); // Recalculate when range changes
+
   const todayReadable = `Today ${today.getDate()} ${today.toLocaleDateString(undefined, { month: "short" })} ${today.getFullYear()}`;
   const todayLabel = `Today · ${todayReadable}`;
   const todayAlign: "left" | "center" | "right" = todayPct < 6 ? "left" : todayPct > 94 ? "right" : "center";
@@ -1175,16 +1190,24 @@ export default function Timeline() {
   useEffect(() => {
     const viewportEl = viewportRef.current;
     if (!viewportEl) return;
-    const updateSize = () => setViewportWidth(viewportEl.clientWidth);
+
+    const updateSize = () => {
+      if (viewportEl) {
+        setViewportWidth(viewportEl.clientWidth);
+      }
+    };
+
     updateSize();
+
     if (typeof ResizeObserver !== "undefined") {
       const observer = new ResizeObserver(updateSize);
       observer.observe(viewportEl);
       return () => observer.disconnect();
     }
+
     window.addEventListener("resize", updateSize);
     return () => window.removeEventListener("resize", updateSize);
-  }, [focusMode]);
+  }, [focusMode, activePreset]); // Re-run when preset changes to ensure width is recalculated
   useEffect(() => {
     if (focusMode) {
       centerOnToday("smooth");
@@ -1257,6 +1280,7 @@ export default function Timeline() {
     dragOriginalRef.current = cloneGoal(span.g);
     dragMutatedRef.current = false;
     setDragging({ goalId: span.g.id, type });
+    setOptimisticDragGoal(span.g); // Start optimistic update
     setDragStart({
       x: e.clientX,
       startDate: span.start,
@@ -1281,7 +1305,8 @@ export default function Timeline() {
       const deltaPct = (deltaX / rect.width) * 100;
       const deltaMs = (deltaPct / 100) * msSpan;
 
-      const goal = items.find((g) => g.id === dragging.goalId);
+      // Use optimisticDragGoal if available, otherwise fallback to items lookup
+      const goal = optimisticDragGoal || items.find((g) => g.id === dragging.goalId);
       if (!goal) return;
 
       let newStart = new Date(dragStart.startDate);
@@ -1305,7 +1330,8 @@ export default function Timeline() {
         return `${year}-${month}-${day}`;
       };
 
-      updateGoal({
+      // Optimistic update only
+      setOptimisticDragGoal({
         ...goal,
         startDate: formatDate(newStart),
         endDate: formatDate(newEnd),
@@ -1314,11 +1340,17 @@ export default function Timeline() {
     };
 
     const handleMouseUp = () => {
+      // Commit the change if mutated
+      if (dragMutatedRef.current && optimisticDragGoal) {
+        if (dragOriginalRef.current) {
+          stageUndo(dragOriginalRef.current);
+        }
+        updateGoal(optimisticDragGoal);
+      }
+
       setDragging(null);
       setDragStart(null);
-      if (dragMutatedRef.current && dragOriginalRef.current) {
-        stageUndo(dragOriginalRef.current);
-      }
+      setOptimisticDragGoal(null);
       dragOriginalRef.current = null;
       dragMutatedRef.current = false;
     };
@@ -1329,7 +1361,7 @@ export default function Timeline() {
       document.removeEventListener("mousemove", handleMouseMove as (event: globalThis.MouseEvent) => void);
       document.removeEventListener("mouseup", handleMouseUp as (event: globalThis.MouseEvent) => void);
     };
-  }, [dragging, dragStart, msSpan, items, updateGoal, stageUndo]);
+  }, [dragging, dragStart, msSpan, items, updateGoal, stageUndo, optimisticDragGoal]);
 
   return (
     <>
@@ -1547,7 +1579,7 @@ export default function Timeline() {
                         <button
                           type="button"
                           className="timeline__today"
-                          style={{ left: `${todayPct}%` }}
+                          style={{ left: `${todayPct}%`, zIndex: 50 }}
                           aria-label={todayLabel}
                           onMouseEnter={() => setShowTodayDetail(true)}
                           onFocus={() => setShowTodayDetail(true)}
@@ -1636,7 +1668,7 @@ export default function Timeline() {
                           </div>
                         </div>
 
-                        <div className="timeline__rows" style={{ height: `${rowCount * (rowHeight + 14)}px` }}>
+                        <div className="timeline__rows" style={{ height: `${rowCount * (rowHeight + 14) + 80}px` }}>
                           {spans.map((span) => (
                             <TimelineBar
                               key={span.g.id}
@@ -1649,6 +1681,7 @@ export default function Timeline() {
                               onContextMenu={(e) => handleContextMenu(span, e as React.MouseEvent<HTMLDivElement>)}
                               rowHeight={rowHeight}
                               gap={14}
+                              topOffset={80}
                             />
                           ))}
                         </div>

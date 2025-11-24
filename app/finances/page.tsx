@@ -1,13 +1,53 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import NetWorthDashboard from "@/components/NetWorthDashboard";
 import IncomeExpenses from "@/components/IncomeExpenses";
 import FinancialInsights from "@/components/FinancialInsights";
+import FinancialOnboarding from "@/components/finance/FinancialOnboarding";
 
 export default function FinancesPage() {
     const [activeTab, setActiveTab] = useState<"overview" | "income" | "insights">("overview");
+    const [hasFinancialData, setHasFinancialData] = useState<boolean | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
 
+    useEffect(() => {
+        // Check if user has any financial data
+        const checkFinancialData = async () => {
+            try {
+                const response = await fetch('/api/finance/accounts');
+                const data = await response.json();
+
+                setHasFinancialData(data.accounts && data.accounts.length > 0);
+            } catch (error) {
+                console.error('Error checking financial data:', error);
+                setHasFinancialData(false);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        checkFinancialData();
+    }, []);
+
+    // Loading state
+    if (isLoading) {
+        return (
+            <main className="workspace">
+                <div className="loading-container">
+                    <div className="spinner"></div>
+                    <p>Loading...</p>
+                </div>
+            </main>
+        );
+    }
+
+    // First-time user - show onboarding
+    if (!hasFinancialData) {
+        return <FinancialOnboarding />;
+    }
+
+    // Existing user - show dashboard
     return (
         <main className="workspace">
             <header className="control-bar">

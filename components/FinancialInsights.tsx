@@ -1,168 +1,203 @@
 "use client";
 
-export default function FinancialInsights() {
-    const insights = [
-        {
-            id: "1",
-            type: "positive",
-            title: "Great savings rate!",
-            message: "You're saving 38% of your income this month, which is above the recommended 20%.",
-            action: "Keep it up",
-        },
-        {
-            id: "2",
-            type: "warning",
-            title: "Dining expenses increasing",
-            message: "Your restaurant spending is up 25% from last month. Consider meal prepping to save more.",
-            action: "Create budget",
-        },
-        {
-            id: "3",
-            type: "info",
-            title: "Investment opportunity",
-            message: "You have $5,000 in your savings account. Consider investing to maximize returns.",
-            action: "Learn more",
-        },
-        {
-            id: "4",
-            type: "positive",
-            title: "Debt reduction on track",
-            message: "You're ahead of schedule on your car loan. You'll save $450 in interest.",
-            action: "View details",
-        },
-    ];
+import { useState, useEffect } from "react";
 
-    const financialHealth = 8.5;
-    const healthCategories = [
-        { name: "Savings Rate", score: 9.2, color: "#10b981" },
-        { name: "Debt Management", score: 8.5, color: "#3b82f6" },
-        { name: "Budget Adherence", score: 7.8, color: "#f59e0b" },
-        { name: "Emergency Fund", score: 8.9, color: "#10b981" },
-    ];
+type Insight = {
+    id: string;
+    insight_type: 'positive' | 'warning' | 'info' | 'recommendation';
+    title: string;
+    message: string;
+    action_label?: string;
+    priority: number;
+    is_dismissed: boolean;
+};
+
+export default function FinancialInsights() {
+    const [insights, setInsights] = useState<Insight[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        fetchInsights();
+    }, []);
+
+    const fetchInsights = async () => {
+        try {
+            setIsLoading(true);
+            setError(null);
+
+            const response = await fetch('/api/finance/insights');
+            if (!response.ok) throw new Error('Failed to fetch insights');
+            const data = await response.json();
+            setInsights(data.insights || []);
+        } catch (err) {
+            console.error('Error fetching insights:', err);
+            setError(err instanceof Error ? err.message : 'Failed to load insights');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const dismissInsight = async (id: string) => {
+        try {
+            const response = await fetch('/api/finance/insights', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, is_dismissed: true }),
+            });
+
+            if (response.ok) {
+                setInsights(insights.filter(i => i.id !== id));
+            }
+        } catch (err) {
+            console.error('Error dismissing insight:', err);
+        }
+    };
+
+    const generateNewInsights = async () => {
+        try {
+            setIsLoading(true);
+            const response = await fetch('/api/finance/insights/generate', {
+                method: 'POST',
+            });
+
+            if (response.ok) {
+                await fetchInsights();
+            }
+        } catch (err) {
+            console.error('Error generating insights:', err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const getInsightIcon = (type: string) => {
+        switch (type) {
+            case 'positive':
+                return (
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                        <polyline points="22 4 12 14.01 9 11.01" />
+                    </svg>
+                );
+            case 'warning':
+                return (
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                        <line x1="12" y1="9" x2="12" y2="13" />
+                        <line x1="12" y1="17" x2="12.01" y2="17" />
+                    </svg>
+                );
+            case 'info':
+                return (
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="16" x2="12" y2="12" />
+                        <line x1="12" y1="8" x2="12.01" y2="8" />
+                    </svg>
+                );
+            case 'recommendation':
+                return (
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                        <line x1="12" y1="17" x2="12.01" y2="17" />
+                    </svg>
+                );
+            default:
+                return null;
+        }
+    };
+
+    if (isLoading) {
+        return (
+            <div className="financial-insights">
+                <div className="loading-state">
+                    <div className="spinner"></div>
+                    <p>Loading insights...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="financial-insights">
+                <div className="error-state">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="8" x2="12" y2="12" />
+                        <line x1="12" y1="16" x2="12.01" y2="16" />
+                    </svg>
+                    <h3>Failed to load insights</h3>
+                    <p>{error}</p>
+                    <button className="btn btn--primary" onClick={fetchInsights}>
+                        Try Again
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="financial-insights">
-            {/* Financial Health Score */}
-            <div className="health-score-card">
-                <div className="health-score-header">
-                    <h3>Financial Health Score</h3>
-                    <p className="text-muted">Based on your spending and savings habits</p>
+            <div className="insights-header">
+                <div>
+                    <h2>Financial Insights</h2>
+                    <p>Personalized recommendations based on your financial data</p>
                 </div>
-                <div className="health-score-meter">
-                    <div className="health-score-value">
-                        <span className="health-score-number">{financialHealth}</span>
-                        <span className="health-score-max">/10</span>
-                    </div>
-                    <div className="health-score-bar">
-                        <div
-                            className="health-score-fill"
-                            style={{ width: `${(financialHealth / 10) * 100}%` }}
-                        ></div>
-                    </div>
-                    <div className="health-score-label">Excellent</div>
-                </div>
-
-                <div className="health-categories">
-                    {healthCategories.map((category) => (
-                        <div key={category.name} className="health-category">
-                            <div className="health-category__header">
-                                <span>{category.name}</span>
-                                <span className="health-category__score">{category.score}</span>
-                            </div>
-                            <div className="health-category__bar">
-                                <div
-                                    className="health-category__fill"
-                                    style={{
-                                        width: `${(category.score / 10) * 100}%`,
-                                        backgroundColor: category.color,
-                                    }}
-                                ></div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                <button className="btn btn--primary" onClick={generateNewInsights}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="23 4 23 10 17 10" />
+                        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                    </svg>
+                    Refresh Insights
+                </button>
             </div>
 
-            {/* AI-Powered Insights */}
-            <div className="insights-list">
-                <div className="insights-header">
-                    <h3>Personalized Insights</h3>
-                    <p className="text-muted">AI-powered recommendations for your financial goals</p>
-                </div>
-                <div className="insights-grid">
+            {insights.length > 0 ? (
+                <div className="insights-list">
                     {insights.map((insight) => (
-                        <div key={insight.id} className={`insight-card insight-card--${insight.type}`}>
-                            <div className="insight-icon">
-                                {insight.type === "positive" && (
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                                        <polyline points="22 4 12 14.01 9 11.01" />
-                                    </svg>
-                                )}
-                                {insight.type === "warning" && (
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                                        <line x1="12" y1="9" x2="12" y2="13" />
-                                        <line x1="12" y1="17" x2="12.01" y2="17" />
-                                    </svg>
-                                )}
-                                {insight.type === "info" && (
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <circle cx="12" cy="12" r="10" />
-                                        <line x1="12" y1="16" x2="12" y2="12" />
-                                        <line x1="12" y1="8" x2="12.01" y2="8" />
-                                    </svg>
+                        <div key={insight.id} className={`insight-card insight-card--${insight.insight_type}`}>
+                            <div className="insight-card__icon">
+                                {getInsightIcon(insight.insight_type)}
+                            </div>
+                            <div className="insight-card__content">
+                                <h3 className="insight-card__title">{insight.title}</h3>
+                                <p className="insight-card__message">{insight.message}</p>
+                                {insight.action_label && (
+                                    <button className="btn btn--sm btn--ghost insight-card__action">
+                                        {insight.action_label}
+                                    </button>
                                 )}
                             </div>
-                            <div className="insight-content">
-                                <h4 className="insight-title">{insight.title}</h4>
-                                <p className="insight-message">{insight.message}</p>
-                            </div>
-                            <button className="insight-action">{insight.action}</button>
+                            <button
+                                className="insight-card__dismiss"
+                                onClick={() => dismissInsight(insight.id)}
+                                title="Dismiss"
+                            >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <line x1="18" y1="6" x2="6" y2="18" />
+                                    <line x1="6" y1="6" x2="18" y2="18" />
+                                </svg>
+                            </button>
                         </div>
                     ))}
                 </div>
-            </div>
-
-            {/* Goal Progress */}
-            <div className="financial-goals-preview">
-                <div className="financial-goals-header">
-                    <h3>Financial Goals</h3>
-                    <button className="btn btn--sm btn--ghost">View all goals</button>
+            ) : (
+                <div className="empty-state">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                        <line x1="12" y1="17" x2="12.01" y2="17" />
+                    </svg>
+                    <h3>No insights yet</h3>
+                    <p>Add some financial data to get personalized recommendations</p>
+                    <button className="btn btn--primary" onClick={generateNewInsights}>
+                        Generate Insights
+                    </button>
                 </div>
-                <div className="financial-goals-list">
-                    <div className="financial-goal">
-                        <div className="financial-goal__info">
-                            <span className="financial-goal__name">Emergency Fund</span>
-                            <span className="financial-goal__progress">$12,000 / $15,000</span>
-                        </div>
-                        <div className="financial-goal__bar">
-                            <div className="financial-goal__fill" style={{ width: "80%" }}></div>
-                        </div>
-                        <div className="financial-goal__status">80% complete - On track</div>
-                    </div>
-                    <div className="financial-goal">
-                        <div className="financial-goal__info">
-                            <span className="financial-goal__name">House Down Payment</span>
-                            <span className="financial-goal__progress">$35,000 / $60,000</span>
-                        </div>
-                        <div className="financial-goal__bar">
-                            <div className="financial-goal__fill" style={{ width: "58%" }}></div>
-                        </div>
-                        <div className="financial-goal__status">58% complete - 14 months remaining</div>
-                    </div>
-                    <div className="financial-goal">
-                        <div className="financial-goal__info">
-                            <span className="financial-goal__name">Retirement Savings</span>
-                            <span className="financial-goal__progress">$125,000 / $1,000,000</span>
-                        </div>
-                        <div className="financial-goal__bar">
-                            <div className="financial-goal__fill" style={{ width: "12.5%" }}></div>
-                        </div>
-                        <div className="financial-goal__status">12.5% complete - Long-term goal</div>
-                    </div>
-                </div>
-            </div>
+            )}
         </div>
     );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { hexToRgba } from "./colorUtils";
 
 type SelectOption = {
     id: string;
@@ -156,12 +157,24 @@ export default function EnhancedSelect({
                 >
                     <div className="enhanced-select__value">
                         {selectedOption ? (
-                            <>
-                                {getColorIndicator(selectedOption)}
+                            <div
+                                className="chip"
+                                style={selectedOption.color ? {
+                                    backgroundColor: hexToRgba(selectedOption.color, 0.2),
+                                    borderColor: hexToRgba(selectedOption.color, 0.55),
+                                    color: "#ffffff",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "6px",
+                                    padding: "2px 8px",
+                                    height: "24px",
+                                    fontSize: "12px"
+                                } : {}}
+                            >
                                 <span className="enhanced-select__value-text">
                                     {selectedOption.name}
                                 </span>
-                            </>
+                            </div>
                         ) : (
                             <span className="enhanced-select__placeholder">{placeholder}</span>
                         )}

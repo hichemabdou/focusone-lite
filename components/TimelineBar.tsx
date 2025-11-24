@@ -2,98 +2,100 @@ import React, { memo } from 'react';
 import { Goal } from './GoalsContext';
 
 export type SpanInfo = {
-    g: Goal;
-    title: string;
-    start: Date;
-    end: Date;
-    leftPct: number;
-    widthPct: number;
-    pixelWidth: number;
-    catClass: string;
-    stClass: string;
-    priClass: string;
-    stKey: string;
-    isCompact: boolean;
-    showOutside: boolean;
-    statusColor: string;
-    priorityBg: string;
-    priorityBgStrong: string;
-    rowIndex: number; // New field for layout
+  g: Goal;
+  title: string;
+  start: Date;
+  end: Date;
+  leftPct: number;
+  widthPct: number;
+  pixelWidth: number;
+  catClass: string;
+  stClass: string;
+  priClass: string;
+  stKey: string;
+  isCompact: boolean;
+  showOutside: boolean;
+  statusColor: string;
+  priorityBg: string;
+  priorityBgStrong: string;
+  rowIndex: number; // New field for layout
 };
 
 type Props = {
-    span: SpanInfo;
-    isSelected: boolean;
-    isDragging: boolean;
-    onMouseDown: (e: React.MouseEvent, type: "move" | "resize-start" | "resize-end") => void;
-    onClick: (e: React.MouseEvent) => void;
-    onDoubleClick: (e: React.MouseEvent) => void;
-    onContextMenu: (e: React.MouseEvent) => void;
-    rowHeight: number;
-    gap: number;
+  span: SpanInfo;
+  isSelected: boolean;
+  isDragging: boolean;
+  onMouseDown: (e: React.MouseEvent, type: "move" | "resize-start" | "resize-end") => void;
+  onClick: (e: React.MouseEvent) => void;
+  onDoubleClick: (e: React.MouseEvent) => void;
+  onContextMenu: (e: React.MouseEvent) => void;
+  rowHeight: number;
+  gap: number;
+  topOffset?: number;
 };
 
 const TimelineBar = memo(({
-    span,
-    isSelected,
-    isDragging,
-    onMouseDown,
-    onClick,
-    onDoubleClick,
-    onContextMenu,
-    rowHeight,
-    gap
+  span,
+  isSelected,
+  isDragging,
+  onMouseDown,
+  onClick,
+  onDoubleClick,
+  onContextMenu,
+  rowHeight,
+  gap,
+  topOffset = 0
 }: Props) => {
-    // Calculate top position based on row index
-    const top = span.rowIndex * (rowHeight + gap);
+  // Calculate top position based on row index
+  const top = span.rowIndex * (rowHeight + gap) + topOffset;
 
-    return (
-        <div
-            className={`timeline__bar ${span.catClass} ${span.stClass} ${span.priClass} ${isSelected ? "timeline__bar--selected" : ""} ${isDragging ? "timeline__bar--dragging" : ""}`}
-            style={{
-                left: `${span.leftPct}%`,
-                width: `${span.widthPct}%`,
-                top: `${top}px`,
-                height: `${rowHeight}px`,
-                position: 'absolute',
-                zIndex: isSelected ? 20 : 10,
-                // Custom properties for colors
-                ['--bar-color' as any]: span.priorityBg,
-                ['--bar-color-strong' as any]: span.priorityBgStrong,
-                ['--bar-border' as any]: span.statusColor,
-            }}
-            onMouseDown={(e) => onMouseDown(e, "move")}
-            onClick={onClick}
-            onDoubleClick={onDoubleClick}
-            onContextMenu={onContextMenu}
-            role="button"
-            tabIndex={0}
-            aria-label={`${span.title} (${span.stKey})`}
-        >
-            {/* Left Resize Handle */}
-            <div
-                className="timeline__resize-handle timeline__resize-handle--start"
-                onMouseDown={(e) => {
-                    e.stopPropagation();
-                    onMouseDown(e, "resize-start");
-                }}
-            />
+  return (
+    <div
+      className={`timeline__bar ${span.catClass} ${span.stClass} ${span.priClass} ${isSelected ? "timeline__bar--selected" : ""} ${isDragging ? "timeline__bar--dragging" : ""}`}
+      style={{
+        left: `${span.leftPct}%`,
+        width: `${span.widthPct}%`,
+        top: `${top}px`,
+        height: `${rowHeight}px`,
+        position: 'absolute',
+        zIndex: isSelected ? 20 : 10,
+        // Custom properties for colors
+        ['--bar-color' as any]: span.priorityBg,
+        ['--bar-color-strong' as any]: span.priorityBgStrong,
+        ['--bar-border' as any]: span.statusColor,
+      }}
+      onMouseDown={(e) => onMouseDown(e, "move")}
+      onClick={onClick}
+      onDoubleClick={onDoubleClick}
+      onContextMenu={onContextMenu}
+      role="button"
+      tabIndex={0}
+      aria-label={`${span.title} (${span.stKey})`}
+    >
+      {/* Left Resize Handle */}
+      <div
+        className="timeline__resize-handle timeline__resize-handle--start"
+        onMouseDown={(e) => {
+          e.stopPropagation();
+          onMouseDown(e, "resize-start");
+        }}
+      />
 
-            {/* Content */}
-            <div className="timeline__bar-content">
-                <span className="timeline__bar-title">{span.title}</span>
-            </div>
+      {/* Content */}
+      <div className="timeline__bar-content">
+        <span className="timeline__bar-title">{span.title}</span>
+      </div>
 
-            {/* Right Resize Handle */}
-            <div
-                className="timeline__resize-handle timeline__resize-handle--end"
-                onMouseDown={(e) => {
-                    e.stopPropagation();
-                    onMouseDown(e, "resize-end");
-                }}
-            />
+      {/* Right Resize Handle */}
+      <div
+        className="timeline__resize-handle timeline__resize-handle--end"
+        onMouseDown={(e) => {
+          e.stopPropagation();
+          onMouseDown(e, "resize-end");
+        }}
+      />
 
-            <style jsx>{`
+      <style jsx>{`
         .timeline__bar {
           transition: box-shadow 0.2s, transform 0.1s;
           cursor: grab;
@@ -141,8 +143,8 @@ const TimelineBar = memo(({
           pointer-events: none; /* Let clicks pass to bar */
         }
       `}</style>
-        </div>
-    );
+    </div>
+  );
 });
 
 TimelineBar.displayName = 'TimelineBar';

@@ -102,24 +102,27 @@ export default function SmartSuggestions({ onAction }: Props) {
     }
 
     return (
-        <div className="smart-suggestions">
-            <div className="smart-suggestions__header">
-                <h3>Smart Suggestions</h3>
-                <span className="badge badge--blue">AI Insights</span>
+        <div className="smart-suggestions flex flex-col gap-4">
+            <div className="smart-suggestions__header flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-slate-100">Smart Suggestions</h3>
+                <span className="px-2 py-1 rounded-md bg-blue-500/10 text-blue-400 text-xs font-bold uppercase tracking-wider border border-blue-500/20">AI Insights</span>
             </div>
-            <div className="smart-suggestions__list">
+            <div className="smart-suggestions__list flex flex-col gap-3">
                 {suggestions.map(s => (
-                    <div key={s.id} className="suggestion-card" style={{ borderLeftColor: s.color }}>
-                        <div className="suggestion-card__content">
-                            <h4 className="suggestion-card__title">{s.title}</h4>
-                            <p className="suggestion-card__desc">{s.description}</p>
+                    <div key={s.id} className="suggestion-card group relative overflow-hidden rounded-xl bg-white/5 border border-white/5 p-4 hover:bg-white/10 transition-all duration-300">
+                        <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: s.color }} />
+                        <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                                <h4 className="text-sm font-semibold text-slate-100 mb-1 leading-tight">{s.title}</h4>
+                                <p className="text-xs text-slate-400 leading-relaxed">{s.description}</p>
+                            </div>
+                            <button
+                                className="shrink-0 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs font-medium text-slate-300 hover:bg-white/10 hover:text-white transition-colors"
+                                onClick={() => onAction(s.actionType, s.payload)}
+                            >
+                                {s.actionLabel}
+                            </button>
                         </div>
-                        <button
-                            className="suggestion-card__action"
-                            onClick={() => onAction(s.actionType, s.payload)}
-                        >
-                            {s.actionLabel}
-                        </button>
                     </div>
                 ))}
             </div>

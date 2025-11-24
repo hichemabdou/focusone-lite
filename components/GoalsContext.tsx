@@ -285,7 +285,13 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
       if (response.ok) {
         const data = await response.json();
         const frontendGoals = (data.goals || []).map(dbGoalToFrontend);
-        setGoals(frontendGoals);
+        // Migrate old goals to Life Ops system (P1-P4, new statuses)
+        const migrated = migrateGoals(frontendGoals);
+        const summary = getMigrationSummary(frontendGoals);
+        if (summary.includes("Migrated")) {
+          console.log("📦 " + summary);
+        }
+        setGoals(migrated);
       }
     } catch (error) {
       console.error("Error fetching goals:", error);

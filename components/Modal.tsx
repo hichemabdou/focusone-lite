@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 type ModalProps = {
   open: boolean;
@@ -24,18 +25,47 @@ export default function Modal({ open, onClose, title, children }: ModalProps) {
     };
   }, [open, onClose]);
 
-  if (!open) return null;
-
   return (
-    <div className="modal-backdrop">
-      <div className="modal-scrim" onClick={onClose} />
-      <div className="modal-card" role="dialog" aria-modal="true" aria-label={title}>
-        <div className="modal-head">
-          <h3>{title}</h3>
-          <button type="button" onClick={onClose}>Close</button>
+    <AnimatePresence>
+      {open && (
+        <div className="modal-backdrop">
+          <motion.div
+            className="modal-scrim"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={onClose}
+          />
+          <motion.div
+            className="modal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-label={title}
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{
+              duration: 0.3,
+              ease: [0.22, 0.61, 0.36, 1]
+            }}
+          >
+            <div className="modal-head">
+              <h3>{title}</h3>
+              <motion.button
+                type="button"
+                onClick={onClose}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                transition={{ type: "spring", stiffness: 400, damping: 17 }}
+              >
+                Close
+              </motion.button>
+            </div>
+            <div className="modal-body">{children}</div>
+          </motion.div>
         </div>
-        <div className="modal-body">{children}</div>
-      </div>
-    </div>
+      )}
+    </AnimatePresence>
   );
 }

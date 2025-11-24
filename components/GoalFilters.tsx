@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Goal, useGoals } from "./GoalsContext";
 import { useCustomization } from "./CustomizationContext";
 
@@ -8,6 +8,12 @@ export default function GoalFilters() {
   const { goals = [], filters, setFilters } = useGoals();
   const { categories, priorities, statuses } = useCustomization();
   const all: Goal[] = goals;
+  const [mounted, setMounted] = useState(false);
+
+  // Prevent hydration mismatch by only rendering dynamic content after mount
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const { counts, yearStats } = useMemo(() => {
     const accumulator = {
@@ -17,11 +23,19 @@ export default function GoalFilters() {
       priorities: {} as Record<string, number>,
     };
     const years: Record<number, { total: number; done: number }> = {};
+
     all.forEach((goal) => {
       accumulator.total += 1;
-      accumulator.status[goal.status] += 1;
-      accumulator.categories[goal.category] = (accumulator.categories[goal.category] ?? 0) + 1;
-      accumulator.priorities[goal.priority] += 1;
+
+      // Safe increment for status
+      accumulator.status[goal.status] = (accumulator.status[goal.status] || 0) + 1;
+
+      // Safe increment for category
+      accumulator.categories[goal.category] = (accumulator.categories[goal.category] || 0) + 1;
+
+      // Safe increment for priority
+      accumulator.priorities[goal.priority] = (accumulator.priorities[goal.priority] || 0) + 1;
+
       const year = new Date(goal.endDate).getFullYear();
       if (!Number.isNaN(year)) {
         if (!years[year]) years[year] = { total: 0, done: 0 };
@@ -29,6 +43,7 @@ export default function GoalFilters() {
         if (goal.status === "completed") years[year].done += 1;
       }
     });
+
     const yearStats = Object.entries(years)
       .map(([year, info]) => ({
         year: Number(year),
@@ -37,6 +52,7 @@ export default function GoalFilters() {
         done: info.done,
       }))
       .sort((a, b) => a.year - b.year);
+
     return { counts: accumulator, yearStats };
   }, [all]);
 
@@ -47,8 +63,8 @@ export default function GoalFilters() {
   const nextYearInfo =
     yearStats.find((entry) => entry.year === nextYear) ?? { year: nextYear, percent: 0, total: 0, done: 0 };
 
-  const currentYearTotal = currentYearInfo.total || counts.total;
-  const currentYearDone = currentYearInfo.done || counts.status.done;
+  const currentYearTotal = currentYearInfo.total || counts.total || 0;
+  const currentYearDone = currentYearInfo.done || counts.status["completed"] || 0;
   const completionPct = currentYearTotal ? Math.round((currentYearDone / currentYearTotal) * 100) : 0;
   const statusPills = statuses.map(s => ({
     key: s.id,
@@ -142,6 +158,20 @@ export default function GoalFilters() {
         <h2>Control Center</h2>
       </div>
 
+      {/* Search Bar */}
+      <div className="workspace__search" style={{ width: '100%', maxWidth: '100%', marginBottom: '20px' }}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="11" cy="11" r="8" />
+          <path d="M21 21l-4.3-4.3" />
+        </svg>
+        <input
+          type="text"
+          placeholder="Search goals..."
+          value={filters.query}
+          onChange={(event) => setFilters((prev) => ({ ...prev, query: event.target.value }))}
+        />
+      </div>
+
       {/* Header with Year and Completion */}
       <div className="filters__premium-header">
         <div className="filters__premium-year">{currentYear}</div>
@@ -159,7 +189,7 @@ export default function GoalFilters() {
           onClick={() => reset()}
           title="Show all goals"
         >
-          <span className="filters__premium-stat-value">{currentYearTotal}</span>
+          <span className="filters__premium-stat-value">{mounted ? currentYearTotal : 0}</span>
           <span className="filters__premium-stat-label">Goals</span>
         </button>
         <div className="filters__premium-stat-divider" />
@@ -176,7 +206,7 @@ export default function GoalFilters() {
           }}
           title="Show done goals"
         >
-          <span className="filters__premium-stat-value">{(counts.status["completed"] || 0)}</span>
+          <span className="filters__premium-stat-value">{mounted ? (counts.status["completed"] || 0) : 0}</span>
           <span className="filters__premium-stat-label">Done</span>
         </button>
         <div className="filters__premium-stat-divider" />
@@ -193,7 +223,7 @@ export default function GoalFilters() {
           }}
           title="Show active goals"
         >
-          <span className="filters__premium-stat-value">{counts.status["active"] || 0}</span>
+          <span className="filters__premium-stat-value">{mounted ? (counts.status["active"] || 0) : 0}</span>
           <span className="filters__premium-stat-label">Active</span>
         </button>
       </div>
@@ -229,7 +259,7 @@ export default function GoalFilters() {
                 aria-pressed={isActive}
               >
                 <span className="filters__premium-pill-label">{label}</span>
-                <span className="filters__premium-pill-count">{counts.status[key]}</span>
+                <span className="filters__premium-pill-count">{mounted ? (counts.status[key] || 0) : 0}</span>
               </button>
             );
           })}
@@ -252,7 +282,7 @@ export default function GoalFilters() {
         <div className="filters__premium-pills">
           {categories.map(cat => {
             const catName = cat.name;
-            const count = counts.categories[catName] || 0;
+            const count = mounted ? (counts.categories[catName] || 0) : 0;
             const isActive = filters.categories?.has(catName) ?? false;
             return (
               <button
@@ -301,7 +331,7 @@ export default function GoalFilters() {
               aria-pressed={filters.priorities?.has(p.id) ?? false}
             >
               <span className="filters__premium-pill-label">{p.name}</span>
-              <span className="filters__premium-pill-count">{counts.priorities[p.id] || 0}</span>
+              <span className="filters__premium-pill-count">{mounted ? (counts.priorities[p.id] || 0) : 0}</span>
             </button>
           ))}
         </div>

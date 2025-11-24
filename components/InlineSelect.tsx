@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import QuickAddModal from "./QuickAddModal";
+import { hexToRgba } from "./colorUtils";
 
-type Option = { value: string; label: string; tone?: string };
+type Option = { value: string; label: string; tone?: string; color?: string };
 
 type InlineSelectProps = {
   value: string;
@@ -33,11 +34,31 @@ export default function InlineSelect({ value, options, onChange, addLabel, onAdd
     return () => document.removeEventListener("mousedown", handleClick);
   }, [open]);
 
+  const getDynamicStyles = (color?: string, isActive: boolean = false) => {
+    if (!color) return {};
+
+    // If active or just a chip display
+    return {
+      backgroundColor: hexToRgba(color, 0.2),
+      borderColor: hexToRgba(color, 0.55),
+      color: "#ffffff", // Keep text white/light for readability on dark bg, or maybe use a very light version of the color
+      // For better text readability, we might want to just use white or a very light grey
+      // The original CSS used specific light colors (e.g. #dcfce7). 
+      // For dynamic colors, white is usually safe on dark backgrounds with 0.2 opacity fill.
+    };
+  };
+
+  const buttonStyle = activeOption?.color ? getDynamicStyles(activeOption.color) : {};
+
+  // If we have a dynamic color, we don't want the tone class to override or conflict, 
+  // but we still want the base chip classes.
+  // Actually, if we have a color, we should probably NOT use the tone class for color, 
+  // but we might need it for other things? No, tone is just for color.
   const buttonClasses = [
     "inline-select__chip",
     "chip",
     "chip--interactive",
-    activeOption?.tone ? `chip--${activeOption.tone}` : "",
+    !activeOption?.color && activeOption?.tone ? `chip--${activeOption.tone}` : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -52,7 +73,7 @@ export default function InlineSelect({ value, options, onChange, addLabel, onAdd
           setOpen((prev) => !prev);
         }}
       >
-        <span className={buttonClasses}>
+        <span className={buttonClasses} style={buttonStyle}>
           <span>{activeOption?.label ?? value}</span>
           <svg width="8" height="5" viewBox="0 0 8 5" aria-hidden focusable="false">
             <path d="M1 1L4 4L7 1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
@@ -61,26 +82,32 @@ export default function InlineSelect({ value, options, onChange, addLabel, onAdd
       </button>
       {open && (
         <div className="inline-select__menu" role="listbox">
-          {options.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              className={[
-                "inline-select__option",
-                "chip",
-                "chip--interactive",
-                option.tone ? `chip--${option.tone}` : "",
-                option.value === value ? "is-active" : "",
-              ].join(" ")}
-              onClick={(event) => {
-                event.stopPropagation();
-                onChange(option.value);
-                setOpen(false);
-              }}
-            >
-              {option.label}
-            </button>
-          ))}
+          {options.map((option) => {
+            const optionStyle = option.color ? getDynamicStyles(option.color) : {};
+            const optionClasses = [
+              "inline-select__option",
+              "chip",
+              "chip--interactive",
+              !option.color && option.tone ? `chip--${option.tone}` : "",
+              option.value === value ? "is-active" : "",
+            ].join(" ");
+
+            return (
+              <button
+                key={option.value}
+                type="button"
+                className={optionClasses}
+                style={optionStyle}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onChange(option.value);
+                  setOpen(false);
+                }}
+              >
+                {option.label}
+              </button>
+            );
+          })}
           {onAdd && (
             <button
               type="button"

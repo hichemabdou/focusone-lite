@@ -12,6 +12,7 @@ import { useTheme } from "@/components/ThemeContext";
 import IntegrationsModal from "@/components/IntegrationsModal";
 import CustomizationPanel from "@/components/CustomizationPanel";
 import { openCustomizationPanel } from "@/components/customizationEvents";
+import { motion } from "framer-motion";
 
 // Helper function to get user initials
 function getUserInitials(name: string): string {
@@ -103,45 +104,62 @@ export default function ClassicClient() {
 
   return (
     <div className="workspace">
-      <header className="workspace__masthead">
+      <motion.header
+        className="workspace__masthead"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: [0.22, 0.61, 0.36, 1] }}
+      >
         <div className="workspace__brand">
-          <div className="workspace__search">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="11" cy="11" r="8" />
-              <path d="M21 21l-4.3-4.3" />
-            </svg>
-            <input
-              type="text"
-              placeholder="Search goals..."
-              value={filters.query}
-              onChange={(event) => setFilters((prev) => ({ ...prev, query: event.target.value }))}
-            />
-          </div>
+          {/* Search moved to Control Center */}
         </div>
-      </header>
+      </motion.header>
 
       <div className="workspace__layout">
-        <aside className="workspace__sidebar">
+        <motion.aside
+          className="workspace__sidebar"
+          initial={{ opacity: 0, x: -30 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5, delay: 0.1, ease: [0.22, 0.61, 0.36, 1] }}
+        >
           <GoalFilters />
-        </aside>
+        </motion.aside>
 
         <div className="workspace__main">
-          <section className="workspace__panel workspace__panel--timeline">
+          <motion.section
+            className="workspace__panel workspace__panel--timeline"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.15, ease: [0.22, 0.61, 0.36, 1] }}
+          >
             <div className="workspace__panel-head">
               <p className="workspace__eyebrow">Timeline</p>
               <div className="workspace__panel-actions">
-                <button type="button" className="btn btn--primary" onClick={openGlobalComposer}>
+                <motion.button
+                  type="button"
+                  className="btn btn--primary"
+                  onClick={openGlobalComposer}
+                  whileHover={{ scale: 1.02, y: -1 }}
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                >
                   + Add goal
-                </button>
+                </motion.button>
               </div>
             </div>
             <Timeline />
-          </section>
+          </motion.section>
 
-          <section id="goal-library" className="workspace__panel workspace__panel--library">
+          <motion.section
+            id="goal-library"
+            className="workspace__panel workspace__panel--library"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2, ease: [0.22, 0.61, 0.36, 1] }}
+          >
             <div className="workspace__panel-head" aria-label="Goal library" />
             <GoalsList />
-          </section>
+          </motion.section>
         </div>
       </div>
 

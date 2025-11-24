@@ -1,5 +1,6 @@
 import { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+import EmailProvider from "next-auth/providers/email";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { getServiceSupabase } from "./supabase";
 import bcrypt from "bcryptjs";
@@ -31,6 +32,15 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET &&
           prompt: "consent",
         },
       },
+    })
+  );
+}
+
+if (process.env.EMAIL_SERVER && process.env.EMAIL_FROM) {
+  providers.push(
+    EmailProvider({
+      server: process.env.EMAIL_SERVER,
+      from: process.env.EMAIL_FROM,
     })
   );
 }
@@ -94,7 +104,7 @@ export const authOptions: NextAuthOptions = {
       const isSupabaseConfigured = process.env.NEXT_PUBLIC_SUPABASE_URL &&
         process.env.NEXT_PUBLIC_SUPABASE_URL !== 'https://placeholder.supabase.co';
 
-      if (account?.provider === "google" && isSupabaseConfigured) {
+      if ((account?.provider === "google" || account?.provider === "email") && isSupabaseConfigured) {
         const supabase = getServiceSupabase();
 
         // Check if user exists
@@ -106,15 +116,20 @@ export const authOptions: NextAuthOptions = {
 
         if (!existingUser) {
           // Create new user
+          const newUserPayload: any = {
+            email: user.email!,
+            name: user.name,
+            image: user.image,
+            password_hash: null, // OAuth or magic link user, no password
+          };
+
+          if (account.provider === 'google' && account.refresh_token) {
+            newUserPayload.google_refresh_token = account.refresh_token;
+          }
+
           const { error } = await supabase
             .from('users')
-            .insert({
-              email: user.email!,
-              name: user.name,
-              image: user.image,
-              password_hash: null, // OAuth user, no password
-              google_refresh_token: account.refresh_token, // Save refresh token
-            });
+            .insert(newUserPayload);
 
           if (error) {
             console.error("Error creating user:", error);
@@ -146,7 +161,7 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user, account }) {
       if (user) {
         // Use email as ID if no database ID available
-        token.id = user.id || user.email;
+        token.id = user.id || user.email || undefined;
       }
       if (account) {
         token.accessToken = account.access_token;
